@@ -1,0 +1,540 @@
+import React, { useState, useEffect } from 'react';
+import Navbar from './components/Navbar';
+import SafeToSpendGauge from './components/SafeToSpendGauge';
+import ThreeBucketsView from './components/ThreeBucketsView';
+import WeeklySwipeReview from './components/WeeklySwipeReview';
+import DuitNowHub from './components/DuitNowHub';
+import FinancialAuditScore from './components/FinancialAuditScore';
+import DebtPayoffTracker from './components/DebtPayoffTracker';
+import TransactionLedger from './components/TransactionLedger';
+import AddTransactionModal from './components/AddTransactionModal';
+import MobileNavigation from './components/MobileNavigation';
+import MobileFrame from './components/MobileFrame';
+import { 
+  INITIAL_USER_PROFILE, 
+  INITIAL_BUCKETS, 
+  INITIAL_DEBTS, 
+  INITIAL_SAVINGS_GOALS, 
+  INITIAL_TRANSACTIONS, 
+  INITIAL_SWIPE_QUEUE 
+} from './data/initialData';
+import { formatRM } from './utils/helpers';
+import { QrCode, Plus, Sparkles, TrendingUp, AlertTriangle } from 'lucide-react';
+
+export default function App() {
+  // Persistent State Management
+  const [userProfile, setUserProfile] = useState(() => {
+    const saved = localStorage.getItem('rw_profile');
+    return saved ? JSON.parse(saved) : INITIAL_USER_PROFILE;
+  });
+
+  const [transactions, setTransactions] = useState(() => {
+    const saved = localStorage.getItem('rw_transactions');
+    return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
+  });
+
+  const [debts, setDebts] = useState(() => {
+    const saved = localStorage.getItem('rw_debts');
+    return saved ? JSON.parse(saved) : INITIAL_DEBTS;
+  });
+
+  const [savingsGoals, setSavingsGoals] = useState(() => {
+    const saved = localStorage.getItem('rw_savings');
+    return saved ? JSON.parse(saved) : INITIAL_SAVINGS_GOALS;
+  });
+
+  const [swipeQueue, setSwipeQueue] = useState(() => {
+    const saved = localStorage.getItem('rw_swipe_queue');
+    return saved ? JSON.parse(saved) : INITIAL_SWIPE_QUEUE;
+  });
+
+  // UI States
+  const [viewMode, setViewMode] = useState('auto'); // 'auto', 'pc', 'mobile'
+  const [mobileTab, setMobileTab] = useState('dashboard'); // 'dashboard', 'buckets', 'review', 'debts'
+  const [language, setLanguage] = useState('en'); // 'en' or 'bm'
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isDuitNowOpen, setIsDuitNowOpen] = useState(false);
+
+  // Sync to LocalStorage
+  useEffect(() => {
+    localStorage.setItem('rw_profile', JSON.stringify(userProfile));
+  }, [userProfile]);
+
+  useEffect(() => {
+    localStorage.setItem('rw_transactions', JSON.stringify(transactions));
+  }, [transactions]);
+
+  useEffect(() => {
+    localStorage.setItem('rw_debts', JSON.stringify(debts));
+  }, [debts]);
+
+  useEffect(() => {
+    localStorage.setItem('rw_savings', JSON.stringify(savingsGoals));
+  }, [savingsGoals]);
+
+  useEffect(() => {
+    localStorage.setItem('rw_swipe_queue', JSON.stringify(swipeQueue));
+  }, [swipeQueue]);
+
+  // Financial Calculations
+  const monthlyIncome = userProfile.monthlyIncome || 4800;
+
+  // Filter out income from expenses
+  const expenseTransactions = transactions.filter(t => t.bucket !== 'income');
+  
+  const totalNeedsSpent = expenseTransactions
+    .filter(t => t.bucket === 'needs')
+    .reduce((acc, t) => acc + t.amount, 0);
+
+  const totalWantsSpent = expenseTransactions
+    .filter(t => t.bucket === 'wants')
+    .reduce((acc, t) => acc + t.amount, 0);
+
+  const totalSavingsSpent = expenseTransactions
+    .filter(t => t.bucket === 'savings')
+    .reduce((acc, t) => acc + t.amount, 0);
+
+  // Safe To Spend Calculation (Dollarwise core metric)
+  const now = new Date();
+  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysLeftInMonth = Math.max(1, lastDayOfMonth - now.getDate());
+
+  const totalWantsBudget = monthlyIncome * 0.30;
+  const remainingWantsPool = Math.max(0, totalWantsBudget - totalWantsSpent);
+  
+  const safeToSpendDaily = Math.max(0, remainingWantsPool / daysLeftInMonth);
+  const safeToSpendWeekly = Math.min(remainingWantsPool, safeToSpendDaily * 7);
+
+  // Handlers
+  const handleAddTransaction = (newTx) => {
+    const tx = {
+      id: `tx-${Date.now()}`,
+      date: newTx.date || new Date().toISOString().split('T')[0],
+      ...newTx,
+    };
+    setTransactions(prev => [tx, ...prev]);
+  };
+
+  const handleDeleteTransaction = (id) => {
+    setTransactions(prev => prev.filter(t => t.id !== id));
+  };
+
+  const handleResolveSwipeItem = (id, bucket, isShame) => {
+    const item = swipeQueue.find(i => i.id === id);
+    if (item) {
+      const newTx = {
+        title: item.title,
+        amount: item.amount,
+        bucket: bucket,
+        category: item.category,
+        method: item.method,
+        note: item.hammerComment,
+        date: new Date().toISOString().split('T')[0],
+        reviewed: true,
+        shameFlag: isShame,
+      };
+      handleAddTransaction(newTx);
+    }
+  };
+
+  const handleResetData = () => {
+    if (window.confirm(language === 'bm' ? 'Adakah anda pasti mahu menetapkan semula kepada data contoh?' : 'Reset to default Malaysian sample data?')) {
+      setUserProfile(INITIAL_USER_PROFILE);
+      setTransactions(INITIAL_TRANSACTIONS);
+      setDebts(INITIAL_DEBTS);
+      setSavingsGoals(INITIAL_SAVINGS_GOALS);
+      setSwipeQueue(INITIAL_SWIPE_QUEUE);
+      localStorage.clear();
+    }
+  };
+
+  const handleExportCSV = () => {
+    const headers = ['ID', 'Date', 'Merchant / Title', 'Amount (RM)', 'Bucket', 'Category', 'Method', 'Note'];
+    const rows = transactions.map(t => [
+      t.id,
+      t.date,
+      `"${t.title.replace(/"/g, '""')}"`,
+      t.amount,
+      t.bucket,
+      `"${t.category}"`,
+      `"${t.method}"`,
+      `"${(t.note || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `RinggitWise_Transactions_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Content for inside Mobile View / Simulator
+  const renderMobileContent = () => {
+    return (
+      <div className="space-y-4 p-4">
+        {/* Quick Header in Mobile */}
+        <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+          <div>
+            <span className="text-[11px] text-slate-400">
+              {language === 'bm' ? 'Selamat Belanja Hari Ini' : 'Safe to Spend Today'}
+            </span>
+            <div className="text-2xl font-black text-emerald-400">
+              {formatRM(safeToSpendDaily)}
+            </div>
+          </div>
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-600/30"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Tab 1: Dashboard */}
+        {mobileTab === 'dashboard' && (
+          <div className="space-y-4">
+            <SafeToSpendGauge
+              monthlyIncome={monthlyIncome}
+              totalNeedsSpent={totalNeedsSpent}
+              totalWantsSpent={totalWantsSpent}
+              totalSavingsSpent={totalSavingsSpent}
+              safeToSpendDaily={safeToSpendDaily}
+              safeToSpendWeekly={safeToSpendWeekly}
+              daysLeftInMonth={daysLeftInMonth}
+              language={language}
+            />
+
+            <ThreeBucketsView
+              monthlyIncome={monthlyIncome}
+              totalNeedsSpent={totalNeedsSpent}
+              totalWantsSpent={totalWantsSpent}
+              totalSavingsSpent={totalSavingsSpent}
+              language={language}
+            />
+
+            <FinancialAuditScore
+              monthlyIncome={monthlyIncome}
+              totalNeedsSpent={totalNeedsSpent}
+              totalWantsSpent={totalWantsSpent}
+              debts={debts}
+              savingsGoals={savingsGoals}
+              language={language}
+            />
+
+            <TransactionLedger
+              transactions={transactions}
+              onDeleteTransaction={handleDeleteTransaction}
+              onExportCSV={handleExportCSV}
+              language={language}
+            />
+          </div>
+        )}
+
+        {/* Tab 2: 3 Buckets */}
+        {mobileTab === 'buckets' && (
+          <div className="space-y-4">
+            <ThreeBucketsView
+              monthlyIncome={monthlyIncome}
+              totalNeedsSpent={totalNeedsSpent}
+              totalWantsSpent={totalWantsSpent}
+              totalSavingsSpent={totalSavingsSpent}
+              language={language}
+            />
+            <SafeToSpendGauge
+              monthlyIncome={monthlyIncome}
+              totalNeedsSpent={totalNeedsSpent}
+              totalWantsSpent={totalWantsSpent}
+              totalSavingsSpent={totalSavingsSpent}
+              safeToSpendDaily={safeToSpendDaily}
+              safeToSpendWeekly={safeToSpendWeekly}
+              daysLeftInMonth={daysLeftInMonth}
+              language={language}
+            />
+          </div>
+        )}
+
+        {/* Tab 3: Swipe Review */}
+        {mobileTab === 'review' && (
+          <WeeklySwipeReview
+            queue={swipeQueue}
+            onResolveItem={handleResolveSwipeItem}
+            onResetQueue={() => setSwipeQueue(INITIAL_SWIPE_QUEUE)}
+            language={language}
+          />
+        )}
+
+        {/* Tab 4: Debts */}
+        {mobileTab === 'debts' && (
+          <DebtPayoffTracker
+            debts={debts}
+            onUpdateDebts={setDebts}
+            language={language}
+          />
+        )}
+
+        {/* Mobile Bottom Navigation Bar */}
+        <MobileNavigation
+          activeTab={mobileTab}
+          setActiveTab={setMobileTab}
+          onOpenDuitNow={() => setIsDuitNowOpen(true)}
+          language={language}
+        />
+      </div>
+    );
+  };
+
+  // If mobile simulator mode is chosen on PC
+  if (viewMode === 'mobile') {
+    return (
+      <div className="min-h-screen bg-slate-950">
+        <Navbar
+          userProfile={userProfile}
+          safeToSpendDaily={safeToSpendDaily}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          language={language}
+          setLanguage={setLanguage}
+          onOpenAddModal={() => setIsAddModalOpen(true)}
+          onResetData={handleResetData}
+          onExportCSV={handleExportCSV}
+          onOpenDuitNow={() => setIsDuitNowOpen(true)}
+        />
+        <MobileFrame onExitMobileView={() => setViewMode('pc')} language={language}>
+          {renderMobileContent()}
+        </MobileFrame>
+
+        {/* Modals */}
+        <AddTransactionModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onAddTransaction={handleAddTransaction}
+          language={language}
+        />
+
+        {isDuitNowOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+            <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+              <div className="relative">
+                <DuitNowHub
+                  onAddTransaction={handleAddTransaction}
+                  userProfile={userProfile}
+                  language={language}
+                  onClose={() => setIsDuitNowOpen(false)}
+                />
+                <button
+                  onClick={() => setIsDuitNowOpen(false)}
+                  className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 rounded-lg bg-slate-900 border border-slate-800"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // PC and Auto-Responsive Desktop Layout
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-emerald-500 selection:text-white">
+      {/* Top Navigation */}
+      <Navbar
+        userProfile={userProfile}
+        safeToSpendDaily={safeToSpendDaily}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        language={language}
+        setLanguage={setLanguage}
+        onOpenAddModal={() => setIsAddModalOpen(true)}
+        onResetData={handleResetData}
+        onExportCSV={handleExportCSV}
+        onOpenDuitNow={() => setIsDuitNowOpen(true)}
+      />
+
+      {/* Main Container */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        
+        {/* Top Hero Banner */}
+        <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/40 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800/60">
+                🇲🇾 Malaysian Personal Finance App
+              </span>
+              <span className="text-xs text-slate-400 hidden sm:inline">
+                • Dollarwise 3-Bucket Framework
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mt-1">
+              Where Your Ringgit <span className="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">Actually Goes</span>.
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
+              {language === 'bm'
+                ? 'Kawal kewangan bulanan anda dalam Ringgit Malaysia (RM). Pantau sewa, bil TNB, perbelanjaan mamak, dan bayar hutang PTPTN dengan pantas.'
+                : 'No more guessing. Real-time daily Safe to Spend allowance, weekly swipe reviews, DuitNow QR payments, and debt payoff for Malaysia.'}
+            </p>
+          </div>
+
+          <div className="flex items-center space-x-3 shrink-0">
+            <button
+              onClick={() => setIsDuitNowOpen(true)}
+              className="flex items-center space-x-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-lg shadow-red-600/30 transition-all active:scale-95"
+            >
+              <QrCode className="w-4 h-4" />
+              <span>DuitNow QR Hub</span>
+            </button>
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-lg shadow-emerald-600/30 transition-all active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{language === 'bm' ? 'Tambah Transaksi' : 'Log Expense'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Safe To Spend Metric & Caleb Hammer Financial Audit Score */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-7">
+            <SafeToSpendGauge
+              monthlyIncome={monthlyIncome}
+              totalNeedsSpent={totalNeedsSpent}
+              totalWantsSpent={totalWantsSpent}
+              totalSavingsSpent={totalSavingsSpent}
+              safeToSpendDaily={safeToSpendDaily}
+              safeToSpendWeekly={safeToSpendWeekly}
+              daysLeftInMonth={daysLeftInMonth}
+              language={language}
+            />
+          </div>
+          <div className="lg:col-span-5">
+            <FinancialAuditScore
+              monthlyIncome={monthlyIncome}
+              totalNeedsSpent={totalNeedsSpent}
+              totalWantsSpent={totalWantsSpent}
+              debts={debts}
+              savingsGoals={savingsGoals}
+              language={language}
+            />
+          </div>
+        </div>
+
+        {/* The Core 3-Bucket System (50/30/20) */}
+        <section>
+          <ThreeBucketsView
+            monthlyIncome={monthlyIncome}
+            totalNeedsSpent={totalNeedsSpent}
+            totalWantsSpent={totalWantsSpent}
+            totalSavingsSpent={totalSavingsSpent}
+            language={language}
+          />
+        </section>
+
+        {/* DuitNow Malaysian Payment Hub */}
+        <section id="duitnow-section">
+          <DuitNowHub
+            onAddTransaction={handleAddTransaction}
+            userProfile={userProfile}
+            language={language}
+          />
+        </section>
+
+        {/* Caleb Hammer Weekly Swipe Review & Debt Payoff Tracker */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="lg:col-span-6">
+            <WeeklySwipeReview
+              queue={swipeQueue}
+              onResolveItem={handleResolveSwipeItem}
+              onResetQueue={() => setSwipeQueue(INITIAL_SWIPE_QUEUE)}
+              language={language}
+            />
+          </div>
+          <div className="lg:col-span-6">
+            <DebtPayoffTracker
+              debts={debts}
+              onUpdateDebts={setDebts}
+              language={language}
+            />
+          </div>
+        </div>
+
+        {/* Comprehensive Transaction Ledger */}
+        <section>
+          <TransactionLedger
+            transactions={transactions}
+            onDeleteTransaction={handleDeleteTransaction}
+            onExportCSV={handleExportCSV}
+            language={language}
+          />
+        </section>
+
+      </main>
+
+      {/* Footer */}
+      <footer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 pt-6 border-t border-slate-800/80 text-center text-xs text-slate-500">
+        <p>
+          RinggitWise Malaysia • Built for Malaysian Lifestyle (DuitNow QR, TNG eWallet, MAE, Bank Negara Rounding)
+        </p>
+        <p className="mt-1">
+          Reverse-engineered concept inspired by Dollarwise & Caleb Hammer's 3-Bucket Budgeting.
+        </p>
+      </footer>
+
+      {/* Add Transaction Modal */}
+      <AddTransactionModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onAddTransaction={handleAddTransaction}
+        language={language}
+      />
+
+      {/* DuitNow Popup Modal if triggered from Navbar */}
+      {isDuitNowOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="relative">
+              <DuitNowHub
+                onAddTransaction={handleAddTransaction}
+                userProfile={userProfile}
+                language={language}
+                onClose={() => setIsDuitNowOpen(false)}
+              />
+              <button
+                onClick={() => setIsDuitNowOpen(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 rounded-lg bg-slate-900 border border-slate-800"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Mobile Bottom Navigation (only on mobile viewports if in auto mode) */}
+      <div className="md:hidden">
+        <MobileNavigation
+          activeTab={mobileTab}
+          setActiveTab={(tab) => {
+            setMobileTab(tab);
+            if (tab === 'buckets') {
+              window.scrollTo({ top: 380, behavior: 'smooth' });
+            } else if (tab === 'review') {
+              window.scrollTo({ top: 1200, behavior: 'smooth' });
+            } else if (tab === 'debts') {
+              window.scrollTo({ top: 1800, behavior: 'smooth' });
+            } else {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+          }}
+          onOpenDuitNow={() => setIsDuitNowOpen(true)}
+          language={language}
+        />
+      </div>
+
+    </div>
+  );
+}
