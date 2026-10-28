@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingBag, Coffee, PiggyBank, ArrowUpRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ShoppingBag, Coffee, PiggyBank, ArrowUpRight, AlertCircle, CheckCircle2, Wallet } from 'lucide-react';
 import { formatRM } from '../utils/helpers';
 
 export default function ThreeBucketsView({
@@ -7,13 +7,15 @@ export default function ThreeBucketsView({
   totalNeedsSpent,
   totalWantsSpent,
   totalSavingsSpent,
+  onOpenSetIncome,
   language
 }) {
   const isBM = language === 'bm';
 
-  const needsBudget = monthlyIncome * 0.50;
-  const wantsBudget = monthlyIncome * 0.30;
-  const savingsBudget = monthlyIncome * 0.20;
+  const hasIncome = monthlyIncome && monthlyIncome > 0;
+  const needsBudget = hasIncome ? monthlyIncome * 0.50 : 0;
+  const wantsBudget = hasIncome ? monthlyIncome * 0.30 : 0;
+  const savingsBudget = hasIncome ? monthlyIncome * 0.20 : 0;
 
   const buckets = [
     {
@@ -85,18 +87,38 @@ export default function ThreeBucketsView({
               : 'Every single Ringgit automatically partitioned into three crystal-clear categories.'}
           </p>
         </div>
-        <div className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 self-start sm:self-auto">
-          {isBM ? 'Pendapatan Bersih: ' : 'Net Monthly: '} 
-          <span className="text-emerald-400 font-bold">{formatRM(monthlyIncome)}</span>
-        </div>
+        
+        {hasIncome ? (
+          <div className="flex items-center space-x-2">
+            <div className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300">
+              {isBM ? 'Gaji Bersih: ' : 'Net Monthly: '} 
+              <span className="text-emerald-400 font-bold">{formatRM(monthlyIncome)}</span>
+            </div>
+            <button
+              onClick={onOpenSetIncome}
+              className="text-xs text-slate-400 hover:text-white bg-slate-950 px-2 py-1.5 rounded-lg border border-slate-800 transition-colors"
+            >
+              Ubah
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={onOpenSetIncome}
+            className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 transition-all"
+          >
+            + {isBM ? 'Tetapkan Pendapatan' : 'Set Income'}
+          </button>
+        )}
       </div>
 
       {/* 3 Bucket Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {buckets.map((b) => {
           const Icon = b.icon;
-          const pct = Math.min(100, Math.round((b.spentAmount / b.targetAmount) * 100));
-          const isOver = b.spentAmount > b.targetAmount;
+          const pct = b.targetAmount > 0 
+            ? Math.min(100, Math.round((b.spentAmount / b.targetAmount) * 100))
+            : 0;
+          const isOver = b.targetAmount > 0 && b.spentAmount > b.targetAmount;
 
           return (
             <div 
@@ -129,14 +151,16 @@ export default function ThreeBucketsView({
                       {formatRM(b.spentAmount)}
                     </span>
                     <span className="text-xs text-slate-400 block mt-0.5">
-                      {isBM ? 'dari sasaran' : 'of target'} {formatRM(b.targetAmount)}
+                      {hasIncome ? `${isBM ? 'dari sasaran' : 'of target'} ${formatRM(b.targetAmount)}` : (isBM ? 'Tiada had ditetapkan' : 'Set income to calculate')}
                     </span>
                   </div>
-                  <div className="text-right">
-                    <span className={`text-sm font-extrabold ${isOver ? 'text-rose-400' : 'text-slate-300'}`}>
-                      {pct}%
-                    </span>
-                  </div>
+                  {hasIncome && (
+                    <div className="text-right">
+                      <span className={`text-sm font-extrabold ${isOver ? 'text-rose-400' : 'text-slate-300'}`}>
+                        {pct}%
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Progress bar */}
@@ -151,15 +175,21 @@ export default function ThreeBucketsView({
 
                 {/* Status Indicator */}
                 <div className="mt-2.5 flex items-center justify-between text-[11px]">
-                  {isOver ? (
-                    <span className="flex items-center text-rose-400 font-semibold">
-                      <AlertCircle className="w-3.5 h-3.5 mr-1" />
-                      {isBM ? 'Lebih had sebanyak ' : 'Over by '} {formatRM(b.spentAmount - b.targetAmount)}
-                    </span>
+                  {hasIncome ? (
+                    isOver ? (
+                      <span className="flex items-center text-rose-400 font-semibold">
+                        <AlertCircle className="w-3.5 h-3.5 mr-1" />
+                        {isBM ? 'Lebih had sebanyak ' : 'Over by '} {formatRM(b.spentAmount - b.targetAmount)}
+                      </span>
+                    ) : (
+                      <span className="flex items-center text-emerald-400 font-medium">
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                        {formatRM(b.targetAmount - b.spentAmount)} {isBM ? 'baki selamat' : 'remaining'}
+                      </span>
+                    )
                   ) : (
-                    <span className="flex items-center text-emerald-400 font-medium">
-                      <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                      {formatRM(b.targetAmount - b.spentAmount)} {isBM ? 'baki selamat' : 'remaining'}
+                    <span className="text-slate-500 text-[10px]">
+                      {isBM ? 'Masukkan gaji bulanan untuk lihat baki' : 'Input salary to see remaining'}
                     </span>
                   )}
                 </div>

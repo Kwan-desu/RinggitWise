@@ -9,7 +9,9 @@ import {
   Download, 
   Flame, 
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  Trash2,
+  Sparkles
 } from 'lucide-react';
 import { formatRM } from '../utils/helpers';
 
@@ -21,14 +23,16 @@ export default function Navbar({
   language,
   setLanguage,
   onOpenAddModal,
-  onResetData,
-  onExportCSV,
+  onOpenSetIncome,
+  onClearAllData,
+  onLoadDemoData,
   onOpenDuitNow
 }) {
   const isBM = language === 'bm';
+  const hasIncome = userProfile && userProfile.monthlyIncome > 0;
 
   return (
-    <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
+    <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           
@@ -60,19 +64,35 @@ export default function Navbar({
             </div>
           </div>
 
-          {/* Quick Safe To Spend Pill (Visible on Desktop) */}
-          <div className="hidden md:flex items-center bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-full shadow-inner">
-            <span className="text-xs text-slate-400 mr-2 flex items-center">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-ping"></span>
-              {isBM ? 'Selamat Belanja Hari Ini:' : 'Safe to Spend Today:'}
-            </span>
-            <span className="text-sm font-bold text-emerald-400">
-              {formatRM(safeToSpendDaily)}
-            </span>
+          {/* Quick Safe To Spend Pill or Set Income CTA */}
+          <div className="hidden md:flex items-center">
+            {hasIncome ? (
+              <button 
+                onClick={onOpenSetIncome}
+                className="flex items-center bg-slate-950 border border-slate-800 hover:border-slate-700 px-3.5 py-1.5 rounded-full shadow-inner transition-colors group"
+                title="Click to edit monthly income"
+              >
+                <span className="text-xs text-slate-400 mr-2 flex items-center">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-ping"></span>
+                  {isBM ? 'Selamat Belanja Hari Ini:' : 'Safe to Spend Today:'}
+                </span>
+                <span className="text-sm font-bold text-emerald-400 group-hover:underline">
+                  {formatRM(safeToSpendDaily)}
+                </span>
+              </button>
+            ) : (
+              <button
+                onClick={onOpenSetIncome}
+                className="flex items-center space-x-1.5 bg-emerald-950/60 border border-emerald-800/60 hover:bg-emerald-900/60 text-emerald-300 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+              >
+                <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{isBM ? 'Tetapkan Pendapatan Bulanan' : 'Set Monthly Income'}</span>
+              </button>
+            )}
           </div>
 
           {/* Controls: View Mode, Language, Actions */}
-          <div className="flex items-center space-x-2 sm:space-x-3">
+          <div className="flex items-center space-x-2 sm:space-x-2.5">
             
             {/* View Mode Switcher (Desktop PC vs Mobile Phone Frame vs Auto) */}
             <div className="hidden lg:flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
@@ -140,14 +160,26 @@ export default function Navbar({
               {language === 'en' ? '🇲🇾 BM' : '🇬🇧 EN'}
             </button>
 
-            {/* Reset Sample Data */}
+            {/* Clear All Data */}
             <button
-              onClick={onResetData}
+              onClick={onClearAllData}
               className="p-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-400 hover:text-rose-400 hover:border-rose-900/50 transition-colors"
-              title={isBM ? 'Set Semula Data Contoh' : 'Reset Sample Data'}
+              title={isBM ? 'Kosongkan Semua Data' : 'Clear All Data (Start Fresh)'}
             >
-              <RotateCcw className="w-4 h-4" />
+              <Trash2 className="w-4 h-4" />
             </button>
+
+            {/* Load Demo Data option */}
+            {onLoadDemoData && (
+              <button
+                onClick={onLoadDemoData}
+                className="hidden xl:flex items-center space-x-1 p-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-400 hover:text-amber-400 hover:border-amber-900/50 transition-colors text-xs"
+                title="Load sample preview data"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span className="text-[10px]">Contoh</span>
+              </button>
+            )}
           </div>
 
         </div>

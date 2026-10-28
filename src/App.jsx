@@ -8,51 +8,59 @@ import FinancialAuditScore from './components/FinancialAuditScore';
 import DebtPayoffTracker from './components/DebtPayoffTracker';
 import TransactionLedger from './components/TransactionLedger';
 import AddTransactionModal from './components/AddTransactionModal';
+import AddDebtModal from './components/AddDebtModal';
+import SetIncomeModal from './components/SetIncomeModal';
 import MobileNavigation from './components/MobileNavigation';
 import MobileFrame from './components/MobileFrame';
 import { 
-  INITIAL_USER_PROFILE, 
-  INITIAL_BUCKETS, 
-  INITIAL_DEBTS, 
-  INITIAL_SAVINGS_GOALS, 
-  INITIAL_TRANSACTIONS, 
-  INITIAL_SWIPE_QUEUE 
+  EMPTY_USER_PROFILE, 
+  EMPTY_TRANSACTIONS, 
+  EMPTY_DEBTS, 
+  EMPTY_SAVINGS_GOALS, 
+  EMPTY_SWIPE_QUEUE,
+  DEMO_USER_PROFILE,
+  DEMO_TRANSACTIONS,
+  DEMO_DEBTS,
+  DEMO_SAVINGS_GOALS,
+  DEMO_SWIPE_QUEUE
 } from './data/initialData';
 import { formatRM } from './utils/helpers';
-import { QrCode, Plus, Sparkles, TrendingUp, AlertTriangle } from 'lucide-react';
+import { QrCode, Plus, Sparkles, Wallet, AlertCircle, ArrowRight } from 'lucide-react';
 
 export default function App() {
-  // Persistent State Management
+  // Persistent State Management - Defaults to 100% EMPTY clean state (No pre-inputted mock data)
   const [userProfile, setUserProfile] = useState(() => {
     const saved = localStorage.getItem('rw_profile');
-    return saved ? JSON.parse(saved) : INITIAL_USER_PROFILE;
+    return saved ? JSON.parse(saved) : EMPTY_USER_PROFILE;
   });
 
   const [transactions, setTransactions] = useState(() => {
     const saved = localStorage.getItem('rw_transactions');
-    return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
+    return saved ? JSON.parse(saved) : EMPTY_TRANSACTIONS;
   });
 
   const [debts, setDebts] = useState(() => {
     const saved = localStorage.getItem('rw_debts');
-    return saved ? JSON.parse(saved) : INITIAL_DEBTS;
+    return saved ? JSON.parse(saved) : EMPTY_DEBTS;
   });
 
   const [savingsGoals, setSavingsGoals] = useState(() => {
     const saved = localStorage.getItem('rw_savings');
-    return saved ? JSON.parse(saved) : INITIAL_SAVINGS_GOALS;
+    return saved ? JSON.parse(saved) : EMPTY_SAVINGS_GOALS;
   });
 
   const [swipeQueue, setSwipeQueue] = useState(() => {
     const saved = localStorage.getItem('rw_swipe_queue');
-    return saved ? JSON.parse(saved) : INITIAL_SWIPE_QUEUE;
+    return saved ? JSON.parse(saved) : EMPTY_SWIPE_QUEUE;
   });
 
-  // UI States
+  // UI Modals & Navigation
   const [viewMode, setViewMode] = useState('auto'); // 'auto', 'pc', 'mobile'
-  const [mobileTab, setMobileTab] = useState('dashboard'); // 'dashboard', 'buckets', 'review', 'debts'
-  const [language, setLanguage] = useState('en'); // 'en' or 'bm'
+  const [mobileTab, setMobileTab] = useState('dashboard');
+  const [language, setLanguage] = useState('en');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddDebtOpen, setIsAddDebtOpen] = useState(false);
+  const [isSetIncomeOpen, setIsSetIncomeOpen] = useState(false);
   const [isDuitNowOpen, setIsDuitNowOpen] = useState(false);
 
   // Sync to LocalStorage
@@ -77,9 +85,9 @@ export default function App() {
   }, [swipeQueue]);
 
   // Financial Calculations
-  const monthlyIncome = userProfile.monthlyIncome || 4800;
+  const monthlyIncome = userProfile?.monthlyIncome || 0;
+  const hasIncome = monthlyIncome > 0;
 
-  // Filter out income from expenses
   const expenseTransactions = transactions.filter(t => t.bucket !== 'income');
   
   const totalNeedsSpent = expenseTransactions
@@ -102,8 +110,8 @@ export default function App() {
   const totalWantsBudget = monthlyIncome * 0.30;
   const remainingWantsPool = Math.max(0, totalWantsBudget - totalWantsSpent);
   
-  const safeToSpendDaily = Math.max(0, remainingWantsPool / daysLeftInMonth);
-  const safeToSpendWeekly = Math.min(remainingWantsPool, safeToSpendDaily * 7);
+  const safeToSpendDaily = hasIncome ? Math.max(0, remainingWantsPool / daysLeftInMonth) : 0;
+  const safeToSpendWeekly = hasIncome ? Math.min(remainingWantsPool, safeToSpendDaily * 7) : 0;
 
   // Handlers
   const handleAddTransaction = (newTx) => {
@@ -113,10 +121,36 @@ export default function App() {
       ...newTx,
     };
     setTransactions(prev => [tx, ...prev]);
+
+    // Also add to review queue if not already reviewed
+    if (!newTx.reviewed) {
+      setSwipeQueue(prev => [
+        {
+          id: `sq-${Date.now()}`,
+          title: newTx.title,
+          category: newTx.category,
+          amount: newTx.amount,
+          method: newTx.method,
+          date: 'Just now',
+          hammerComment: newTx.bucket === 'wants' 
+            ? 'Was this really essential to your Malaysian financial freedom?!' 
+            : 'Essential living expenditure logged.',
+        },
+        ...prev
+      ]);
+    }
   };
 
   const handleDeleteTransaction = (id) => {
     setTransactions(prev => prev.filter(t => t.id !== id));
+  };
+
+  const handleAddDebt = (newDebt) => {
+    setDebts(prev => [newDebt, ...prev]);
+  };
+
+  const handleSaveProfile = (newProfile) => {
+    setUserProfile(prev => ({ ...prev, ...newProfile }));
   };
 
   const handleResolveSwipeItem = (id, bucket, isShame) => {
@@ -134,18 +168,27 @@ export default function App() {
         shameFlag: isShame,
       };
       handleAddTransaction(newTx);
+      setSwipeQueue(prev => prev.filter(i => i.id !== id));
     }
   };
 
-  const handleResetData = () => {
-    if (window.confirm(language === 'bm' ? 'Adakah anda pasti mahu menetapkan semula kepada data contoh?' : 'Reset to default Malaysian sample data?')) {
-      setUserProfile(INITIAL_USER_PROFILE);
-      setTransactions(INITIAL_TRANSACTIONS);
-      setDebts(INITIAL_DEBTS);
-      setSavingsGoals(INITIAL_SAVINGS_GOALS);
-      setSwipeQueue(INITIAL_SWIPE_QUEUE);
+  const handleClearAllData = () => {
+    if (window.confirm(language === 'bm' ? 'Kosongkan semua data dan mula dari awal?' : 'Clear all data and start completely fresh?')) {
+      setUserProfile(EMPTY_USER_PROFILE);
+      setTransactions(EMPTY_TRANSACTIONS);
+      setDebts(EMPTY_DEBTS);
+      setSavingsGoals(EMPTY_SAVINGS_GOALS);
+      setSwipeQueue(EMPTY_SWIPE_QUEUE);
       localStorage.clear();
     }
+  };
+
+  const handleLoadDemoData = () => {
+    setUserProfile(DEMO_USER_PROFILE);
+    setTransactions(DEMO_TRANSACTIONS);
+    setDebts(DEMO_DEBTS);
+    setSavingsGoals(DEMO_SAVINGS_GOALS);
+    setSwipeQueue(DEMO_SWIPE_QUEUE);
   };
 
   const handleExportCSV = () => {
@@ -171,7 +214,7 @@ export default function App() {
     document.body.removeChild(link);
   };
 
-  // Content for inside Mobile View / Simulator
+  // Mobile Simulator Content
   const renderMobileContent = () => {
     return (
       <div className="space-y-4 p-4">
@@ -193,7 +236,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* Tab 1: Dashboard */}
         {mobileTab === 'dashboard' && (
           <div className="space-y-4">
             <SafeToSpendGauge
@@ -204,6 +246,7 @@ export default function App() {
               safeToSpendDaily={safeToSpendDaily}
               safeToSpendWeekly={safeToSpendWeekly}
               daysLeftInMonth={daysLeftInMonth}
+              onOpenSetIncome={() => setIsSetIncomeOpen(true)}
               language={language}
             />
 
@@ -212,6 +255,7 @@ export default function App() {
               totalNeedsSpent={totalNeedsSpent}
               totalWantsSpent={totalWantsSpent}
               totalSavingsSpent={totalSavingsSpent}
+              onOpenSetIncome={() => setIsSetIncomeOpen(true)}
               language={language}
             />
 
@@ -221,6 +265,7 @@ export default function App() {
               totalWantsSpent={totalWantsSpent}
               debts={debts}
               savingsGoals={savingsGoals}
+              onOpenAddModal={() => setIsAddModalOpen(true)}
               language={language}
             />
 
@@ -228,12 +273,13 @@ export default function App() {
               transactions={transactions}
               onDeleteTransaction={handleDeleteTransaction}
               onExportCSV={handleExportCSV}
+              onOpenAddModal={() => setIsAddModalOpen(true)}
+              onOpenDuitNow={() => setIsDuitNowOpen(true)}
               language={language}
             />
           </div>
         )}
 
-        {/* Tab 2: 3 Buckets */}
         {mobileTab === 'buckets' && (
           <div className="space-y-4">
             <ThreeBucketsView
@@ -241,6 +287,7 @@ export default function App() {
               totalNeedsSpent={totalNeedsSpent}
               totalWantsSpent={totalWantsSpent}
               totalSavingsSpent={totalSavingsSpent}
+              onOpenSetIncome={() => setIsSetIncomeOpen(true)}
               language={language}
             />
             <SafeToSpendGauge
@@ -251,31 +298,31 @@ export default function App() {
               safeToSpendDaily={safeToSpendDaily}
               safeToSpendWeekly={safeToSpendWeekly}
               daysLeftInMonth={daysLeftInMonth}
+              onOpenSetIncome={() => setIsSetIncomeOpen(true)}
               language={language}
             />
           </div>
         )}
 
-        {/* Tab 3: Swipe Review */}
         {mobileTab === 'review' && (
           <WeeklySwipeReview
             queue={swipeQueue}
             onResolveItem={handleResolveSwipeItem}
-            onResetQueue={() => setSwipeQueue(INITIAL_SWIPE_QUEUE)}
+            onResetQueue={() => setSwipeQueue([])}
+            onLoadDemoQueue={() => setSwipeQueue(DEMO_SWIPE_QUEUE)}
             language={language}
           />
         )}
 
-        {/* Tab 4: Debts */}
         {mobileTab === 'debts' && (
           <DebtPayoffTracker
             debts={debts}
             onUpdateDebts={setDebts}
+            onOpenAddDebt={() => setIsAddDebtOpen(true)}
             language={language}
           />
         )}
 
-        {/* Mobile Bottom Navigation Bar */}
         <MobileNavigation
           activeTab={mobileTab}
           setActiveTab={setMobileTab}
@@ -286,7 +333,7 @@ export default function App() {
     );
   };
 
-  // If mobile simulator mode is chosen on PC
+  // If Mobile Simulator Frame View is selected on PC
   if (viewMode === 'mobile') {
     return (
       <div className="min-h-screen bg-slate-950">
@@ -298,8 +345,9 @@ export default function App() {
           language={language}
           setLanguage={setLanguage}
           onOpenAddModal={() => setIsAddModalOpen(true)}
-          onResetData={handleResetData}
-          onExportCSV={handleExportCSV}
+          onOpenSetIncome={() => setIsSetIncomeOpen(true)}
+          onClearAllData={handleClearAllData}
+          onLoadDemoData={handleLoadDemoData}
           onOpenDuitNow={() => setIsDuitNowOpen(true)}
         />
         <MobileFrame onExitMobileView={() => setViewMode('pc')} language={language}>
@@ -311,6 +359,22 @@ export default function App() {
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
           onAddTransaction={handleAddTransaction}
+          language={language}
+        />
+
+        <AddDebtModal
+          isOpen={isAddDebtOpen}
+          onClose={() => setIsAddDebtOpen(false)}
+          onAddDebt={handleAddDebt}
+          language={language}
+        />
+
+        <SetIncomeModal
+          isOpen={isSetIncomeOpen}
+          onClose={() => setIsSetIncomeOpen(false)}
+          currentIncome={userProfile?.monthlyIncome || 0}
+          currentName={userProfile?.name || ''}
+          onSaveProfile={handleSaveProfile}
           language={language}
         />
 
@@ -338,7 +402,7 @@ export default function App() {
     );
   }
 
-  // PC and Auto-Responsive Desktop Layout
+  // PC and Responsive Desktop Layout
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-emerald-500 selection:text-white">
       {/* Top Navigation */}
@@ -350,14 +414,44 @@ export default function App() {
         language={language}
         setLanguage={setLanguage}
         onOpenAddModal={() => setIsAddModalOpen(true)}
-        onResetData={handleResetData}
-        onExportCSV={handleExportCSV}
+        onOpenSetIncome={() => setIsSetIncomeOpen(true)}
+        onClearAllData={handleClearAllData}
+        onLoadDemoData={handleLoadDemoData}
         onOpenDuitNow={() => setIsDuitNowOpen(true)}
       />
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         
+        {/* First-time Onboarding Alert if user has no income input yet */}
+        {!hasIncome && (
+          <div className="bg-gradient-to-r from-emerald-950/60 via-slate-900 to-slate-900 border-2 border-emerald-500/50 rounded-2xl p-5 sm:p-6 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <Wallet className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white tracking-tight">
+                  {language === 'bm' ? 'Selamat Datang ke RinggitWise! Mula dengan menetapkan gaji bulanan anda.' : 'Welcome to RinggitWise! Start by entering your take-home pay.'}
+                </h2>
+                <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
+                  {language === 'bm'
+                    ? 'Semua data bersih dan selamat disimpan di dalam pelayar anda tanpa sebarang maklumat palsu.'
+                    : 'Your app starts completely empty with zero mock data. Input your monthly salary to activate the 50/30/20 buckets.'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsSetIncomeOpen(true)}
+              className="w-full md:w-auto shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center space-x-2 transition-all active:scale-95"
+            >
+              <span>{language === 'bm' ? 'Tetapkan Gaji Bersih' : 'Enter Salary (RM)'}</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Top Hero Banner */}
         <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/40 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -408,6 +502,7 @@ export default function App() {
               safeToSpendDaily={safeToSpendDaily}
               safeToSpendWeekly={safeToSpendWeekly}
               daysLeftInMonth={daysLeftInMonth}
+              onOpenSetIncome={() => setIsSetIncomeOpen(true)}
               language={language}
             />
           </div>
@@ -418,6 +513,7 @@ export default function App() {
               totalWantsSpent={totalWantsSpent}
               debts={debts}
               savingsGoals={savingsGoals}
+              onOpenAddModal={() => setIsAddModalOpen(true)}
               language={language}
             />
           </div>
@@ -430,6 +526,7 @@ export default function App() {
             totalNeedsSpent={totalNeedsSpent}
             totalWantsSpent={totalWantsSpent}
             totalSavingsSpent={totalSavingsSpent}
+            onOpenSetIncome={() => setIsSetIncomeOpen(true)}
             language={language}
           />
         </section>
@@ -449,7 +546,8 @@ export default function App() {
             <WeeklySwipeReview
               queue={swipeQueue}
               onResolveItem={handleResolveSwipeItem}
-              onResetQueue={() => setSwipeQueue(INITIAL_SWIPE_QUEUE)}
+              onResetQueue={() => setSwipeQueue([])}
+              onLoadDemoQueue={() => setSwipeQueue(DEMO_SWIPE_QUEUE)}
               language={language}
             />
           </div>
@@ -457,6 +555,7 @@ export default function App() {
             <DebtPayoffTracker
               debts={debts}
               onUpdateDebts={setDebts}
+              onOpenAddDebt={() => setIsAddDebtOpen(true)}
               language={language}
             />
           </div>
@@ -468,6 +567,8 @@ export default function App() {
             transactions={transactions}
             onDeleteTransaction={handleDeleteTransaction}
             onExportCSV={handleExportCSV}
+            onOpenAddModal={() => setIsAddModalOpen(true)}
+            onOpenDuitNow={() => setIsDuitNowOpen(true)}
             language={language}
           />
         </section>
@@ -484,7 +585,7 @@ export default function App() {
         </p>
       </footer>
 
-      {/* Add Transaction Modal */}
+      {/* Modals */}
       <AddTransactionModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
@@ -492,7 +593,22 @@ export default function App() {
         language={language}
       />
 
-      {/* DuitNow Popup Modal if triggered from Navbar */}
+      <AddDebtModal
+        isOpen={isAddDebtOpen}
+        onClose={() => setIsAddDebtOpen(false)}
+        onAddDebt={handleAddDebt}
+        language={language}
+      />
+
+      <SetIncomeModal
+        isOpen={isSetIncomeOpen}
+        onClose={() => setIsSetIncomeOpen(false)}
+        currentIncome={userProfile?.monthlyIncome || 0}
+        currentName={userProfile?.name || ''}
+        onSaveProfile={handleSaveProfile}
+        language={language}
+      />
+
       {isDuitNowOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
           <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -514,7 +630,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Floating Mobile Bottom Navigation (only on mobile viewports if in auto mode) */}
+      {/* Floating Mobile Bottom Navigation */}
       <div className="md:hidden">
         <MobileNavigation
           activeTab={mobileTab}

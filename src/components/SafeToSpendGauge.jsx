@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, AlertTriangle, Sparkles, TrendingUp, HelpCircle } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, Sparkles, TrendingUp, HelpCircle, Wallet, Plus } from 'lucide-react';
 import { formatRM } from '../utils/helpers';
 
 export default function SafeToSpendGauge({
@@ -10,10 +10,47 @@ export default function SafeToSpendGauge({
   safeToSpendDaily,
   safeToSpendWeekly,
   daysLeftInMonth,
+  onOpenSetIncome,
   language
 }) {
   const isBM = language === 'bm';
-  
+
+  // If user has not input income yet
+  if (!monthlyIncome || monthlyIncome <= 0) {
+    return (
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col sm:flex-row items-center justify-between gap-5">
+        <div className="flex items-center space-x-4">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+            <Wallet className="w-7 h-7" />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <h2 className="text-lg font-bold text-white tracking-tight">
+                {isBM ? 'Tetapkan Gaji Bersih Bulanan Anda' : 'Set Your Monthly Take-Home Pay'}
+              </h2>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
+                Langkah 1
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1 max-w-lg leading-relaxed">
+              {isBM 
+                ? 'Masukkan pendapatan bulanan anda untuk mengaktifkan metrik Selamat Belanja (Safe to Spend) dan formula 3 Balang Kewangan 50/30/20.'
+                : 'Enter your monthly salary to calculate your guilt-free daily Safe to Spend metric and activate your 3-Bucket budget.'}
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={onOpenSetIncome}
+          className="w-full sm:w-auto shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center space-x-2 transition-all active:scale-95"
+        >
+          <Plus className="w-4 h-4" />
+          <span>{isBM ? 'Tetapkan Gaji (RM)' : 'Enter Income (RM)'}</span>
+        </button>
+      </div>
+    );
+  }
+
   // Dollarwise logic: Wants allocation is 30% of monthly income
   const totalWantsBudget = monthlyIncome * 0.30;
   const remainingWantsPool = Math.max(0, totalWantsBudget - totalWantsSpent);
@@ -70,13 +107,22 @@ export default function SafeToSpendGauge({
         </div>
 
         {/* Days Left in Month indicator */}
-        <div className="text-right flex items-center md:flex-col justify-between md:justify-center bg-slate-950/60 px-3.5 py-2 rounded-xl border border-slate-800">
-          <span className="text-[11px] text-slate-400">
-            {isBM ? 'Baki Hari Bulan Ini' : 'Days Left in Month'}
-          </span>
-          <span className="text-sm font-bold text-slate-200">
-            {daysLeftInMonth} {isBM ? 'Hari' : 'Days'}
-          </span>
+        <div className="flex items-center space-x-3">
+          <div className="text-right flex items-center md:flex-col justify-between md:justify-center bg-slate-950/60 px-3.5 py-2 rounded-xl border border-slate-800">
+            <span className="text-[11px] text-slate-400">
+              {isBM ? 'Baki Hari Bulan Ini' : 'Days Left in Month'}
+            </span>
+            <span className="text-sm font-bold text-slate-200">
+              {daysLeftInMonth} {isBM ? 'Hari' : 'Days'}
+            </span>
+          </div>
+          <button
+            onClick={onOpenSetIncome}
+            className="text-xs text-slate-400 hover:text-white bg-slate-950 p-2.5 rounded-xl border border-slate-800 transition-colors"
+            title="Edit Monthly Income"
+          >
+            <Wallet className="w-4 h-4" />
+          </button>
         </div>
       </div>
 

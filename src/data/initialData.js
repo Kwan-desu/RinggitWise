@@ -1,287 +1,40 @@
-// Initial Malaysian financial profile inspired by Dollarwise & Caleb Hammer's 3-bucket budgeting
+// Clean empty default states - Users input their own financial data
 
-export const INITIAL_USER_PROFILE = {
-  name: "Ahmad / Zhi Long / Priya",
-  monthlyIncome: 4800, // Typical Malaysian fresh/mid grad salary in RM
+export const EMPTY_USER_PROFILE = {
+  name: "",
+  monthlyIncome: 0,
   targetEmergencyFundMonths: 6,
   currency: "RM",
-  language: "en", // 'en' or 'bm'
+  language: "en",
 };
+
+export const EMPTY_TRANSACTIONS = [];
+export const EMPTY_DEBTS = [];
+export const EMPTY_SAVINGS_GOALS = [];
+export const EMPTY_SWIPE_QUEUE = [];
 
 export const INITIAL_BUCKETS = {
   needs: {
     name: "Keperluan (Needs)",
-    targetPercent: 50, // RM 2,400 target
+    targetPercent: 50,
     color: "emerald",
     description: "Rent, bills (TNB, Syabas), groceries (99 Speedmart), petrol (RON95), toll (RFID), medical & basic food.",
   },
   wants: {
     name: "Kehendak (Wants)",
-    targetPercent: 30, // RM 1,440 target
+    targetPercent: 30,
     color: "amber",
     description: "Boba tea, cafe hopping, Shopee/TikTok shop, gaming, weekend travel, movie tickets, dining out.",
   },
   savings: {
     name: "Simpanan & Hutang (Savings & Debt)",
-    targetPercent: 20, // RM 960 target
+    targetPercent: 20,
     color: "blue",
     description: "PTPTN repayment, Car loan extra, EPF (KWSP) voluntary, ASB, Emergency fund tabung.",
   },
 };
 
-export const INITIAL_DEBTS = [
-  {
-    id: "debt-1",
-    name: "PTPTN Student Loan",
-    category: "Education",
-    totalAmount: 18500,
-    remainingAmount: 12400,
-    interestRate: 1.0, // 1% Ujrah fee
-    minimumMonthly: 150,
-    currentPayment: 200,
-  },
-  {
-    id: "debt-2",
-    name: "Perodua Myvi 1.5 H Car Loan",
-    category: "Vehicle",
-    totalAmount: 48000,
-    remainingAmount: 31200,
-    interestRate: 3.2,
-    minimumMonthly: 590,
-    currentPayment: 590,
-  },
-  {
-    id: "debt-3",
-    name: "Maybank 2 Gold Credit Card",
-    category: "Credit Card",
-    totalAmount: 4200,
-    remainingAmount: 1850,
-    interestRate: 15.0,
-    minimumMonthly: 100,
-    currentPayment: 350,
-  },
-  {
-    id: "debt-4",
-    name: "Shopee SPayLater",
-    category: "BNPL",
-    totalAmount: 1200,
-    remainingAmount: 420,
-    interestRate: 18.0,
-    minimumMonthly: 140,
-    currentPayment: 140,
-  },
-];
-
-export const INITIAL_SAVINGS_GOALS = [
-  {
-    id: "sav-1",
-    name: "Dana Kecemasan (Emergency Fund 6 Bulan)",
-    target: 14400,
-    current: 9200,
-    institution: "ASB / Versa Cash / KDI",
-    icon: "ShieldAlert",
-  },
-  {
-    id: "sav-2",
-    name: "KWSP / EPF Simpanan Sukarela",
-    target: 5000,
-    current: 2400,
-    institution: "KWSP i-Akaun",
-    icon: "PiggyBank",
-  },
-  {
-    id: "sav-3",
-    name: "Percutian Pulau Langkawi / Penang",
-    target: 1500,
-    current: 850,
-    institution: "MAE Tabung",
-    icon: "Plane",
-  },
-];
-
-export const INITIAL_TRANSACTIONS = [
-  {
-    id: "tx-1",
-    date: "2026-10-28",
-    title: "Nasi Kandar Pelita Bangsar",
-    category: "Mamak & Dining",
-    amount: 14.50,
-    bucket: "needs",
-    method: "DuitNow QR",
-    note: "Nasi kandar + teh tarik panas",
-    reviewed: true,
-    shameFlag: false,
-  },
-  {
-    id: "tx-2",
-    date: "2026-10-27",
-    title: "99 Speedmart SS15",
-    category: "Groceries",
-    amount: 48.90,
-    bucket: "needs",
-    method: "Touch 'n Go eWallet",
-    note: "Beras, telur, Milo, roti",
-    reviewed: true,
-    shameFlag: false,
-  },
-  {
-    id: "tx-3",
-    date: "2026-10-27",
-    title: "Petronas Mesra Subang Jaya",
-    category: "Fuel & Transport",
-    amount: 50.00,
-    bucket: "needs",
-    method: "DuitNow QR",
-    note: "RON95 full tank Myvi",
-    reviewed: true,
-    shameFlag: false,
-  },
-  {
-    id: "tx-4",
-    date: "2026-10-26",
-    title: "Tenaga Nasional Berhad (TNB)",
-    category: "Utilities",
-    amount: 138.45,
-    bucket: "needs",
-    method: "MAE by Maybank",
-    note: "Monthly electricity bill",
-    reviewed: true,
-    shameFlag: false,
-  },
-  {
-    id: "tx-5",
-    date: "2026-10-26",
-    title: "Touch 'n Go RFID Toll Auto-Reload",
-    category: "Tolls & Transport",
-    amount: 50.00,
-    bucket: "needs",
-    method: "Touch 'n Go eWallet",
-    note: "LDP & Federal Highway commute",
-    reviewed: true,
-    shameFlag: false,
-  },
-  {
-    id: "tx-6",
-    date: "2026-10-25",
-    title: "Chagee Milk Tea Mid Valley",
-    category: "Drinks & Cafe",
-    amount: 18.90,
-    bucket: "wants",
-    method: "DuitNow QR",
-    note: "White Peach Oolong Latte",
-    reviewed: true,
-    shameFlag: true,
-  },
-  {
-    id: "tx-7",
-    date: "2026-10-24",
-    title: "Shopee 10.10 Flash Sale",
-    category: "Shopping",
-    amount: 89.00,
-    bucket: "wants",
-    method: "SPayLater",
-    note: "Mechanical keyboard keycaps",
-    reviewed: true,
-    shameFlag: true,
-  },
-  {
-    id: "tx-8",
-    date: "2026-10-23",
-    title: "PTPTN Monthly Repayment",
-    category: "Debt Payoff",
-    amount: 200.00,
-    bucket: "savings",
-    method: "DuitNow Direct Debit",
-    note: "Education loan installment",
-    reviewed: true,
-    shameFlag: false,
-  },
-  {
-    id: "tx-9",
-    date: "2026-10-22",
-    title: "GSC Cinemas IOI City Mall",
-    category: "Entertainment",
-    amount: 38.00,
-    bucket: "wants",
-    method: "GrabPay",
-    note: "2x tickets + caramel popcorn",
-    reviewed: true,
-    shameFlag: false,
-  },
-  {
-    id: "tx-10",
-    date: "2026-10-21",
-    title: "Gaji Bulanan (Monthly Salary)",
-    category: "Income",
-    amount: 4800.00,
-    bucket: "income",
-    method: "Bank Transfer (Maybank)",
-    note: "October nett take-home pay",
-    reviewed: true,
-    shameFlag: false,
-  },
-];
-
-// Items ready for Caleb Hammer's Weekly Swipe Review!
-export const INITIAL_SWIPE_QUEUE = [
-  {
-    id: "sq-1",
-    title: "Starbucks Reserve Bukit Bintang",
-    category: "Cafe & Drinks",
-    amount: 28.50,
-    suggestedBucket: "wants",
-    method: "DuitNow QR",
-    date: "Today, 4:15 PM",
-    hammerComment: "Aiyo! RM28.50 for iced caramel macchiato when you have SPayLater overdue?! That's 5 plates of economy rice bro!",
-    isEmergency: false,
-  },
-  {
-    id: "sq-2",
-    title: "Air Selangor Water Bill",
-    category: "Utilities",
-    amount: 16.80,
-    suggestedBucket: "needs",
-    method: "MAE by Maybank",
-    date: "Yesterday",
-    hammerComment: "Legitimate essential. Clean water is a basic human necessity, pay your bill on time!",
-    isEmergency: false,
-  },
-  {
-    id: "sq-3",
-    title: "TikTok Shop Midnight Checkout",
-    category: "Shopping",
-    amount: 74.00,
-    suggestedBucket: "wants",
-    method: "Touch 'n Go eWallet",
-    date: "Oct 27, 2:30 AM",
-    hammerComment: "3:00 AM doom-scrolling shopping spree?! Do you really need another RGB mousepad while living paycheck to paycheck?",
-    isEmergency: false,
-  },
-  {
-    id: "sq-4",
-    title: "Klinik Mediviron Consultation & Panadol",
-    category: "Healthcare",
-    amount: 65.00,
-    suggestedBucket: "needs",
-    method: "DuitNow QR",
-    date: "Oct 25",
-    hammerComment: "Health comes first. Non-negotiable need. Good job keeping yourself alive to pay your debts!",
-    isEmergency: false,
-  },
-  {
-    id: "sq-5",
-    title: "Steam Autumn Sale Game Bundle",
-    category: "Gaming",
-    amount: 119.00,
-    suggestedBucket: "wants",
-    method: "Credit Card",
-    date: "Oct 24",
-    hammerComment: "Backlog of 40 unplayed games and you just bought 3 more with 15% credit card interest?! Hammer time!",
-    isEmergency: false,
-  },
-];
-
-// Preset Malaysian DuitNow Merchants for quick one-tap scanning demo
+// Malaysian merchant templates for quick DuitNow QR simulation
 export const POPULAR_MALAYSIAN_MERCHANTS = [
   {
     name: "Nasi Kandar Pelita",
@@ -346,5 +99,175 @@ export const POPULAR_MALAYSIAN_MERCHANTS = [
     bucket: "needs",
     logoText: "Mamak",
     note: "Roti Canai x2 + Teh Tarik Kurang Manis",
+  },
+];
+
+// Optional Demo Dataset (Only loaded if user explicitly clicks "Load Demo Data")
+export const DEMO_USER_PROFILE = {
+  name: "Kwan / Ahmad",
+  monthlyIncome: 4800,
+  targetEmergencyFundMonths: 6,
+  currency: "RM",
+  language: "en",
+};
+
+export const DEMO_DEBTS = [
+  {
+    id: "debt-1",
+    name: "PTPTN Student Loan",
+    category: "Education",
+    totalAmount: 18500,
+    remainingAmount: 12400,
+    interestRate: 1.0,
+    minimumMonthly: 150,
+    currentPayment: 200,
+  },
+  {
+    id: "debt-2",
+    name: "Perodua Myvi 1.5 H Car Loan",
+    category: "Vehicle",
+    totalAmount: 48000,
+    remainingAmount: 31200,
+    interestRate: 3.2,
+    minimumMonthly: 590,
+    currentPayment: 590,
+  },
+  {
+    id: "debt-3",
+    name: "Maybank 2 Gold Credit Card",
+    category: "Credit Card",
+    totalAmount: 4200,
+    remainingAmount: 1850,
+    interestRate: 15.0,
+    minimumMonthly: 100,
+    currentPayment: 350,
+  },
+  {
+    id: "debt-4",
+    name: "Shopee SPayLater",
+    category: "BNPL",
+    totalAmount: 1200,
+    remainingAmount: 420,
+    interestRate: 18.0,
+    minimumMonthly: 140,
+    currentPayment: 140,
+  },
+];
+
+export const DEMO_SAVINGS_GOALS = [
+  {
+    id: "sav-1",
+    name: "Dana Kecemasan (Emergency Fund 6 Bulan)",
+    target: 14400,
+    current: 9200,
+    institution: "ASB / Versa Cash / KDI",
+    icon: "ShieldAlert",
+  },
+  {
+    id: "sav-2",
+    name: "KWSP / EPF Simpanan Sukarela",
+    target: 5000,
+    current: 2400,
+    institution: "KWSP i-Akaun",
+    icon: "PiggyBank",
+  },
+];
+
+export const DEMO_TRANSACTIONS = [
+  {
+    id: "tx-1",
+    date: "2026-10-28",
+    title: "Nasi Kandar Pelita Bangsar",
+    category: "Mamak & Dining",
+    amount: 14.50,
+    bucket: "needs",
+    method: "DuitNow QR",
+    note: "Nasi kandar + teh tarik panas",
+    reviewed: true,
+    shameFlag: false,
+  },
+  {
+    id: "tx-2",
+    date: "2026-10-27",
+    title: "99 Speedmart SS15",
+    category: "Groceries",
+    amount: 48.90,
+    bucket: "needs",
+    method: "Touch 'n Go eWallet",
+    note: "Beras, telur, Milo, roti",
+    reviewed: true,
+    shameFlag: false,
+  },
+  {
+    id: "tx-3",
+    date: "2026-10-27",
+    title: "Petronas Mesra Subang Jaya",
+    category: "Fuel & Transport",
+    amount: 50.00,
+    bucket: "needs",
+    method: "DuitNow QR",
+    note: "RON95 full tank Myvi",
+    reviewed: true,
+    shameFlag: false,
+  },
+  {
+    id: "tx-4",
+    date: "2026-10-26",
+    title: "Tenaga Nasional Berhad (TNB)",
+    category: "Utilities",
+    amount: 138.45,
+    bucket: "needs",
+    method: "MAE by Maybank",
+    note: "Monthly electricity bill",
+    reviewed: true,
+    shameFlag: false,
+  },
+  {
+    id: "tx-5",
+    date: "2026-10-25",
+    title: "Chagee Milk Tea Mid Valley",
+    category: "Drinks & Cafe",
+    amount: 18.90,
+    bucket: "wants",
+    method: "DuitNow QR",
+    note: "White Peach Oolong Latte",
+    reviewed: true,
+    shameFlag: true,
+  },
+];
+
+export const DEMO_SWIPE_QUEUE = [
+  {
+    id: "sq-1",
+    title: "Starbucks Reserve Bukit Bintang",
+    category: "Cafe & Drinks",
+    amount: 28.50,
+    suggestedBucket: "wants",
+    method: "DuitNow QR",
+    date: "Today, 4:15 PM",
+    hammerComment: "Aiyo! RM28.50 for iced caramel macchiato when you have SPayLater overdue?! That's 5 plates of economy rice bro!",
+    isEmergency: false,
+  },
+  {
+    id: "sq-2",
+    title: "Air Selangor Water Bill",
+    category: "Utilities",
+    amount: 16.80,
+    suggestedBucket: "needs",
+    method: "MAE by Maybank",
+    date: "Yesterday",
+    hammerComment: "Legitimate essential. Clean water is a basic human necessity, pay your bill on time!",
+    isEmergency: false,
+  },
+  {
+    id: "sq-3",
+    title: "TikTok Shop Midnight Checkout",
+    category: "Shopping",
+    amount: 74.00,
+    suggestedBucket: "wants",
+    method: "Touch 'n Go eWallet",
+    date: "Oct 27, 2:30 AM",
+    hammerComment: "3:00 AM doom-scrolling shopping spree?! Do you really need another RGB mousepad while living paycheck to paycheck?",
+    isEmergency: false,
   },
 ];
