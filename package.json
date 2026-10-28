@@ -1,9 +1,9 @@
 {
-  "name": "finance",
+  "name": "ringgitwise",
   "private": true,
   "version": "1.0.0",
   "description": "RinggitWise Malaysia - Malaysian Personal Finance & DuitNow QR Budgeting (Dollarwise Reverse-Engineered)",
-  "homepage": "https://kwan-desu.github.io/finance",
+  "homepage": "https://kwan-desu.github.io/RinggitWise",
   "type": "module",
   "scripts": {
     "dev": "vite",

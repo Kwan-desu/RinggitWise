@@ -79,8 +79,8 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/Kwan-desu/finance.git
-cd finance
+git clone https://github.com/Kwan-desu/RinggitWise.git
+cd RinggitWise
 
 # Install dependencies
 npm install
@@ -99,7 +99,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 A preconfigured workflow is included at `.github/workflows/deploy.yml`. When you push to `main` or `master`, GitHub Actions builds and publishes the site to GitHub Pages automatically.
 
 To enable GitHub Pages in your repo:
-1. Go to your repository on GitHub: `https://github.com/Kwan-desu/finance/settings/pages`
+1. Go to your repository on GitHub: `https://github.com/Kwan-desu/RinggitWise/settings/pages`
 2. Under **Build and deployment > Source**, select **GitHub Actions**.
 
 ### Manual Deployment
