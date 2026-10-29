@@ -45,10 +45,19 @@ export default function App() {
     localStorage.setItem('rw_v2_language', language);
   }, [language]);
 
-  // Categories State (Clean defaults, extensible)
+  // Categories State (Clean defaults, extensible, automatically includes Parking & Tolls)
   const [categories, setCategories] = useState(() => {
     const saved = localStorage.getItem('rw_v2_categories');
-    return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
+    if (!saved) return DEFAULT_CATEGORIES;
+    try {
+      const parsed = JSON.parse(saved);
+      // Ensure essential categories like 'Parking & Tolls' are included even for returning users!
+      const existingNames = new Set(parsed.map(c => c.name.toLowerCase()));
+      const missing = DEFAULT_CATEGORIES.filter(d => !existingNames.has(d.name.toLowerCase()));
+      return [...parsed, ...missing];
+    } catch (e) {
+      return DEFAULT_CATEGORIES;
+    }
   });
 
   useEffect(() => {
@@ -224,6 +233,7 @@ export default function App() {
               onAddTransaction={handleAddTransaction}
               onAddMultipleTransactions={handleAddMultipleTransactions}
               categories={categories}
+              onQuickAddCategory={handleQuickAddCategory}
               userProfile={userProfile}
               language={language}
             />
@@ -282,6 +292,7 @@ export default function App() {
               onAddTransaction={handleAddTransaction}
               onAddMultipleTransactions={handleAddMultipleTransactions}
               categories={categories}
+              onQuickAddCategory={handleQuickAddCategory}
               userProfile={userProfile}
               language={language}
               onClose={() => setIsDuitNowOpen(false)}

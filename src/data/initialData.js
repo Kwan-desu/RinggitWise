@@ -1,15 +1,17 @@
 // Precision dataset matching Image 1 color palette & Malaysian lifestyle
 
 export const DEFAULT_CATEGORIES = [
-  { id: "cat-1", name: "Mamak & Dining", color: "#54b3d6" },
-  { id: "cat-2", name: "Groceries", color: "#5b8ee5" },
-  { id: "cat-3", name: "Utilities & Bills", color: "#5f6fe5" },
-  { id: "cat-4", name: "Fuel & Transport", color: "#7f5ce6" },
-  { id: "cat-5", name: "Shopping & Online", color: "#a856ea" },
-  { id: "cat-6", name: "Drinks & Cafe", color: "#c856db" },
-  { id: "cat-7", name: "Healthcare & Pharmacy", color: "#10b981" },
-  { id: "cat-8", name: "Education & Books", color: "#06b6d4" },
-  { id: "cat-9", name: "Savings & Investments", color: "#f59e0b" },
+  { id: "cat-parking", name: "Parking & Tolls", color: "#54b3d6" },
+  { id: "cat-1", name: "Mamak & Dining", color: "#5b8ee5" },
+  { id: "cat-6", name: "Drinks & Cafe", color: "#5f6fe5" },
+  { id: "cat-snacks", name: "Snacks & Desserts", color: "#7f5ce6" },
+  { id: "cat-4", name: "Fuel & Transport", color: "#a856ea" },
+  { id: "cat-2", name: "Groceries", color: "#c856db" },
+  { id: "cat-3", name: "Utilities & Bills", color: "#10b981" },
+  { id: "cat-5", name: "Shopping & Online", color: "#f59e0b" },
+  { id: "cat-7", name: "Healthcare & Pharmacy", color: "#06b6d4" },
+  { id: "cat-8", name: "Education & Books", color: "#ec4899" },
+  { id: "cat-9", name: "Savings & Investments", color: "#6366f1" },
 ];
 
 export const INITIAL_USER_PROFILE = {

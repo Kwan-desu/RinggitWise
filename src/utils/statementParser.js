@@ -106,31 +106,53 @@ export async function extractTextFromPdf(arrayBuffer) {
 export function autoCategorize(title, rawLine = '') {
   const lower = `${title} ${rawLine}`.toLowerCase();
 
-  if (/parking|tng parking|toll|petronas|shell|petron|caltex|rapid|mrt|lrt|bus|grab\s*ride/i.test(lower)) {
-    return 'Transport & Parking';
+  // 1. Parking & Tolls (Explicit priority for parking & toll gates)
+  if (/\b(parking|parkir|valet|autopay|toll|plazatoll|rfid|smarttag)\b|touch\s*['’]?n\s*go|tng\s*parking|plus\s*toll/i.test(lower)) {
+    return 'Parking & Tolls';
   }
-  if (/rice|katsu|curry|chicken|mee|nasi|kandar|roti|burger|lunch|dinner|breakfast|food|dining|makan|cafe|restaurant|bistro|cafeteria/i.test(lower)) {
+
+  // 2. Main Meals, Rice, Noodles & Dining (Checked before drinks to avoid 'rice' matching 'ice')
+  if (/\b(rice|katsu|curry|chicken|mee|nasi|kandar|roti|burger|lunch|dinner|breakfast|food|dining|makan|restaurant|bistro|cafeteria|ayam|daging|ikan|soup|noodle|pasta|spaghetti|pizza)\b/i.test(lower)) {
     return 'Mamak & Dining';
   }
-  if (/americano|latte|coffee|tea|tealive|zus|starbucks|chagee|boba|ice|drink|beverage/i.test(lower)) {
+
+  // 3. Drinks, Coffee & Beverages (using word boundaries so 'rice' won't match 'ice')
+  if (/\b(americano|latte|cappuccino|coffee|kopi|teh|tea|tealive|zus|starbucks|chagee|boba|ice|drink|drinks|beverage|mocha|espresso)\b/i.test(lower)) {
     return 'Drinks & Cafe';
   }
-  if (/waffle|cake|dessert|donut|croissant|snack|cookie|bakery/i.test(lower)) {
+
+  // 4. Snacks & Desserts
+  if (/\b(waffle|cake|dessert|donut|doughnut|croissant|snack|cookie|bakery|aiskrim|pastry|pie)\b|ice\s*cream/i.test(lower)) {
     return 'Snacks & Desserts';
   }
-  if (/grocer|speedmart|lotus|jaya|village|supermarket|pasar|family\s*mart|7-eleven|cu\s*mart/i.test(lower)) {
+
+  // 5. Fuel & Public Transport
+  if (/\b(petronas|shell|petron|caltex|fuel|petrol|diesel|rapid|mrt|lrt|bus|bas|ktm|monorail)\b|grab\s*ride/i.test(lower)) {
+    return 'Fuel & Transport';
+  }
+
+  // 6. Groceries & Supermarkets
+  if (/\b(grocer|groceries|speedmart|lotus|jaya|village|supermarket|pasar|mydin|econsave)\b|family\s*mart|7-eleven|cu\s*mart/i.test(lower)) {
     return 'Groceries';
   }
-  if (/shopee|lazada|tiktok|uniqlo|padini|mr\s*diy|h&m|zara/i.test(lower)) {
+
+  // 7. Shopping & Retail
+  if (/\b(shopee|lazada|tiktok|uniqlo|padini|h&m|zara|boutique)\b|mr\s*diy/i.test(lower)) {
     return 'Shopping & Online';
   }
-  if (/unifi|maxis|celcom|digi|tnb|air\s*selangor|indah\s*water|astro/i.test(lower)) {
+
+  // 8. Utilities & Monthly Bills
+  if (/\b(unifi|maxis|celcom|digi|tnb|astro|bill|bills|utility)\b|air\s*selangor|indah\s*water/i.test(lower)) {
     return 'Utilities & Bills';
   }
-  if (/clinic|hospital|pharmacy|guardian|watsons|caring/i.test(lower)) {
+
+  // 9. Healthcare & Pharmacy
+  if (/\b(clinic|klinik|hospital|pharmacy|farmasi|guardian|watsons|caring)\b/i.test(lower)) {
     return 'Healthcare & Pharmacy';
   }
-  if (/top\s*up|reload|deposit/i.test(lower)) {
+
+  // 10. Top Up
+  if (/\b(top\s*up|reload|deposit|credit)\b/i.test(lower)) {
     return 'Top Up (Credit)';
   }
 

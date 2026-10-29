@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import QRCode from 'qrcode';
 import { 
   QrCode, 
@@ -14,7 +14,9 @@ import {
   ClipboardPaste,
   Sparkles,
   CheckSquare,
-  Square
+  Square,
+  ArrowUpDown,
+  Filter
 } from 'lucide-react';
 import { formatRM, roundTo5Sen, playSound, fireCelebration } from '../utils/helpers';
 import { POPULAR_MALAYSIAN_MERCHANTS } from '../data/initialData';
@@ -24,6 +26,7 @@ export default function DuitNowHub({
   onAddTransaction,
   onAddMultipleTransactions,
   categories = [],
+  onQuickAddCategory,
   userProfile,
   language = 'en',
   onClose
@@ -39,6 +42,8 @@ export default function DuitNowHub({
   const [ocrResult, setOcrResult] = useState(null);
   const [inputMode, setInputMode] = useState('upload'); // 'upload' | 'paste'
   const [pastedText, setPastedText] = useState('');
+  const [statementSortBy, setStatementSortBy] = useState('category'); // 'category' | 'date' | 'amount'
+  const [statementFilterCat, setStatementFilterCat] = useState('all');
   const fileInputRef = useRef(null);
 
   // File upload handler (PDF or Image)
@@ -66,7 +71,6 @@ export default function DuitNowHub({
       });
     } finally {
       setOcrLoading(false);
-      // Reset file input so user can re-upload same file if desired
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
@@ -97,10 +101,16 @@ export default function DuitNowHub({
     const target = item || ocrResult?.items?.[0];
     if (!target) return;
 
+    // Ensure category exists
+    const catName = target.category || 'Mamak & Dining';
+    if (!categories.some(c => c.name.toLowerCase() === catName.toLowerCase()) && onQuickAddCategory) {
+      onQuickAddCategory({ name: catName });
+    }
+
     const newTx = {
       title: target.title || 'Scanned Expense',
       amount: Number(target.amount || 0),
-      category: target.category || categories[0]?.name || 'Mamak & Dining',
+      category: catName,
       method: target.method || 'DuitNow / Card',
       note: target.note || 'Scanned',
       date: target.date || new Date().toISOString().split('T')[0],
@@ -122,6 +132,17 @@ export default function DuitNowHub({
       alert(isBM ? 'Sila pilih sekurang-kurangnya satu perbelanjaan untuk diimport.' : 'Please select at least one expense to import.');
       return;
     }
+
+    // Auto-register any missing categories into category list
+    const existingNames = new Set(categories.map(c => c.name.toLowerCase()));
+    selectedItems.forEach(item => {
+      if (item.category && !existingNames.has(item.category.toLowerCase())) {
+        existingNames.add(item.category.toLowerCase());
+        if (onQuickAddCategory) {
+          onQuickAddCategory({ name: item.category });
+        }
+      }
+    });
 
     if (onAddMultipleTransactions) {
       onAddMultipleTransactions(selectedItems);
@@ -150,7 +171,13 @@ export default function DuitNowHub({
     if (!ocrResult || !ocrResult.items) return;
     setOcrResult({
       ...ocrResult,
-      items: ocrResult.items.map(item => ({ ...item, selected: select && item.type !== 'credit' }))
+      items: ocrResult.items.map(item => {
+        // If filtering by specific category, only toggle matching items
+        if (statementFilterCat !== 'all' && item.category !== statementFilterCat) {
+          return item;
+        }
+        return { ...item, selected: select && item.type !== 'credit' };
+      })
     });
   };
 
@@ -164,6 +191,65 @@ export default function DuitNowHub({
       )
     });
   };
+
+  // Compute Category Counts for Filter Chips
+  const categoryCounts = useMemo(() => {
+    if (!ocrResult || !ocrResult.items) return {};
+    const counts = {};
+    ocrResult.items.forEach(it => {
+      if (it.type !== 'credit' && it.amount > 0) {
+        const cat = it.category || 'Mamak & Dining';
+        counts[cat] = (counts[cat] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [ocrResult]);
+
+  // Compute Sorted and Filtered Statement Items
+  const displayedStatementItems = useMemo(() => {
+    if (!ocrResult || !ocrResult.items) return [];
+    let list = [...ocrResult.items];
+
+    // Filter
+    if (statementFilterCat !== 'all') {
+      list = list.filter(it => it.category === statementFilterCat);
+    }
+
+    // Sort
+    if (statementSortBy === 'category') {
+      list.sort((a, b) => a.category.localeCompare(b.category) || a.date.localeCompare(b.date));
+    } else if (statementSortBy === 'date') {
+      list.sort((a, b) => a.date.localeCompare(b.date));
+    } else if (statementSortBy === 'amount') {
+      list.sort((a, b) => b.amount - a.amount);
+    }
+
+    return list;
+  }, [ocrResult, statementFilterCat, statementSortBy]);
+
+  // All combined available categories (including any detected in statement)
+  const allAvailableCategories = useMemo(() => {
+    const list = [...categories];
+    const existing = new Set(list.map(c => c.name.toLowerCase()));
+    
+    // Always guarantee Parking & Tolls exists
+    if (!existing.has('parking & tolls')) {
+      list.unshift({ id: 'cat-parking', name: 'Parking & Tolls', color: '#54b3d6' });
+      existing.add('parking & tolls');
+    }
+
+    // Add any category from statement if not already present
+    if (ocrResult?.items) {
+      ocrResult.items.forEach(it => {
+        if (it.category && !existing.has(it.category.toLowerCase())) {
+          list.push({ id: `cat-detected-${it.category}`, name: it.category });
+          existing.add(it.category.toLowerCase());
+        }
+      });
+    }
+
+    return list;
+  }, [categories, ocrResult]);
 
   // ==========================================
   // 2. LIVE CAMERA / QR CODE SCANNER STATES
@@ -198,23 +284,6 @@ export default function DuitNowHub({
       stopCamera();
     };
   }, []);
-
-  const handleQuickMerchantScan = (merchant) => {
-    playSound('duitnow');
-    fireCelebration();
-
-    const newTx = {
-      title: merchant.name,
-      category: merchant.category,
-      amount: Number(merchant.amount),
-      method: 'DuitNow QR',
-      note: merchant.note || 'DuitNow Payment',
-      date: new Date().toISOString().split('T')[0],
-    };
-
-    onAddTransaction(newTx);
-    if (onClose) onClose();
-  };
 
   // ==========================================
   // 3. GENERATOR STATES
@@ -265,8 +334,8 @@ export default function DuitNowHub({
             </h3>
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
               {isBM 
-                ? 'Imbas penyata APSpace PDF, resit MAE/TNG, atau jana kod QR' 
-                : 'Parse APSpace PDF statements, MAE/TNG slips, or camera QR'}
+                ? 'Imbas penyata APSpace PDF, resit MAE/TNG, atau susun mengikut tempat letak kereta & tol' 
+                : 'Parse APSpace PDF statements, auto-sort Parking & Tolls, or scan QR'}
             </p>
           </div>
         </div>
@@ -431,7 +500,7 @@ export default function DuitNowHub({
                 {ocrStatusText}
               </span>
               <span className="text-[10.5px] text-zinc-400">
-                {isBM ? 'Mengekstrak baris urus niaga dan memadankan kategori...' : 'Extracting transaction rows & assigning categories...'}
+                {isBM ? 'Mengekstrak baris urus niaga dan memadankan Tempat Letak Kereta & Makanan...' : 'Sorting transactions into Parking & Tolls, Dining, Drinks & Snacks...'}
               </span>
             </div>
           )}
@@ -476,9 +545,59 @@ export default function DuitNowHub({
                 </div>
               </div>
 
+              {/* Category Filter Chips & Sort Controls */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 pb-2 border-b border-zinc-100 dark:border-zinc-800/60 text-[11px]">
+                
+                {/* Filter Chips */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setStatementFilterCat('all')}
+                    className={`px-2.5 py-0.5 rounded-full font-medium transition-colors ${
+                      statementFilterCat === 'all'
+                        ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-semibold'
+                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    {isBM ? 'Semua' : 'All'} ({ocrResult.items.filter(i => i.type !== 'credit').length})
+                  </button>
+
+                  {Object.entries(categoryCounts).map(([catName, count]) => (
+                    <button
+                      key={catName}
+                      type="button"
+                      onClick={() => setStatementFilterCat(catName)}
+                      className={`px-2.5 py-0.5 rounded-full font-medium transition-colors flex items-center space-x-1 ${
+                        statementFilterCat === catName
+                          ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-semibold'
+                          : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                      }`}
+                    >
+                      <span>{catName}</span>
+                      <span className="opacity-70 font-mono">({count})</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Sort dropdown */}
+                <div className="flex items-center space-x-1.5 shrink-0 text-zinc-500 self-end sm:self-center">
+                  <ArrowUpDown className="w-3 h-3 text-zinc-400" />
+                  <span className="text-[10px] uppercase font-semibold">{isBM ? 'Susun:' : 'Sort:'}</span>
+                  <select
+                    value={statementSortBy}
+                    onChange={(e) => setStatementSortBy(e.target.value)}
+                    className="bg-zinc-100 dark:bg-zinc-800 border-none rounded px-2 py-0.5 text-[11px] font-medium text-zinc-800 dark:text-zinc-200 focus:outline-none cursor-pointer"
+                  >
+                    <option value="category">{isBM ? 'Kategori (Tempat Letak Kereta & Makanan)' : 'Category (Parking & Meals)'}</option>
+                    <option value="date">{isBM ? 'Tarikh (Kronologi)' : 'Date (Chronological)'}</option>
+                    <option value="amount">{isBM ? 'Jumlah RM (Tertinggi)' : 'Amount RM (Highest)'}</option>
+                  </select>
+                </div>
+              </div>
+
               {/* Scrollable Items Table */}
-              <div className="max-h-60 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800/60 pr-1 text-xs">
-                {ocrResult.items.map((item) => (
+              <div className="max-h-64 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800/60 pr-1 text-xs">
+                {displayedStatementItems.map((item) => (
                   <div
                     key={item.id}
                     className={`flex items-center space-x-3 py-2 px-1 rounded-lg transition-colors ${
@@ -510,13 +629,13 @@ export default function DuitNowHub({
                       />
                     </div>
 
-                    <div className="w-32 shrink-0">
+                    <div className="w-36 shrink-0">
                       <select
                         value={item.category}
                         onChange={(e) => updateStatementItem(item.id, 'category', e.target.value)}
-                        className="w-full text-[11px] bg-zinc-100 dark:bg-zinc-800 rounded px-1.5 py-0.5 text-zinc-700 dark:text-zinc-300 border-none focus:outline-none"
+                        className="w-full text-[11px] bg-zinc-100 dark:bg-zinc-800 rounded px-2 py-1 text-zinc-800 dark:text-zinc-200 border-none focus:outline-none font-medium cursor-pointer"
                       >
-                        {categories.map((c) => (
+                        {allAvailableCategories.map((c) => (
                           <option key={c.id || c.name} value={c.name}>
                             {c.name}
                           </option>
@@ -600,11 +719,11 @@ export default function DuitNowHub({
                   {isBM ? 'Kategori' : 'Category'}
                 </label>
                 <select
-                  value={ocrResult.items[0]?.category || categories[0]?.name}
+                  value={ocrResult.items[0]?.category || 'Parking & Tolls'}
                   onChange={(e) => updateStatementItem(ocrResult.items[0].id, 'category', e.target.value)}
-                  className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-md px-2.5 py-1 text-xs text-zinc-800 dark:text-zinc-200 focus:outline-none"
+                  className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-md px-2.5 py-1 text-xs text-zinc-800 dark:text-zinc-200 focus:outline-none font-medium cursor-pointer"
                 >
-                  {categories.map((c) => (
+                  {allAvailableCategories.map((c) => (
                     <option key={c.id || c.name} value={c.name}>
                       {c.name}
                     </option>
