@@ -8,8 +8,7 @@ import {
   Calendar, 
   ChevronLeft, 
   ChevronRight,
-  Trash2,
-  Sparkles
+  Trash2
 } from 'lucide-react';
 import { formatRM } from '../utils/helpers';
 
@@ -23,7 +22,6 @@ export default function Navbar({
   onOpenCategoryManager,
   onOpenBudgetModal,
   onClearAllData,
-  onLoadSampleData,
   onOpenDuitNow
 }) {
   const isBM = language === 'bm';
@@ -114,17 +112,7 @@ export default function Navbar({
               {language === 'en' ? 'BM' : 'EN'}
             </button>
 
-            {/* Reset / Sample Demo */}
-            {onLoadSampleData && (
-              <button
-                onClick={onLoadSampleData}
-                className="hidden lg:flex p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
-                title="Load sample chart data"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-              </button>
-            )}
-
+            {/* Clear All Data */}
             <button
               onClick={onClearAllData}
               className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-500 transition-colors"

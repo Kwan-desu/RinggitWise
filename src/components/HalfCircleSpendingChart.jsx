@@ -27,8 +27,7 @@ export default function HalfCircleSpendingChart({
   categories = [],
   language = 'en',
   onOpenAddModal,
-  onOpenDuitNow,
-  onLoadSampleData
+  onOpenDuitNow
 }) {
   const isBM = language === 'bm';
   const [hoveredIndex, setHoveredIndex] = useState(null);
@@ -303,15 +302,6 @@ export default function HalfCircleSpendingChart({
                 </button>
               )}
             </div>
-
-            {onLoadSampleData && (
-              <button
-                onClick={onLoadSampleData}
-                className="text-[11px] text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 underline underline-offset-4 pt-1 transition-colors"
-              >
-                {isBM ? 'Atau muat contoh data demonstrasi' : 'Or load sample demo data to preview'}
-              </button>
-            )}
           </div>
         </div>
       ) : (

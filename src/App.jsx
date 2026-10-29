@@ -9,8 +9,7 @@ import CategoryManagerModal from './components/CategoryManagerModal';
 import SetBudgetModal from './components/SetBudgetModal';
 import { 
   DEFAULT_CATEGORIES, 
-  INITIAL_USER_PROFILE, 
-  SAMPLE_TRANSACTIONS 
+  INITIAL_USER_PROFILE 
 } from './data/initialData';
 
 export default function App() {
@@ -144,11 +143,6 @@ export default function App() {
     }
   };
 
-  const handleLoadSampleData = () => {
-    setTransactions(SAMPLE_TRANSACTIONS);
-    setCategories(DEFAULT_CATEGORIES);
-  };
-
   const handleExportCSV = () => {
     const headers = ['ID', 'Date', 'Description', 'Amount (RM)', 'Category', 'Method', 'Note'];
     const rows = expenseTransactions.map(t => [
@@ -185,7 +179,6 @@ export default function App() {
         onOpenCategoryManager={() => setIsCategoryModalOpen(true)}
         onOpenBudgetModal={() => setIsBudgetModalOpen(true)}
         onClearAllData={handleClearAllData}
-        onLoadSampleData={handleLoadSampleData}
         onOpenDuitNow={() => setIsDuitNowOpen(true)}
       />
 
@@ -212,7 +205,6 @@ export default function App() {
               language={language}
               onOpenAddModal={() => setIsAddModalOpen(true)}
               onOpenDuitNow={() => setIsDuitNowOpen(true)}
-              onLoadSampleData={handleLoadSampleData}
             />
           </div>
 

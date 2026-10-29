@@ -168,46 +168,6 @@ export default function DuitNowHub({
     reader.readAsDataURL(file);
   };
 
-  const handleLoadSampleReceipt = (type) => {
-    let mock = {
-      amount: 14.80,
-      merchant: 'Nasi Kandar Pelita SS15',
-      detectedBank: 'MAE by Maybank',
-      refNo: 'MBB202610294821',
-      date: new Date().toISOString().split('T')[0],
-      suggestedCat: 'Mamak & Dining',
-    };
-
-    if (type === 'tng') {
-      mock = {
-        amount: 28.50,
-        merchant: 'Village Grocer Subang Parade',
-        detectedBank: "Touch 'n Go eWallet",
-        refNo: 'TNG99214710',
-        date: new Date().toISOString().split('T')[0],
-        suggestedCat: 'Groceries',
-      };
-    } else if (type === 'zus') {
-      mock = {
-        amount: 13.90,
-        merchant: 'ZUS Coffee SS2 PJ',
-        detectedBank: 'DuitNow QR',
-        refNo: 'DN202610290941',
-        date: new Date().toISOString().split('T')[0],
-        suggestedCat: 'Drinks & Cafe',
-      };
-    }
-
-    setOcrLoading(true);
-    setOcrStatusText(isBM ? 'Memproses contoh resit...' : 'Processing receipt sample...');
-
-    setTimeout(() => {
-      setOcrResult(mock);
-      setOcrLoading(false);
-      playSound('duitnow');
-    }, 400);
-  };
-
   const handleConfirmOcrTransaction = () => {
     if (!ocrResult) return;
 
@@ -436,36 +396,6 @@ export default function DuitNowHub({
                   MAE by Maybank, TNG eWallet, CIMB OCTO, GrabPay
                 </span>
               </div>
-
-              {/* Sample Receipts Quick Load */}
-              <div>
-                <span className="text-[10px] font-semibold text-zinc-400 block mb-1.5 uppercase tracking-wider">
-                  {isBM ? 'Uji Resit Contoh:' : 'Test with sample slips:'}
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleLoadSampleReceipt('mbb')}
-                    className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors"
-                  >
-                    MAE DuitNow (RM14.80)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleLoadSampleReceipt('tng')}
-                    className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors"
-                  >
-                    TNG eWallet (RM28.50)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleLoadSampleReceipt('zus')}
-                    className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors"
-                  >
-                    ZUS Coffee (RM13.90)
-                  </button>
-                </div>
-              </div>
             </div>
 
             {/* Extracted Result or Status */}
@@ -528,7 +458,7 @@ export default function DuitNowHub({
                     {isBM ? 'Menunggu resit' : 'No receipt uploaded'}
                   </span>
                   <span className="text-[11px] text-zinc-400 max-w-[200px]">
-                    {isBM ? 'Muat naik gambar untuk imbas jumlah RM' : 'Upload an image or pick a test sample'}
+                    {isBM ? 'Muat naik gambar resit untuk imbas jumlah RM' : 'Upload a receipt image to extract RM amount'}
                   </span>
                 </div>
               )}
