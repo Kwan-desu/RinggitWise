@@ -1,113 +1,130 @@
-# 🇲🇾 RinggitWise — Malaysian Personal Finance & DuitNow QR App
+# 🇲🇾 RinggitWise — Malaysian Personal Finance & DuitNow OCR WebUI
 
-> **Reverse-engineered Malaysian adaptation of Dollarwise ([dollarwise.com](https://dollarwise.com/)) & Caleb Hammer's 3-Bucket Financial Audit Framework.**  
-> Built 100% in Malaysian Ringgit (RM) with native support for the Malaysian lifestyle: DuitNow QR payments, eWallets, Mamak bill splitting, PTPTN loan tracking, and dual PC/Mobile UI.
+[![Vite](https://img.shields.io/badge/Vite-8.3-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![React](https://img.shields.io/badge/React-19.3-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-v4.3-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![OCR](https://img.shields.io/badge/Tesseract.js-AI_OCR-5C6BC0?logo=tesseract&logoColor=white)](https://tesseract.projectnaptha.com/)
+[![Currency](https://img.shields.io/badge/Currency-Ringgit_Malaysia_(RM)-10B981)](#)
+[![Theme](https://img.shields.io/badge/Theme-Dark_%26_Light_Mode-38BDF8)](#)
 
----
-
-## 🌟 Key Features
-
-### 1. 💰 All in Ringgit Malaysia (RM) & 3-Bucket Framework (50 / 30 / 20)
-- **Keperluan (Needs - 50%)**: Rent/Mortgage, TNB electricity, Syabas / Air Selangor water, RON95 petrol (Petronas/Shell), Touch 'n Go RFID toll, groceries (99 Speedmart, Lotus's, Jaya Grocer), and medical costs.
-- **Kehendak (Wants - 30%)**: Boba tea (Tealive/Chagee), cafe hunting, Shopee/TikTok shop 11.11 checkouts, Steam games, cinema tickets (GSC/TGV), and leisure dining.
-- **Simpanan & Hutang (Savings & Debt - 20%)**: PTPTN loan repayment, Perodua/Proton car loan payoff, EPF (KWSP) voluntary contribution, ASB, and emergency fund tabung.
-
-### 2. ⚡ DuitNow QR Malaysian Lifestyle Payment Hub
-- **DuitNow QR Scanner Simulator**:
-  - Live animated viewfinder with laser scanning effect.
-  - **1-Tap Quick Pay for Popular Malaysian Merchants**:
-    - *Nasi Kandar Pelita* (RM 13.80)
-    - *99 Speedmart* (RM 34.60)
-    - *Petronas Mesra RON95* (RM 50.00)
-    - *Tealive Boba* (RM 12.50)
-    - *FamilyMart Oden* (RM 17.90)
-    - *Village Grocer* (RM 78.40)
-    - *RapidKL LRT Commute* (RM 5.40)
-    - *Mamak Roti Canai + Teh Tarik* (RM 9.50)
-  - Custom merchant and amount scanning with authentic DuitNow chime sound (`Ting! Duit Masuk`) and celebration effects.
-- **Personal DuitNow QR Generator**:
-  - Enter recipient name, receiving bank/eWallet (MAE by Maybank, TNG eWallet, CIMB Octo, Boost, Bank Islam), amount in RM, and payment note.
-  - Generates authentic official-style pink/red framed DuitNow QR code downloadable as PNG.
-- **Kira-Kira Mamak (Bill Splitter)**:
-  - Split bills with friends during lepak sessions.
-  - Automatically incorporates **Bank Negara Malaysia's 5-sen rounding mechanism**.
-  - Generates an instant DuitNow QR for everyone at the table to scan and pay back their exact share!
-
-### 3. 🎯 "Safe to Spend" Metric (Dollarwise Signature)
-- Real-time gauge calculating:
-  - **Safe to Spend Today (RM)**
-  - **Safe to Spend This Week (RM)**
-- Guarantees you never spend money that belongs to next week's rent, TNB bill, or PTPTN repayment.
-
-### 4. 🔥 Caleb Hammer's Weekly Swipe Review (Malaysia Edition)
-- Tinder-style swipe queue for weekly transactions:
-  - **Swipe Left / Red Hammer**: *"HAMMER SHAME / Pembaziran!"* (Plays shame buzzer, flags wasteful spend, displays spicy audit roasts: *"Aiyo! RM28 for iced latte when your SPayLater is overdue?!"*).
-  - **Swipe Right / Green Check**: *"APPROVED / Keperluan"* (Essential expense approved).
-
-### 5. 🏆 Malaysian Financial Audit Score (0 - 100)
-- Caleb Hammer style scorecard evaluating:
-  - Emergency Fund reserves (e.g. 3-6 months liquid cash in ASB / Versa).
-  - Debt-to-Income (DTI) ratio.
-  - Discretionary wants discipline.
-  - Letter grade (A to D) with humorous yet hard-hitting financial advice.
-
-### 6. 🚗 Malaysian Debt Payoff Planner (Snowball vs. Avalanche)
-- Tracks Malaysian debts: PTPTN loan (1% ujrah), Myvi / Axia Hire Purchase car loan, Maybank/CIMB Credit Cards (15%), and Shopee SPayLater / GrabPayLater (18%).
-- Switch between **Avalanche** (save highest interest) and **Snowball** (quick psychological momentum).
-- Displays exact debt-free projection date and total interest saved in RM.
-
-### 7. 📱 Dual PC UI & Mobile UI (Switchable Simulator)
-- **PC Desktop UI**: Expansive multi-column dashboard with side-by-side analytics, budget breakdown, and complete transaction ledger with CSV export.
-- **Mobile UI**: Native Malaysian fintech aesthetic with bottom navigation bar, floating action DuitNow button, touch cards, and swipe gestures.
-- **One-Click View Mode Switcher**: Easily test and preview between "Auto Responsive", "PC Dashboard", and "Mobile Phone Simulator Frame" (complete with iPhone bezel and status bar).
+A sleek, privacy-focused Malaysian Personal Finance WebUI application built completely in **Malaysian Ringgit (RM)**. Features an **interactive half-circle category spending arch chart** (referencing Image 1), a client-side **DuitNow QR & AI OCR Receipt Scanner** for instant expense logging from e-wallet screenshots (MAE Maybank, Touch 'n Go eWallet, CIMB OCTO), in-line **custom category creation**, and seamless **Dark & Light Mode** support.
 
 ---
 
-## 🛠️ Tech Stack
+## 📸 App Preview
 
-- **Framework**: React 19 + Vite 8
-- **Styling**: Tailwind CSS v4 + Plus Jakarta Sans Typography
-- **Icons**: Lucide React
-- **QR Code Engine**: `qrcode` (Vector canvas generation)
-- **Audio Synthesis**: Native Web Audio API (Offline, zero external audio asset latency)
-- **Effects**: `canvas-confetti`
-- **Persistence**: `localStorage` (Zero-backend, privacy-first, offline-ready)
+<div align="center">
+  <img src="public/app-preview.svg" alt="RinggitWise App Preview" width="100%" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.25);" />
+</div>
+
+<br/>
+
+### 🎯 Spending Summary Half-Circle Chart Design
+
+The centerpiece of the homepage is an **interactive 180° half-circle arc chart** inspired directly by modern data visualization standards (referencing Image 1):
+
+<div align="center">
+  <table style="border: none;">
+    <tr>
+      <td align="center"><b>Reference Design (Image 1)</b></td>
+      <td align="center"><b>Live RinggitWise Implementation</b></td>
+    </tr>
+    <tr>
+      <td align="center"><img src="public/chart-reference.png" width="380" alt="Image 1 Reference" /></td>
+      <td align="center"><img src="public/app-preview.svg" width="460" alt="RinggitWise Half Circle Chart" /></td>
+    </tr>
+  </table>
+</div>
+
+- **Harmonious Arc Gradient**: Slices rendered with rounded segment contours and distinct spacing gaps.
+- **Precision Leader Lines**: Angle-calculated indicator lines pointing directly from each arc slice to its label (`Category Name: XX.X%`).
+- **Center Hub**: Displays total monthly spend in Ringgit (`RM 1,068.00`) and active transaction count.
+- **Detailed Multi-Column Legend**: Clean rounded color chips with category names, percentages, and exact Ringgit values.
 
 ---
 
-## 🚀 Quick Start & Development
+## ✨ Key Features
+
+### 1. 💰 100% Malaysian Ringgit (RM) Native
+- All inputs, calculations, summaries, ledger balances, and charts are strictly formatted in Malaysian Ringgit (`RM 1,234.50`).
+- Built-in monthly budget tracker calculating real-time remaining balance and daily safe spending allowances.
+
+### 2. ⚡ DuitNow QR & AI OCR Receipt Scanner
+- **Client-Side AI OCR Engine** (powered by Tesseract.js):
+  - Upload or snap screenshots of Malaysian payment slips and e-wallet transfers (**MAE by Maybank**, **Touch 'n Go eWallet**, **CIMB OCTO**, **GrabPay**, **Bank Islam**, **Public Bank**).
+  - Automatically extracts **Transaction Amount in RM**, **Merchant / Recipient Name**, **Reference Number**, and **Date**.
+  - Auto-suggests the appropriate spending category.
+  - Test instantly with 1-click sample receipts (`MAE DuitNow RM14.80`, `TNG eWallet RM28.50`, `ZUS Coffee RM13.90`).
+- **Live QR Scanner & Simulator**:
+  - Live camera viewfinder for scanning interoperable DuitNow QR codes.
+  - 1-Tap quick payment presets for popular Malaysian merchants (*Nasi Kandar Pelita*, *99 Speedmart*, *Petronas Mesra*, *Tealive*, *FamilyMart*, *Village Grocer*).
+- **Dynamic DuitNow QR Generator**:
+  - Generate official-spec DuitNow QR codes with custom RM amounts and notes.
+- **Mamak Bill Splitter**:
+  - Split hangout bills with friends using **Bank Negara Malaysia's 5-sen rounding mechanism**.
+
+### 3. 🌙 True Dark Mode & Light Mode
+- One-click instant theme toggle in the header.
+- **Dark Mode**: High-contrast, sleek Slate-950/900 palette with emerald and cyan accents.
+- **Light Mode**: Crisp, clean off-white canvas with dark slate typography and accessible contrast ratios.
+- Automatically persists your preference in `localStorage` and respects system preferences.
+
+### 4. 📁 Quick Category Creation & Manager
+- **In-Line Quick Creation**: Add custom categories on the fly directly inside the expense logging modal without leaving the form.
+- **Dedicated Category Manager**:
+  - Customize category names, colors (palette matching Image 1), and emoji icons (`🍔`, `🛒`, `⛽`, `💡`, `🧋`, `🛍️`, `🎬`, `🏥`, `📚`, `📈`).
+  - Real-time updates reflected across all charts and ledgers.
+
+### 5. 📊 Real-Time Transaction Ledger
+- Search expenses by merchant name, notes, or tags.
+- Filter by custom category or payment method (DuitNow QR, TNG eWallet, MAE, GrabPay, Card, Cash).
+- 1-Click **CSV Export** for easy tax and personal accounting tracking.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js (v18 or higher recommended)
+- npm or pnpm
+
+### Installation
 
 ```bash
-# Clone the repository
+# 1. Clone the repository
 git clone https://github.com/Kwan-desu/RinggitWise.git
 cd RinggitWise
 
-# Install dependencies
+# 2. Install dependencies
 npm install
 
-# Start local development server
+# 3. Start development server
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+Visit `http://localhost:5173` in your browser.
 
----
+### Production Build
 
-## 📦 Deployment to GitHub Pages
-
-### Automatic Deployment (GitHub Actions)
-A preconfigured workflow is included at `.github/workflows/deploy.yml`. When you push to `main` or `master`, GitHub Actions builds and publishes the site to GitHub Pages automatically.
-
-To enable GitHub Pages in your repo:
-1. Go to your repository on GitHub: `https://github.com/Kwan-desu/RinggitWise/settings/pages`
-2. Under **Build and deployment > Source**, select **GitHub Actions**.
-
-### Manual Deployment
 ```bash
-npm run deploy
+npm run build
 ```
 
+The production output is generated in the `dist/` directory.
+
 ---
 
-## 🇲🇾 Proudly Designed for Malaysia
-Made with ❤️ for Malaysians seeking financial freedom, smarter budgeting, and zero spreadsheet headaches.
+## 🛠️ Tech Architecture
+
+- **UI Framework**: React 19 + Vite 8
+- **Styling**: Tailwind CSS v4 with custom dark mode variants
+- **OCR Engine**: Tesseract.js (pure client-side, zero backend server requirement)
+- **Icons**: Lucide React
+- **QR Code**: qrcode + Canvas
+- **Visuals**: SVG Data Visualization (Half-Circle 180° Arc System)
+
+---
+
+## 📄 License
+
+MIT License © 2026 RinggitWise Team.

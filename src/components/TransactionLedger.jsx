@@ -1,30 +1,26 @@
 import React, { useState } from 'react';
 import { 
   Search, 
-  Filter, 
   Trash2, 
-  QrCode, 
   Download, 
-  Calendar, 
-  AlertTriangle, 
-  CheckCircle2,
-  DollarSign,
-  Plus,
-  Receipt
+  Plus, 
+  Receipt,
+  Calendar,
+  Tag
 } from 'lucide-react';
 import { formatRM } from '../utils/helpers';
 
 export default function TransactionLedger({
   transactions = [],
+  categories = [],
   onDeleteTransaction,
   onExportCSV,
   onOpenAddModal,
-  onOpenDuitNow,
-  language
+  language = 'en'
 }) {
   const isBM = language === 'bm';
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedBucket, setSelectedBucket] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedMethod, setSelectedMethod] = useState('all');
 
   const filtered = transactions.filter(tx => {
@@ -33,25 +29,25 @@ export default function TransactionLedger({
       tx.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (tx.note && tx.note.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    const matchesBucket = selectedBucket === 'all' || tx.bucket === selectedBucket;
+    const matchesCat = selectedCategory === 'all' || tx.category === selectedCategory;
     const matchesMethod = selectedMethod === 'all' || tx.method === selectedMethod;
 
-    return matchesSearch && matchesBucket && matchesMethod;
+    return matchesSearch && matchesCat && matchesMethod;
   });
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl">
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl transition-colors">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-800 pb-4 mb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4 mb-5">
         <div>
-          <h2 className="text-xl font-bold text-white tracking-tight">
-            {isBM ? 'Lejar Transaksi Ringgit' : 'Ringgit Transaction Ledger'}
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+            {isBM ? 'Lejar Transaksi Ringgit' : 'Ringgit Transaction History'}
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {isBM 
-              ? 'Semua rekod perbelanjaan dan pembayaran DuitNow QR, TNG eWallet dan pindahan bank.'
-              : 'Every Ringgit tracked across DuitNow QR, eWallets, cards and bank transfers.'}
+              ? 'Rekod perbelanjaan merentasi DuitNow QR, e-dompet, dan pemindahan tunai.'
+              : 'Every Ringgit expense tracked with real-time filters and CSV export.'}
           </p>
         </div>
 
@@ -59,19 +55,19 @@ export default function TransactionLedger({
           {transactions.length > 0 && (
             <button
               onClick={onExportCSV}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-300 hover:text-white hover:border-slate-700 transition-colors"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
             >
-              <Download className="w-3.5 h-3.5 text-emerald-400" />
+              <Download className="w-3.5 h-3.5 text-emerald-500" />
               <span>{isBM ? 'Eksport CSV' : 'Export CSV'}</span>
             </button>
           )}
 
           <button
             onClick={onOpenAddModal}
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all"
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>{isBM ? 'Tambah Transaksi' : 'Log Expense'}</span>
+            <span>{isBM ? 'Tambah Rekod RM' : 'Log Expense'}</span>
           </button>
         </div>
       </div>
@@ -80,31 +76,31 @@ export default function TransactionLedger({
         <>
           {/* Filters & Search */}
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 mb-5">
-            
-            {/* Search */}
-            <div className="sm:col-span-5 relative">
-              <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-500" />
+            {/* Search Input */}
+            <div className="sm:col-span-6 relative">
+              <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
               <input
                 type="text"
-                placeholder={isBM ? 'Cari peniaga, kedai mamak, bil...' : 'Search merchant, mamak, bills...'}
+                placeholder={isBM ? 'Cari peniaga, kategori, nota...' : 'Search merchant, category, notes...'}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500 transition-colors"
               />
             </div>
 
-            {/* Bucket Filter */}
-            <div className="sm:col-span-4">
+            {/* Category Filter */}
+            <div className="sm:col-span-3">
               <select
-                value={selectedBucket}
-                onChange={(e) => setSelectedBucket(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-emerald-500"
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 transition-colors"
               >
-                <option value="all">{isBM ? 'Semua Balang' : 'All 3 Buckets'}</option>
-                <option value="needs">Keperluan (Needs 50%)</option>
-                <option value="wants">Kehendak (Wants 30%)</option>
-                <option value="savings">Simpanan & Hutang (Savings/Debt 20%)</option>
-                <option value="income">Pendapatan (Income)</option>
+                <option value="all">{isBM ? 'Semua Kategori' : 'All Categories'}</option>
+                {categories.map((c) => (
+                  <option key={c.id || c.name} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -113,140 +109,110 @@ export default function TransactionLedger({
               <select
                 value={selectedMethod}
                 onChange={(e) => setSelectedMethod(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-emerald-500"
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 transition-colors"
               >
-                <option value="all">{isBM ? 'Semua Kaedah' : 'All Payment Methods'}</option>
+                <option value="all">{isBM ? 'Semua Kaedah' : 'All Methods'}</option>
                 <option value="DuitNow QR">DuitNow QR</option>
                 <option value="Touch 'n Go eWallet">Touch 'n Go eWallet</option>
                 <option value="MAE by Maybank">MAE by Maybank</option>
+                <option value="CIMB OCTO">CIMB OCTO</option>
                 <option value="GrabPay">GrabPay</option>
-                <option value="SPayLater">SPayLater</option>
-                <option value="Credit Card">Credit Card</option>
+                <option value="Credit/Debit Card">Credit/Debit Card</option>
+                <option value="Cash">Cash</option>
               </select>
             </div>
-
           </div>
 
-          {/* Transactions Table / List */}
-          <div className="divide-y divide-slate-800/80 max-h-[480px] overflow-y-auto pr-1">
-            {filtered.length > 0 ? (
-              filtered.map((tx) => {
-                const isIncome = tx.bucket === 'income';
+          {/* Transaction Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold">
+                  <th className="pb-3 px-2">{isBM ? 'Tarikh' : 'Date'}</th>
+                  <th className="pb-3 px-2">{isBM ? 'Peniaga / Pembayaran' : 'Merchant / Description'}</th>
+                  <th className="pb-3 px-2">{isBM ? 'Kategori' : 'Category'}</th>
+                  <th className="pb-3 px-2">{isBM ? 'Kaedah' : 'Method'}</th>
+                  <th className="pb-3 px-2 text-right">{isBM ? 'Jumlah (RM)' : 'Amount (RM)'}</th>
+                  <th className="pb-3 px-2 text-right">{isBM ? 'Tindakan' : 'Action'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                {filtered.map((tx) => {
+                  const catData = categories.find(c => c.name === tx.category);
+                  return (
+                    <tr key={tx.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                      {/* Date */}
+                      <td className="py-3 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                        {tx.date}
+                      </td>
 
-                return (
-                  <div 
-                    key={tx.id}
-                    className="py-3 flex items-center justify-between hover:bg-slate-950/40 px-2 rounded-lg transition-colors group"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                        isIncome 
-                          ? 'bg-emerald-950 border border-emerald-800 text-emerald-400' 
-                          : tx.method.includes('DuitNow')
-                          ? 'bg-red-950 border border-red-800/60 text-red-400'
-                          : 'bg-slate-800 border border-slate-700 text-slate-300'
-                      }`}>
-                        {tx.method.includes('DuitNow') ? (
-                          <QrCode className="w-5 h-5" />
-                        ) : (
-                          <DollarSign className="w-5 h-5" />
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs sm:text-sm font-bold text-white">
-                            {tx.title}
-                          </span>
-                          {tx.shameFlag && (
-                            <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-rose-950 text-rose-400 border border-rose-800">
-                              Shame!
-                            </span>
-                          )}
+                      {/* Merchant & Note */}
+                      <td className="py-3 px-2">
+                        <div className="font-bold text-slate-900 dark:text-white">
+                          {tx.title}
                         </div>
-
-                        <div className="flex items-center space-x-2 text-[11px] text-slate-400 mt-0.5">
-                          <span className="text-slate-300 font-medium">{tx.category}</span>
-                          <span>•</span>
-                          <span>{tx.method}</span>
-                          <span>•</span>
-                          <span className="text-slate-500">{tx.date}</span>
-                        </div>
-
                         {tx.note && (
-                          <p className="text-[10px] text-slate-500 mt-0.5 italic">
-                            "{tx.note}"
-                          </p>
+                          <div className="text-[11px] text-slate-400 truncate max-w-xs">
+                            {tx.note}
+                          </div>
                         )}
-                      </div>
-                    </div>
+                      </td>
 
-                    <div className="flex items-center space-x-3">
-                      <div className="text-right">
-                        <span className={`text-sm sm:text-base font-extrabold block ${
-                          isIncome ? 'text-emerald-400' : 'text-slate-100'
-                        }`}>
-                          {isIncome ? '+' : '-'}{formatRM(tx.amount)}
+                      {/* Category Badge */}
+                      <td className="py-3 px-2">
+                        <span className="inline-flex items-center space-x-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
+                          {catData?.color && (
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: catData.color }}
+                            ></span>
+                          )}
+                          <span>{tx.category}</span>
                         </span>
-                        <span className={`text-[10px] uppercase font-bold px-1.5 py-0.2 rounded inline-block ${
-                          tx.bucket === 'needs' 
-                            ? 'text-emerald-400 bg-emerald-950/60' 
-                            : tx.bucket === 'wants' 
-                            ? 'text-amber-400 bg-amber-950/60' 
-                            : tx.bucket === 'savings' 
-                            ? 'text-blue-400 bg-blue-950/60'
-                            : 'text-purple-400 bg-purple-950/60'
-                        }`}>
-                          {tx.bucket}
-                        </span>
-                      </div>
+                      </td>
 
-                      <button
-                        onClick={() => onDeleteTransaction(tx.id)}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded transition-all"
-                        title="Delete record"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-center py-10 text-xs text-slate-500">
-                {isBM ? 'Tiada transaksi dijumpai padanan penapis anda.' : 'No transactions found matching your filters.'}
-              </div>
-            )}
+                      {/* Payment Method */}
+                      <td className="py-3 px-2 text-slate-600 dark:text-slate-300 font-medium">
+                        {tx.method}
+                      </td>
+
+                      {/* Ringgit Amount */}
+                      <td className="py-3 px-2 text-right">
+                        <span className="font-black text-sm text-slate-900 dark:text-white">
+                          {formatRM(tx.amount)}
+                        </span>
+                      </td>
+
+                      {/* Delete Action */}
+                      <td className="py-3 px-2 text-right">
+                        <button
+                          onClick={() => onDeleteTransaction(tx.id)}
+                          className="text-slate-400 hover:text-rose-500 p-1 rounded-lg transition-colors"
+                          title={isBM ? 'Padam Rekod' : 'Delete Record'}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </>
       ) : (
-        /* Empty State */
-        <div className="text-center py-12 px-4 bg-slate-950/40 rounded-xl border border-slate-800/60">
-          <Receipt className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-          <h4 className="text-base font-bold text-white">
-            {isBM ? 'Tiada Transaksi Direkodkan Lagi' : 'No Transactions Recorded Yet'}
-          </h4>
-          <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto leading-relaxed">
-            {isBM 
-              ? 'Mula rekod perbelanjaan harian anda. Gunakan DuitNow QR Hub atau klik butang di bawah untuk merekod transaksi pertama anda.'
-              : 'Start logging your daily Ringgit expenses. Scan a DuitNow QR or manually log your first transaction.'}
-          </p>
-          <div className="mt-5 flex items-center justify-center space-x-3">
-            <button
-              onClick={onOpenAddModal}
-              className="inline-flex items-center px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/30 transition-all"
-            >
-              <Plus className="w-4 h-4 mr-1.5" />
-              <span>{isBM ? 'Rekod Transaksi Pertama' : 'Log First Transaction'}</span>
-            </button>
-            <button
-              onClick={onOpenDuitNow}
-              className="inline-flex items-center px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-md shadow-red-600/30 transition-all"
-            >
-              <QrCode className="w-4 h-4 mr-1.5" />
-              <span>DuitNow QR</span>
-            </button>
+        <div className="py-10 flex flex-col items-center justify-center text-center space-y-2">
+          <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center">
+            <Receipt className="w-6 h-6" />
           </div>
+          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+            {isBM ? 'Tiada Rekod Transaksi' : 'Zero Transactions in Ledger'}
+          </h4>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
+            {isBM 
+              ? 'Mula rekod perbelanjaan harian anda secara manual atau imbas kod DuitNow QR.'
+              : 'Add your first Ringgit transaction above or scan a DuitNow receipt with the OCR scanner.'}
+          </p>
         </div>
       )}
 
