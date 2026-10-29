@@ -138,7 +138,7 @@ export default function TransactionLedger({
 
                       <td className="py-3 px-3">
                         <span className="font-medium text-zinc-900 dark:text-zinc-100 block">
-                          {tx.title}
+                          {tx.title || tx.category || (isBM ? 'Perbelanjaan' : 'Expense')}
                         </span>
                         {tx.note && (
                           <span className="text-[11px] text-zinc-400 block truncate max-w-xs">

@@ -122,19 +122,44 @@ export default function App() {
     t.category?.toLowerCase() !== 'income'
   );
 
-  // Available distinct months found in transactions + current month
-  const availableMonths = useMemo(() => {
-    const set = new Set();
-    set.add(new Date().toISOString().slice(0, 7));
+  // Multi-year and multi-month calendar navigation
+  const { yearGroups, availableMonths } = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const yearsSet = new Set([
+      currentYear + 1,
+      currentYear,
+      currentYear - 1,
+      currentYear - 2,
+      currentYear - 3,
+    ]);
+
+    // Discover any additional years from recorded transactions
     expenseTransactions.forEach(t => {
-      if (t.date && t.date.length >= 7) {
-        set.add(t.date.slice(0, 7));
+      if (t.date && t.date.length >= 4) {
+        const y = parseInt(t.date.slice(0, 4), 10);
+        if (!isNaN(y)) yearsSet.add(y);
       }
     });
-    return Array.from(set).sort((a, b) => b.localeCompare(a));
-  }, [expenseTransactions]);
 
-  // Expenses for the currently selected month
+    if (selectedMonth && selectedMonth.length >= 4 && selectedMonth !== 'all') {
+      const y = parseInt(selectedMonth.slice(0, 4), 10);
+      if (!isNaN(y)) yearsSet.add(y);
+    }
+
+    const sortedYears = Array.from(yearsSet).sort((a, b) => b - a);
+    const monthsDesc = ['12', '11', '10', '09', '08', '07', '06', '05', '04', '03', '02', '01'];
+
+    const flatMonths = [];
+    const groups = sortedYears.map(year => {
+      const months = monthsDesc.map(m => `${year}-${m}`);
+      flatMonths.push(...months);
+      return { year, months };
+    });
+
+    return { yearGroups: groups, availableMonths: flatMonths };
+  }, [expenseTransactions, selectedMonth]);
+
+  // Expenses for the currently selected month or year
   const activeMonthExpenses = useMemo(() => {
     if (!selectedMonth || selectedMonth === 'all') return expenseTransactions;
     return expenseTransactions.filter(t => t.date && t.date.startsWith(selectedMonth));
@@ -163,6 +188,7 @@ export default function App() {
       id: `tx-${Date.now()}`,
       date: newTx.date || new Date().toISOString().split('T')[0],
       ...newTx,
+      title: newTx.title?.trim() || newTx.category || 'Expense',
     };
     setTransactions(prev => [tx, ...prev]);
   };
@@ -173,6 +199,7 @@ export default function App() {
       id: `tx-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
       date: t.date || new Date().toISOString().split('T')[0],
       ...t,
+      title: t.title?.trim() || t.category || 'Expense',
     }));
     setTransactions(prev => [...formatted, ...prev]);
   };
@@ -240,6 +267,7 @@ export default function App() {
         onSelectMonth={handleSelectMonth}
         onOpenPastSpending={() => setIsPastSpendingOpen(true)}
         availableMonths={availableMonths}
+        yearGroups={yearGroups}
         onOpenAddModal={() => setIsAddModalOpen(true)}
         onOpenCategoryManager={() => setIsCategoryModalOpen(true)}
         onOpenBudgetModal={() => setIsBudgetModalOpen(true)}

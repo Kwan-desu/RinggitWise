@@ -44,10 +44,13 @@ export default function AddTransactionModal({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!title || !amount) return;
+    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) return;
+
+    const trimmedTitle = title.trim();
+    const finalTitle = trimmedTitle || category || (isBM ? 'Perbelanjaan' : 'Expense');
 
     const newTx = {
-      title,
+      title: finalTitle,
       amount: Number(amount),
       category,
       method,
@@ -104,18 +107,17 @@ export default function AddTransactionModal({
             </div>
           </div>
 
-          {/* Title */}
+          {/* Title / Description (Optional) */}
           <div>
             <label className="text-[11px] font-medium text-zinc-500 block mb-1 uppercase tracking-wider">
-              {isBM ? 'Penerima / Keterangan' : 'Description'}
+              {isBM ? 'Penerima / Keterangan (Pilihan)' : 'Description (Optional)'}
             </label>
             <input
               type="text"
-              required
-              placeholder="e.g. Village Grocer, ZUS Coffee"
+              placeholder={isBM ? `Pilihan (cth. ${category})` : `Optional (e.g. ${category})`}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-100 focus:outline-none"
+              className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-100 focus:outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
             />
           </div>
 

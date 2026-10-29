@@ -105,9 +105,12 @@ export const fireCelebration = () => {
   }
 };
 
-// Format YYYY-MM to human readable (e.g. '2026-10' -> 'October 2026')
+// Format YYYY-MM to human readable (e.g. '2026-10' -> 'October 2026', '2026' -> 'Year 2026')
 export const formatMonthYear = (yyyyMm, isBM = false) => {
   if (!yyyyMm || yyyyMm === 'all') return isBM ? 'Semua Masa' : 'All Time';
+  if (/^\d{4}$/.test(yyyyMm)) {
+    return isBM ? `Tahun ${yyyyMm}` : `Year ${yyyyMm}`;
+  }
   const parts = yyyyMm.split('-');
   if (parts.length < 2) return yyyyMm;
   const year = parts[0];
@@ -126,11 +129,14 @@ export const formatMonthYear = (yyyyMm, isBM = false) => {
   return `${mName || ''} ${year}`.trim();
 };
 
-// Calculate previous YYYY-MM
+// Calculate previous YYYY-MM or YYYY
 export const getPreviousMonthStr = (yyyyMm) => {
   if (!yyyyMm || yyyyMm === 'all') {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+  if (/^\d{4}$/.test(yyyyMm)) {
+    return String(parseInt(yyyyMm, 10) - 1);
   }
   const [yearStr, monthStr] = yyyyMm.split('-');
   let y = parseInt(yearStr, 10);
@@ -142,11 +148,14 @@ export const getPreviousMonthStr = (yyyyMm) => {
   return `${y}-${String(m).padStart(2, '0')}`;
 };
 
-// Calculate next YYYY-MM
+// Calculate next YYYY-MM or YYYY
 export const getNextMonthStr = (yyyyMm) => {
   if (!yyyyMm || yyyyMm === 'all') {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+  if (/^\d{4}$/.test(yyyyMm)) {
+    return String(parseInt(yyyyMm, 10) + 1);
   }
   const [yearStr, monthStr] = yyyyMm.split('-');
   let y = parseInt(yearStr, 10);

@@ -25,6 +25,7 @@ export default function Navbar({
   onSelectMonth,
   onOpenPastSpending,
   availableMonths = [],
+  yearGroups = [],
   onOpenAddModal,
   onOpenCategoryManager,
   onOpenBudgetModal,
@@ -40,48 +41,55 @@ export default function Navbar({
         <div className="flex items-center justify-between h-14">
           
           {/* Left: Minimalist Brand Identity */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 sm:space-x-3">
             <div className="flex items-center space-x-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               <span className="text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
                 RinggitWise
               </span>
             </div>
-            <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800/60">
+            <span className="hidden sm:inline-block text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800/60">
               MYR (RM)
             </span>
           </div>
 
           {/* Middle: Interactive Month Navigator & Past Spending Switcher */}
-          <div className="hidden md:flex items-center space-x-3">
+          <div className="flex items-center space-x-1.5 sm:space-x-3">
             
-            {/* Month Stepper */}
-            <div className="flex items-center space-x-0.5 text-xs bg-zinc-100/80 dark:bg-zinc-900/80 px-1.5 py-1 rounded-full border border-zinc-200/60 dark:border-zinc-800/60 shadow-2xs">
+            {/* Month & Year Stepper */}
+            <div className="flex items-center space-x-0.5 text-xs bg-zinc-100/80 dark:bg-zinc-900/80 px-1 sm:px-1.5 py-1 rounded-full border border-zinc-200/60 dark:border-zinc-800/60 shadow-2xs">
               <button
                 type="button"
                 onClick={onPrevMonth}
                 className="p-1 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
-                title={isBM ? "Bulan Sebelumnya" : "Previous Month"}
+                title={isBM ? "Bulan / Tahun Sebelumnya" : "Previous Month / Year"}
                 aria-label="Previous Month"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
 
               <div className="flex items-center space-x-1 px-1">
-                <Calendar className="w-3.5 h-3.5 text-zinc-400" />
+                <Calendar className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                 <select
                   value={selectedMonth}
                   onChange={(e) => onSelectMonth && onSelectMonth(e.target.value)}
-                  className="bg-transparent border-none text-xs font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer focus:outline-none"
+                  className="bg-transparent border-none text-xs font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer focus:outline-none max-w-[125px] sm:max-w-[180px] truncate"
                 >
-                  {availableMonths.map((mStr) => (
-                    <option key={mStr} value={mStr} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
-                      {formatMonthYear(mStr, isBM)}
-                    </option>
-                  ))}
-                  <option value="all" className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
-                    {isBM ? 'Semua Masa' : 'All Time'}
+                  <option value="all" className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-bold">
+                    {isBM ? '🕒 Semua Masa (All Time)' : '🕒 All Time'}
                   </option>
+                  {yearGroups.map(({ year, months }) => (
+                    <optgroup key={year} label={isBM ? `── Tahun ${year} ──` : `── Year ${year} ──`} className="bg-white dark:bg-zinc-900 text-zinc-500 font-bold">
+                      <option value={String(year)} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-semibold">
+                        {isBM ? `Sepanjang Tahun ${year}` : `Full Year ${year}`}
+                      </option>
+                      {months.map((mStr) => (
+                        <option key={mStr} value={mStr} className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200">
+                          {formatMonthYear(mStr, isBM)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
                 </select>
               </div>
 
@@ -89,7 +97,7 @@ export default function Navbar({
                 type="button"
                 onClick={onNextMonth}
                 className="p-1 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
-                title={isBM ? "Bulan Seterusnya" : "Next Month"}
+                title={isBM ? "Bulan / Tahun Seterusnya" : "Next Month / Year"}
                 aria-label="Next Month"
               >
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -100,7 +108,7 @@ export default function Navbar({
             <button
               type="button"
               onClick={onOpenPastSpending}
-              className="flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-medium border border-zinc-200/80 dark:border-zinc-800/80 hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+              className="hidden sm:flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-medium border border-zinc-200/80 dark:border-zinc-800/80 hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
               title={isBM ? "Lihat Sejarah Perbelanjaan Mengikut Bulan" : "View Historical Spending by Month"}
             >
               <History className="w-3.5 h-3.5 text-zinc-400" />

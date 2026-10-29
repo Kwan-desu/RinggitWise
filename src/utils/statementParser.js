@@ -80,7 +80,8 @@ export async function extractTextFromPdf(arrayBuffer) {
     const rowMap = new Map();
     for (const item of content.items) {
       if (!item.str || !item.str.trim()) continue;
-      const y = Math.round(item.transform[5] / 3) * 3; // quantize Y by 3px
+      // Quantize Y by 4px to merge baseline-shifted table cells into the same row
+      const y = Math.round(item.transform[5] / 4) * 4;
       if (!rowMap.has(y)) rowMap.set(y, []);
       rowMap.get(y).push(item);
     }
@@ -111,8 +112,8 @@ export function autoCategorize(title, rawLine = '') {
     return 'Parking & Tolls';
   }
 
-  // 2. Main Meals, Rice, Noodles & Dining (Checked before drinks to avoid 'rice' matching 'ice')
-  if (/\b(rice|katsu|curry|chicken|mee|nasi|kandar|roti|burger|lunch|dinner|breakfast|food|dining|makan|restaurant|bistro|cafeteria|ayam|daging|ikan|soup|noodle|pasta|spaghetti|pizza)\b/i.test(lower)) {
+  // 2. Main Meals, Rice, Noodles, Fast Food & Dining (Checked before drinks to avoid 'rice' matching 'ice')
+  if (/\b(rice|katsu|curry|chicken|mee|nasi|kandar|roti|burger|lunch|dinner|breakfast|food|dining|makan|restaurant|bistro|cafeteria|ayam|daging|ikan|soup|noodle|pasta|spaghetti|pizza|mcdonald|mcd|kfc|subway|marrybrown|texas|domino)\b/i.test(lower)) {
     return 'Mamak & Dining';
   }
 
@@ -151,8 +152,8 @@ export function autoCategorize(title, rawLine = '') {
     return 'Healthcare & Pharmacy';
   }
 
-  // 10. Top Up
-  if (/\b(top\s*up|reload|deposit|credit)\b/i.test(lower)) {
+  // 10. Top Up (must not be a payment or expense)
+  if (/\b(top\s*up|reload|deposit|credit)\b/i.test(lower) && !/\b(payment|bayaran)\b/i.test(lower)) {
     return 'Top Up (Credit)';
   }
 
@@ -162,6 +163,161 @@ export function autoCategorize(title, rawLine = '') {
 /**
  * Core Parser: Parses both Statements (multi-transaction) and single Slips/Receipts
  */
+/**
+ * Normalizes different date formats to ISO YYYY-MM-DD:
+ * - DD/MM/YYYY or DD-MM-YYYY (e.g. 15/10/2026, 15-10-2026)
+ * - DD Mon YYYY (e.g. 20 Oct 2026, 15 October 2026)
+ * - YYYY-MM-DD (e.g. 2026-10-15)
+ */
+export function normalizeStatementDate(rawDate) {
+  if (!rawDate) return new Date().toISOString().split('T')[0];
+  const trimmed = rawDate.trim();
+
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  // DD/MM/YYYY or DD-MM-YYYY
+  if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(trimmed)) {
+    const parts = trimmed.split(/[\/\-]/);
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        // YYYY/MM/DD
+        return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+      } else {
+        // DD/MM/YYYY
+        const y = parts[2].length === 2 ? ('20' + parts[2]) : parts[2];
+        return `${y}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    }
+  }
+
+  // DD Mon YYYY (e.g. 20 Oct 2026) without timezone conversion glitches
+  const monMatch = trimmed.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})$/);
+  if (monMatch) {
+    const day = monMatch[1].padStart(2, '0');
+    const monthNames = {
+      jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+      jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+    };
+    const mon = monthNames[monMatch[2].slice(0, 3).toLowerCase()];
+    if (mon) {
+      return `${monMatch[3]}-${mon}-${day}`;
+    }
+  }
+
+  // Fallback
+  const d = new Date(trimmed);
+  if (!isNaN(d.getTime())) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  return new Date().toISOString().split('T')[0];
+}
+
+/**
+ * Universal Statement Row Parser:
+ * Supports Touch 'n Go (TNG) eWallet, Maybank MAE, CIMB, and APSpace/APCard statements.
+ */
+export function parseUniversalStatementRow(line, index = 0) {
+  if (!line || typeof line !== 'string') return null;
+  const cleanLine = line.trim();
+
+  // 1. Match Date (Direct at start or preceded by index like "18 2026-10-16" or "#18 | 2026-10-16")
+  let dateMatch = cleanLine.match(/^(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}\s+[A-Za-z]{3,9}\s+\d{2,4}|\d{4}-\d{2}-\d{2})\b/);
+  let matchedPrefixLength = 0;
+  if (dateMatch) {
+    matchedPrefixLength = dateMatch[0].length;
+  } else {
+    dateMatch = cleanLine.match(/^(?:#?\s*\d+[\s|]+)(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}\s+[A-Za-z]{3,9}\s+\d{2,4}|\d{4}-\d{2}-\d{2})\b/);
+    if (dateMatch) {
+      matchedPrefixLength = dateMatch[0].length;
+    }
+  }
+
+  if (!dateMatch) return null;
+
+  const rawDate = dateMatch[1];
+  let rest = cleanLine.slice(matchedPrefixLength).trim();
+  if (rest.startsWith('|')) rest = rest.slice(1).trim();
+
+  // 2. Extract optional time (24h or 12h AM/PM)
+  let time = '';
+  const timeRegex = /^(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)\b/i;
+  const timeMatch = rest.match(timeRegex);
+  if (timeMatch) {
+    time = timeMatch[1].trim();
+    rest = rest.slice(timeMatch[0].length).trim();
+    if (rest.startsWith('|')) rest = rest.slice(1).trim();
+  }
+
+  // 3. Extract Amount & optional trailing Balance
+  // Matches e.g. "-15.50 120.40", "+100.00 206.00", "3.94", "-RM 15.50", "RM12.00"
+  const amountRegex = /([+-]?(?:RM|MYR)?\s*[0-9]{1,5}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)\s*(?:(?:RM|MYR)?\s*[0-9]{1,5}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)?$/i;
+  const amtMatch = rest.match(amountRegex);
+  if (!amtMatch) return null;
+
+  const rawAmtStr = amtMatch[1].replace(/RM|MYR|\s/gi, '');
+  const parsedAmt = Math.abs(parseFloat(rawAmtStr));
+  if (isNaN(parsedAmt) || parsedAmt <= 0) return null;
+
+  // Credit vs Debit determination
+  // Quick Reload Payment is a payment (debit), whereas Reload / Top Up without Payment is credit
+  const isCredit = rawAmtStr.startsWith('+') || 
+    (/\b(reload|top\s*up|received|cash\s*in|deposit)\b/i.test(cleanLine) && !/\b(payment|bayaran)\b/i.test(cleanLine));
+
+  // 4. Extract and clean Title/Merchant description
+  let rawTitle = rest.slice(0, amtMatch.index).trim();
+  let title = rawTitle
+    .replace(/[|#]/g, ' ')
+    .replace(/\b(Successful|Success|Completed|Failed|Berjaya|Pending)\b/gi, '')
+    .replace(/\b(TR\d{8,26}|TNG\d{6,26}|\d{16,26})\b/gi, '')
+    .replace(/\b(DuitNow\s*QR\s*Payment|Quick\s*Reload\s*Payment|QR\s*Payment|Direct\s*Charge|Payment)\b/gi, '')
+    .replace(/^[-\s|:]+|[-\s|:]+$/g, '')
+    .trim();
+
+  // If title was stripped of everything, deduce from context
+  if (!title) {
+    if (/rfid|toll/i.test(cleanLine)) title = 'RFID Toll Charge';
+    else if (/parking|mbpj/i.test(cleanLine)) title = 'Parking Fee';
+    else if (/reload|top\s*up/i.test(cleanLine)) title = 'Wallet Reload';
+    else title = 'E-Wallet Payment';
+  } else if (/^RM\s*[0-9]+(?:\.[0-9]{2})?$/i.test(title)) {
+    title = `Cafeteria Meal (${title})`;
+  }
+
+  // 5. Method detection
+  let method = 'Touch \'n Go eWallet';
+  if (/apspace|apcard|campus|cafeteria|student/i.test(cleanLine)) {
+    method = 'Campus Card / APCard';
+  } else if (/maybank|mae/i.test(cleanLine)) {
+    method = 'MAE by Maybank';
+  } else if (/cimb/i.test(cleanLine)) {
+    method = 'CIMB OCTO';
+  } else if (/grab/i.test(cleanLine)) {
+    method = 'GrabPay';
+  }
+
+  const category = autoCategorize(title, cleanLine);
+
+  return {
+    id: `tx_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 4)}`,
+    date: normalizeStatementDate(rawDate),
+    time: time || '',
+    title,
+    amount: Math.round(parsedAmt * 100) / 100,
+    type: isCredit ? 'credit' : 'debit',
+    category,
+    method,
+    note: time ? `Time: ${time}` : '',
+    selected: !isCredit && parsedAmt > 0,
+  };
+}
+
 export function parseFinancialText(rawText) {
   if (!rawText || !rawText.trim()) return { type: 'empty', items: [], rawText: '' };
 
@@ -170,41 +326,12 @@ export function parseFinancialText(rawText) {
   const foundTransactions = [];
 
   // =========================================================================
-  // PATTERN 1: Tabular Statement (APSpace / APCard / University / Bank table)
-  // Format examples:
-  // "18 2026-10-16 12:48:04 Parking Fee 3.94"
-  // "4 2026-10-05 12:46:22 Creamy Mushroom Katsu Chicken Rice 9.5"
-  // "18 | 2026-10-16 | 12:48:04 | Parking Fee | 3.94"
+  // PATTERN 1: Universal Statement Row (TNG eWallet, APCard, Banks)
   // =========================================================================
-  const statementRowRegex = /^(?:#?\s*)?(\d+)?\s*\|?\s*(\d{4}-\d{2}-\d{2})\s*\|?\s*(\d{2}:\d{2}:\d{2})?\s*\|?\s*(.+?)\s*\|?\s*([0-9]+(?:\.[0-9]{1,2})?)$/;
-
-  for (const line of lines) {
-    const match = line.match(statementRowRegex);
-    if (match) {
-      const [_, num, date, time, rawTitle, valStr] = match;
-      const amount = parseFloat(valStr);
-      let title = rawTitle.replace(/[|#]/g, '').trim();
-
-      // Clean up title like "- Sauce (Japanese Curry)" or "RM10.00"
-      if (/^RM\s*[0-9]+(?:\.[0-9]{2})?$/i.test(title)) {
-        title = `Cafeteria Meal (${title})`;
-      }
-
-      const isTopUp = /top\s*up/i.test(title);
-      const cat = autoCategorize(title, line);
-
-      foundTransactions.push({
-        id: `tx_${num || Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-        date: date || new Date().toISOString().split('T')[0],
-        time: time || '',
-        title,
-        amount: Math.round(amount * 100) / 100,
-        type: isTopUp ? 'credit' : 'debit',
-        category: cat,
-        method: 'Campus Card / APCard',
-        note: time ? `Time: ${time}` : '',
-        selected: !isTopUp && amount > 0, // Debits pre-selected for expense import
-      });
+  for (let i = 0; i < lines.length; i++) {
+    const item = parseUniversalStatementRow(lines[i], i);
+    if (item) {
+      foundTransactions.push(item);
     }
   }
 
