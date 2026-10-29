@@ -1,22 +1,24 @@
 import React, { useState, useMemo } from 'react';
-import { PieChart, Filter, Calendar, Sparkles, Tag } from 'lucide-react';
 import { formatRM } from '../utils/helpers';
 
-// Harmonic, vibrant color palette inspired directly by Image 1:
-// Sky Blue (Lithuania) -> Medium Blue (Czech) -> Slate Blue (Ireland) -> Indigo (Germany) -> Purple (Australia) -> Orchid / Violet (Austria)
-const ARC_PALETTE = [
-  '#38bdf8', // 1. Sky Blue (Lithuania in img 1)
-  '#60a5fa', // 2. Medium Blue (Czech in img 1)
-  '#6366f1', // 3. Slate Blue / Indigo (Ireland in img 1)
-  '#818cf8', // 4. Indigo / Lavender (Germany in img 1)
-  '#a855f7', // 5. Purple (Australia in img 1)
-  '#c084fc', // 6. Orchid / Magenta (Austria in img 1)
-  '#f43f5e', // 7. Rose
-  '#10b981', // 8. Emerald
-  '#f59e0b', // 9. Amber
-  '#06b6d4', // 10. Cyan
-  '#14b8a6', // 11. Teal
-  '#ec4899', // 12. Pink
+// Exact harmonic color palette derived directly from Image 1:
+// 1. Lithuania (Cerulean / Sky Blue)
+// 2. Czech Republic (Cobalt / Medium Blue)
+// 3. Ireland (Slate Indigo)
+// 4. Germany (Deep Violet / Purple)
+// 5. Australia (Orchid Violet)
+// 6. Austria (Magenta / Pink)
+const EXACT_IMAGE1_COLORS = [
+  '#54b3d6', // Cerulean
+  '#5b8ee5', // Medium Blue
+  '#5f6fe5', // Slate Indigo
+  '#7f5ce6', // Purple
+  '#a856ea', // Violet
+  '#c856db', // Orchid Magenta
+  '#10b981', // Emerald
+  '#f59e0b', // Amber
+  '#f43f5e', // Rose
+  '#06b6d4', // Cyan
 ];
 
 export default function HalfCircleSpendingChart({
@@ -28,18 +30,18 @@ export default function HalfCircleSpendingChart({
 }) {
   const isBM = language === 'bm';
   const [hoveredIndex, setHoveredIndex] = useState(null);
-  const [timeFilter, setTimeFilter] = useState('all'); // 'this_month' | 'all'
+  const [period, setPeriod] = useState('month'); // 'month' | 'all'
 
-  // Filter transactions
+  // Filter transactions by period
   const filteredTransactions = useMemo(() => {
-    if (timeFilter === 'this_month') {
+    if (period === 'month') {
       const currentMonth = new Date().toISOString().slice(0, 7);
       return transactions.filter(t => t.date && t.date.startsWith(currentMonth));
     }
     return transactions;
-  }, [transactions, timeFilter]);
+  }, [transactions, period]);
 
-  // Calculate Category Breakdown & Total Spent
+  // Aggregate by Category
   const { slices, totalSpent, count } = useMemo(() => {
     const expenses = filteredTransactions.filter(t => Number(t.amount) > 0);
     const total = expenses.reduce((sum, t) => sum + Number(t.amount), 0);
@@ -57,7 +59,6 @@ export default function HalfCircleSpendingChart({
           name: cat,
           amount: 0,
           customColor: found?.color,
-          icon: found?.icon || '🏷️',
         };
       }
       catMap[cat].amount += Number(tx.amount);
@@ -65,7 +66,7 @@ export default function HalfCircleSpendingChart({
 
     const sorted = Object.values(catMap).sort((a, b) => b.amount - a.amount);
 
-    // Limit to top 6 categories + "Other" if necessary (to mirror Image 1's clean 6-slice arch)
+    // Limit to top 6 categories to mirror Image 1's clean 6-segment arch
     let finalSlices = [];
     if (sorted.length <= 6) {
       finalSlices = sorted.map((item, idx) => ({
@@ -73,8 +74,7 @@ export default function HalfCircleSpendingChart({
         name: item.name,
         amount: item.amount,
         percentage: (item.amount / total) * 100,
-        color: item.customColor || ARC_PALETTE[idx % ARC_PALETTE.length],
-        icon: item.icon,
+        color: item.customColor || EXACT_IMAGE1_COLORS[idx % EXACT_IMAGE1_COLORS.length],
       }));
     } else {
       const top5 = sorted.slice(0, 5);
@@ -85,18 +85,16 @@ export default function HalfCircleSpendingChart({
         name: item.name,
         amount: item.amount,
         percentage: (item.amount / total) * 100,
-        color: item.customColor || ARC_PALETTE[idx % ARC_PALETTE.length],
-        icon: item.icon,
+        color: item.customColor || EXACT_IMAGE1_COLORS[idx % EXACT_IMAGE1_COLORS.length],
       }));
 
       if (remainingAmount > 0) {
         finalSlices.push({
           id: 'other',
-          name: isBM ? 'Lain-lain' : 'Other Categories',
+          name: isBM ? 'Lain-lain' : 'Other',
           amount: remainingAmount,
           percentage: (remainingAmount / total) * 100,
-          color: ARC_PALETTE[5],
-          icon: '📦',
+          color: EXACT_IMAGE1_COLORS[5],
         });
       }
     }
@@ -104,16 +102,16 @@ export default function HalfCircleSpendingChart({
     return { slices: finalSlices, totalSpent: total, count: expenses.length };
   }, [filteredTransactions, categories, isBM]);
 
-  // SVG Geometry Settings (Half-Circle Arch from 180° on Left to 0° on Right)
-  const svgWidth = 600;
+  // SVG Geometry Dimensions
+  const svgWidth = 620;
   const svgHeight = 350;
-  const cx = 300;
-  const cy = 270;
-  const outerR = 195;
-  const innerR = 118;
-  const gapDeg = slices.length > 1 ? 2.5 : 0; // Space between arc segments
+  const cx = 310;
+  const cy = 275;
+  const outerR = 190;
+  const innerR = 115;
+  const gapDeg = slices.length > 1 ? 2.2 : 0; // Segment separation
 
-  // Calculate arc segments and leader lines
+  // Calculate arc paths and leader lines matching Image 1
   const arcSegments = useMemo(() => {
     if (slices.length === 0) return [];
 
@@ -132,7 +130,7 @@ export default function HalfCircleSpendingChart({
       const endRad = toRad(endAngle);
       const midRad = toRad((startAngle + endAngle) / 2);
 
-      // Coordinates for outer and inner arcs
+      // Coordinates
       const xOuterStart = cx + outerR * Math.cos(startRad);
       const yOuterStart = cy - outerR * Math.sin(startRad);
       const xOuterEnd = cx + outerR * Math.cos(endRad);
@@ -143,7 +141,6 @@ export default function HalfCircleSpendingChart({
       const xInnerStart = cx + innerR * Math.cos(startRad);
       const yInnerStart = cy - innerR * Math.sin(startRad);
 
-      // SVG path definition
       const pathData = [
         `M ${xOuterStart} ${yOuterStart}`,
         `A ${outerR} ${outerR} 0 0 1 ${xOuterEnd} ${yOuterEnd}`,
@@ -152,20 +149,20 @@ export default function HalfCircleSpendingChart({
         'Z',
       ].join(' ');
 
-      // Leader line coordinates (Image 1 style)
-      const leaderStartR = outerR + 5;
-      const leaderElbowR = outerR + 25;
+      // Leader Lines (Image 1 style: fine line extending from arc edge outwards)
+      const leaderStartR = outerR + 4;
+      const leaderElbowR = outerR + 24;
       const lx1 = cx + leaderStartR * Math.cos(midRad);
       const ly1 = cy - leaderStartR * Math.sin(midRad);
       const lx2 = cx + leaderElbowR * Math.cos(midRad);
       const ly2 = cy - leaderElbowR * Math.sin(midRad);
 
       const isLeft = Math.cos(midRad) < 0;
-      const lx3 = isLeft ? lx2 - 16 : lx2 + 16;
+      const lx3 = isLeft ? lx2 - 18 : lx2 + 18;
       const ly3 = ly2;
 
       const textX = isLeft ? lx3 - 6 : lx3 + 6;
-      const textY = ly3 + 4;
+      const textY = ly3 + 3.5;
       const textAnchor = isLeft ? 'end' : 'start';
 
       return {
@@ -179,106 +176,93 @@ export default function HalfCircleSpendingChart({
   }, [slices, gapDeg, cx, cy, outerR, innerR]);
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl transition-colors">
+    <div className="bg-white dark:bg-zinc-900/70 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl p-5 sm:p-7 shadow-2xs transition-colors">
       
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4 mb-4">
+      <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-4 mb-2">
         <div>
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <PieChart className="w-4 h-4" />
-            </div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
-              {isBM ? 'Ringkasan Perbelanjaan Mengikut Kategori' : 'Spending Summary Breakdown'}
-            </h2>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <h2 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            {isBM ? 'Pecahan Perbelanjaan Mengikut Kategori' : 'Spending Distribution by Category'}
+          </h2>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
             {isBM 
-              ? 'Carta separuh bulatan interaktif memaparkan peratusan dan jumlah Ringgit bagi setiap kategori.'
-              : 'Interactive half-circle spending arc displaying category proportions in Ringgit (RM).'}
+              ? 'Carta separuh bulatan 180° memaparkan nisbah perbelanjaan semasa.' 
+              : 'Semi-circular arch breakdown of expenses in Ringgit.'}
           </p>
         </div>
 
-        {/* Time Period Filter */}
-        <div className="flex items-center space-x-1.5 self-start sm:self-auto bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+        {/* Period Selector Tabs */}
+        <div className="flex items-center space-x-1 bg-zinc-100 dark:bg-zinc-800/60 p-0.5 rounded-lg text-xs">
           <button
-            onClick={() => setTimeFilter('all')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
-              timeFilter === 'all'
-                ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 font-bold shadow-xs'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            {isBM ? 'Semua Rekod' : 'All Time'}
-          </button>
-          <button
-            onClick={() => setTimeFilter('this_month')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
-              timeFilter === 'this_month'
-                ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 font-bold shadow-xs'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            onClick={() => setPeriod('month')}
+            className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+              period === 'month'
+                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-2xs'
+                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
             }`}
           >
             {isBM ? 'Bulan Ini' : 'This Month'}
           </button>
+          <button
+            onClick={() => setPeriod('all')}
+            className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+              period === 'all'
+                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-2xs'
+                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+            }`}
+          >
+            {isBM ? 'Semua' : 'All Time'}
+          </button>
         </div>
       </div>
 
-      {/* Main Chart Graphic or Empty State */}
+      {/* Main Chart Canvas or Empty State */}
       {slices.length === 0 ? (
-        <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
-          <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center">
-            <PieChart className="w-8 h-8 opacity-60" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-              {isBM ? 'Tiada Perbelanjaan Direkodkan Lagi' : 'No Spending Logged Yet'}
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
-              {isBM 
-                ? 'Tambah transaksi perbelanjaan atau muat naik resit DuitNow QR untuk melihat visual carta separuh bulatan ini.'
-                : 'Log an expense or scan a DuitNow payment slip to render your live spending arc chart.'}
-            </p>
-          </div>
-
+        <div className="py-14 flex flex-col items-center justify-center text-center space-y-2">
+          <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+            {isBM ? 'Tiada data perbelanjaan' : 'No expense data for this period'}
+          </span>
+          <p className="text-[11px] text-zinc-400 dark:text-zinc-500 max-w-xs">
+            {isBM ? 'Rekod perbelanjaan atau muat contoh data untuk memaparkan carta.' : 'Add your first transaction or load sample data to render the chart.'}
+          </p>
           <div className="flex items-center space-x-2 pt-2">
             {onOpenAddModal && (
               <button
                 onClick={onOpenAddModal}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all"
+                className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 rounded-lg text-xs font-semibold transition-colors"
               >
-                + {isBM ? 'Tambah Transaksi RM' : 'Log Expense (RM)'}
+                + {isBM ? 'Rekod RM' : 'Add Expense'}
               </button>
             )}
             {onLoadSampleData && (
               <button
                 onClick={onLoadSampleData}
-                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-all"
+                className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-lg text-xs font-medium transition-colors"
               >
-                {isBM ? 'Muat Contoh Data' : 'Load Sample Data'}
+                {isBM ? 'Muat Contoh' : 'Load Preview Data'}
               </button>
             )}
           </div>
         </div>
       ) : (
-        <div className="relative flex flex-col items-center">
+        <div className="flex flex-col items-center">
           
-          {/* SVG Arc Half Circle (Matching Image 1) */}
-          <div className="w-full max-w-[580px] overflow-visible">
+          {/* SVG Arch Graphic (Image 1 Style) */}
+          <div className="w-full max-w-[600px] overflow-visible">
             <svg
               viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-              className="w-full h-auto select-none drop-shadow-xs"
+              className="w-full h-auto select-none overflow-visible"
             >
-              {/* Subtle background guide */}
+              {/* Subtle Base Arc Guide */}
               <path
                 d={`M ${cx - outerR} ${cy} A ${outerR} ${outerR} 0 0 1 ${cx + outerR} ${cy} L ${cx + innerR} ${cy} A ${innerR} ${innerR} 0 0 0 ${cx - innerR} ${cy} Z`}
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1"
-                className="text-slate-100 dark:text-slate-800/40"
+                strokeWidth="0.75"
+                className="text-zinc-100 dark:text-zinc-800/40"
               />
 
-              {/* Segment Slices */}
+              {/* Arc Segments */}
               {arcSegments.map((seg) => {
                 const isHovered = hoveredIndex === seg.index;
                 return (
@@ -287,10 +271,10 @@ export default function HalfCircleSpendingChart({
                       d={seg.pathData}
                       fill={seg.color}
                       stroke="currentColor"
-                      strokeWidth={isHovered ? '2.5' : '1.5'}
+                      strokeWidth={isHovered ? '2' : '1'}
                       strokeLinejoin="round"
-                      className={`cursor-pointer text-white dark:text-slate-900 transition-all duration-200 ${
-                        isHovered ? 'opacity-100 scale-[1.015]' : 'opacity-95 hover:opacity-100'
+                      className={`cursor-pointer text-white dark:text-zinc-950 transition-all duration-150 ${
+                        isHovered ? 'opacity-100 filter drop-shadow-sm' : 'opacity-90 hover:opacity-100'
                       }`}
                       style={{ transformOrigin: `${cx}px ${cy}px` }}
                       onMouseEnter={() => setHoveredIndex(seg.index)}
@@ -299,38 +283,36 @@ export default function HalfCircleSpendingChart({
                       <title>{`${seg.name}: ${formatRM(seg.amount)} (${seg.percentage.toFixed(1)}%)`}</title>
                     </path>
 
-                    {/* Leader Line (Image 1 Style) */}
+                    {/* Fine Hairline Leader Line (Exact Image 1 Style) */}
                     <polyline
                       points={`${seg.leader.lx1},${seg.leader.ly1} ${seg.leader.lx2},${seg.leader.ly2} ${seg.leader.lx3},${seg.leader.ly3}`}
                       fill="none"
                       stroke="currentColor"
-                      strokeWidth="1"
-                      strokeDasharray={isHovered ? 'none' : '2,2'}
-                      className={`transition-colors duration-200 ${
+                      strokeWidth={isHovered ? '1.25' : '0.8'}
+                      className={`transition-colors duration-150 ${
                         isHovered 
-                          ? 'text-emerald-500 dark:text-emerald-400 stroke-2' 
-                          : 'text-slate-300 dark:text-slate-600'
+                          ? 'text-zinc-900 dark:text-zinc-100' 
+                          : 'text-zinc-300 dark:text-zinc-600'
                       }`}
                     />
 
-                    {/* Dot at Slice Anchor */}
+                    {/* Anchor Dot at Arc Border */}
                     <circle
                       cx={seg.leader.lx1}
                       cy={seg.leader.ly1}
-                      r={isHovered ? '3.5' : '2'}
+                      r={isHovered ? '2.5' : '1.5'}
                       fill={seg.color}
-                      className="transition-all"
                     />
 
-                    {/* Leader Text Label: "Category: XX.X%" (Exact Image 1 Style) */}
+                    {/* Leader Label: "Category: XX.X%" (Exact Image 1 Style) */}
                     <text
                       x={seg.label.textX}
                       y={seg.label.textY}
                       textAnchor={seg.label.textAnchor}
-                      className={`text-[11.5px] font-semibold tracking-tight transition-all duration-200 select-none ${
+                      className={`text-[11px] tracking-tight transition-all duration-150 select-none ${
                         isHovered
-                          ? 'fill-emerald-600 dark:fill-emerald-400 font-bold text-[12.5px]'
-                          : 'fill-slate-700 dark:fill-slate-300'
+                          ? 'font-bold fill-zinc-900 dark:fill-zinc-100 text-[11.5px]'
+                          : 'font-medium fill-zinc-600 dark:fill-zinc-400'
                       }`}
                     >
                       {seg.name}: {seg.percentage.toFixed(1)}%
@@ -339,29 +321,29 @@ export default function HalfCircleSpendingChart({
                 );
               })}
 
-              {/* Center Hub: Total Spend in RM */}
+              {/* Center Hub Metrics */}
               <g className="select-none pointer-events-none">
                 <text
                   x={cx}
-                  y={cy - 48}
+                  y={cy - 44}
                   textAnchor="middle"
-                  className="fill-slate-500 dark:fill-slate-400 text-xs font-semibold uppercase tracking-wider"
+                  className="fill-zinc-400 dark:fill-zinc-500 text-[10px] font-semibold tracking-wider uppercase"
                 >
-                  {isBM ? 'Jumlah Belanja' : 'Total Spent'}
+                  {isBM ? 'JUMLAH BELANJA' : 'TOTAL SPENT'}
                 </text>
                 <text
                   x={cx}
-                  y={cy - 14}
+                  y={cy - 12}
                   textAnchor="middle"
-                  className="fill-slate-900 dark:fill-white text-2xl sm:text-3xl font-black tracking-tight"
+                  className="fill-zinc-900 dark:fill-zinc-100 text-2xl sm:text-[26px] font-semibold tracking-tight tabular-nums"
                 >
                   {formatRM(totalSpent)}
                 </text>
                 <text
                   x={cx}
-                  y={cy + 10}
+                  y={cy + 12}
                   textAnchor="middle"
-                  className="fill-emerald-600 dark:fill-emerald-400 text-[11px] font-bold"
+                  className="fill-zinc-500 dark:fill-zinc-400 text-[10.5px] font-medium"
                 >
                   {count} {isBM ? 'transaksi' : 'transactions'}
                 </text>
@@ -369,9 +351,9 @@ export default function HalfCircleSpendingChart({
             </svg>
           </div>
 
-          {/* Bottom Legend (Matching Image 1 with color swatch, name, percentage & RM) */}
-          <div className="w-full mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2.5">
+          {/* Bottom Legend (Matching Image 1: rounded square swatches + name + percentage) */}
+          <div className="w-full mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800/80">
+            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs">
               {arcSegments.map((seg) => {
                 const isHovered = hoveredIndex === seg.index;
                 return (
@@ -380,30 +362,28 @@ export default function HalfCircleSpendingChart({
                     onClick={() => setHoveredIndex(isHovered ? null : seg.index)}
                     onMouseEnter={() => setHoveredIndex(seg.index)}
                     onMouseLeave={() => setHoveredIndex(null)}
-                    className={`flex items-center space-x-2 px-2.5 py-1.5 rounded-xl border text-xs transition-all ${
-                      isHovered
-                        ? 'bg-slate-100 dark:bg-slate-800 border-emerald-500 shadow-xs scale-105'
-                        : 'bg-transparent border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    className={`flex items-center space-x-2 py-1 px-1.5 rounded-md transition-colors ${
+                      isHovered ? 'bg-zinc-100 dark:bg-zinc-800' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
                     }`}
                   >
-                    {/* Swatch (Image 1 style rounded rectangle) */}
+                    {/* Swatch (Image 1 rounded square) */}
                     <span
-                      className="w-3.5 h-3.5 rounded-[4px] shrink-0"
+                      className="w-3.5 h-3.5 rounded-[3px] shrink-0"
                       style={{ backgroundColor: seg.color }}
-                    ></span>
+                    />
 
                     {/* Category Name */}
-                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                    <span className="font-normal text-zinc-700 dark:text-zinc-300">
                       {seg.name}
                     </span>
 
                     {/* Percentage */}
-                    <span className="font-bold text-slate-900 dark:text-white">
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">
                       {seg.percentage.toFixed(1)}%
                     </span>
 
-                    {/* RM Amount */}
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:inline">
+                    {/* RM Amount (Subtle) */}
+                    <span className="text-[11px] text-zinc-400 dark:text-zinc-500 tabular-nums">
                       ({formatRM(seg.amount)})
                     </span>
                   </button>

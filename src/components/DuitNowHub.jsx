@@ -3,17 +3,14 @@ import QRCode from 'qrcode';
 import { createWorker } from 'tesseract.js';
 import { 
   QrCode, 
-  Scan, 
-  Download, 
-  Users, 
-  CheckCircle2, 
   Camera, 
   X,
   Receipt,
-  UploadCloud,
+  Upload,
   FileText,
-  RefreshCw,
-  Sparkles
+  Loader2,
+  Check,
+  Users
 } from 'lucide-react';
 import { formatRM, roundTo5Sen, playSound, fireCelebration } from '../utils/helpers';
 import { POPULAR_MALAYSIAN_MERCHANTS } from '../data/initialData';
@@ -32,13 +29,10 @@ export default function DuitNowHub({
   // 1. OCR RECEIPT SCANNER STATES
   // ==========================================
   const [ocrLoading, setOcrLoading] = useState(false);
-  const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrStatusText, setOcrStatusText] = useState('');
-  const [receiptImage, setReceiptImage] = useState(null);
   const [ocrResult, setOcrResult] = useState(null);
   const fileInputRef = useRef(null);
 
-  // Parse text extracted from Malaysian DuitNow / eWallet receipts
   const parseMalaysianReceiptText = (text) => {
     let amount = 0;
     let merchant = '';
@@ -46,7 +40,7 @@ export default function DuitNowHub({
     let date = new Date().toISOString().split('T')[0];
     let detectedBank = 'DuitNow QR';
 
-    // 1. Parse Amount: Look for "RM 25.00" or "MYR 25.00" or "Total: RM 25.00"
+    // 1. Parse Amount
     const amountRegexes = [
       /(?:RM|MYR)\s*([0-9]{1,4}(?:,[0-9]{3})*\.[0-9]{2})/i,
       /(?:Amount|Total|Jumlah)\s*[:]?\s*(?:RM|MYR)?\s*([0-9]{1,4}(?:,[0-9]{3})*\.[0-9]{2})/i,
@@ -61,7 +55,7 @@ export default function DuitNowHub({
       }
     }
 
-    // 2. Parse Bank / App Identity
+    // 2. Parse Bank
     if (/touch\s*['’]?n\s*go/i.test(text) || /tng/i.test(text)) {
       detectedBank = "Touch 'n Go eWallet";
     } else if (/mae/i.test(text) || /maybank/i.test(text)) {
@@ -72,8 +66,6 @@ export default function DuitNowHub({
       detectedBank = 'GrabPay';
     } else if (/public\s*bank/i.test(text) || /pbe/i.test(text)) {
       detectedBank = 'Public Bank';
-    } else if (/bank\s*islam/i.test(text)) {
-      detectedBank = 'Bank Islam';
     }
 
     // 3. Parse Merchant / Recipient
@@ -90,7 +82,6 @@ export default function DuitNowHub({
       }
     }
 
-    // Fallback merchant search by keyword
     if (!merchant) {
       const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 3);
       for (const line of lines) {
@@ -99,22 +90,16 @@ export default function DuitNowHub({
           break;
         }
       }
-      if (!merchant && lines.length > 0) {
-        merchant = lines[0].slice(0, 30);
-      }
+      if (!merchant && lines.length > 0) merchant = lines[0].slice(0, 30);
     }
 
-    if (!merchant) {
-      merchant = 'DuitNow Merchant';
-    }
+    if (!merchant) merchant = 'DuitNow Merchant';
 
     // 4. Parse Reference Number
     const refMatch = text.match(/(?:Ref|Reference|No\s*Rujukan)\s*(?:No|Number)?\s*[:]?\s*([A-Za-z0-9]{8,24})/i);
-    if (refMatch && refMatch[1]) {
-      refNo = refMatch[1];
-    }
+    if (refMatch && refMatch[1]) refNo = refMatch[1];
 
-    // 5. Suggest Category based on merchant name
+    // 5. Suggest Category
     let suggestedCat = categories[0]?.name || 'Mamak & Dining';
     const lowerMerch = merchant.toLowerCase();
 
@@ -143,30 +128,21 @@ export default function DuitNowHub({
     };
   };
 
-  // Perform OCR on File / Image
   const runOcrOnImage = async (imageSrc) => {
     setOcrLoading(true);
-    setOcrProgress(15);
-    setOcrStatusText(isBM ? 'Memulakan enjin OCR Tesseract...' : 'Initializing Tesseract OCR engine...');
+    setOcrStatusText(isBM ? 'Mengekstrak maklumat resit...' : 'Processing receipt slip...');
 
     try {
       const worker = await createWorker('eng');
-      setOcrProgress(45);
-      setOcrStatusText(isBM ? 'Mengecam teks resit DuitNow...' : 'Recognizing DuitNow receipt text...');
-
       const ret = await worker.recognize(imageSrc);
-      setOcrProgress(85);
-      setOcrStatusText(isBM ? 'Menyaring jumlah Ringgit & peniaga...' : 'Extracting RM amount & merchant...');
-
       await worker.terminate();
 
       const parsed = parseMalaysianReceiptText(ret.data.text);
       setOcrResult(parsed);
-      setOcrProgress(100);
       playSound('duitnow');
     } catch (err) {
       console.error('OCR Error:', err);
-      // Fallback robust simulation if browser blocks tesseract worker
+      // Fallback fallback
       setOcrResult({
         amount: 32.50,
         merchant: 'Nasi Kandar Pelita Bangsar',
@@ -174,7 +150,6 @@ export default function DuitNowHub({
         refNo: `MBB${Date.now().toString().slice(-8)}`,
         date: new Date().toISOString().split('T')[0],
         suggestedCat: 'Mamak & Dining',
-        rawText: 'Fallback parsed from image',
       });
       playSound('duitnow');
     } finally {
@@ -188,14 +163,11 @@ export default function DuitNowHub({
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const src = event.target.result;
-      setReceiptImage(src);
-      runOcrOnImage(src);
+      runOcrOnImage(event.target.result);
     };
     reader.readAsDataURL(file);
   };
 
-  // Quick Preset Sample Receipts for 1-Click Testing
   const handleLoadSampleReceipt = (type) => {
     let mock = {
       amount: 14.80,
@@ -204,7 +176,6 @@ export default function DuitNowHub({
       refNo: 'MBB202610294821',
       date: new Date().toISOString().split('T')[0],
       suggestedCat: 'Mamak & Dining',
-      rawText: 'DuitNow Transfer Successful\nPaid To: Nasi Kandar Pelita SS15\nAmount: RM 14.80\nRef: MBB202610294821\nStatus: SUCCESS',
     };
 
     if (type === 'tng') {
@@ -215,7 +186,6 @@ export default function DuitNowHub({
         refNo: 'TNG99214710',
         date: new Date().toISOString().split('T')[0],
         suggestedCat: 'Groceries',
-        rawText: "Touch 'n Go eWallet Payment\nMerchant: Village Grocer Subang Parade\nAmount: RM 28.50\nRef: TNG99214710",
       };
     } else if (type === 'zus') {
       mock = {
@@ -225,23 +195,19 @@ export default function DuitNowHub({
         refNo: 'DN202610290941',
         date: new Date().toISOString().split('T')[0],
         suggestedCat: 'Drinks & Cafe',
-        rawText: 'DuitNow QR Instant Payment\nRecipient: ZUS Coffee SS2 PJ\nTotal: RM 13.90\nRef: DN202610290941',
       };
     }
 
     setOcrLoading(true);
-    setOcrProgress(50);
-    setOcrStatusText(isBM ? 'Memproses contoh resit...' : 'Processing sample receipt...');
+    setOcrStatusText(isBM ? 'Memproses contoh resit...' : 'Processing receipt sample...');
 
     setTimeout(() => {
       setOcrResult(mock);
       setOcrLoading(false);
-      setOcrProgress(100);
       playSound('duitnow');
-    }, 500);
+    }, 400);
   };
 
-  // Confirm OCR Result into Budget Ledger
   const handleConfirmOcrTransaction = () => {
     if (!ocrResult) return;
 
@@ -250,7 +216,7 @@ export default function DuitNowHub({
       amount: Number(ocrResult.amount),
       category: ocrResult.suggestedCat,
       method: ocrResult.detectedBank || 'DuitNow QR',
-      note: `DuitNow OCR Ref: ${ocrResult.refNo || 'Verified'}`,
+      note: `OCR Ref: ${ocrResult.refNo || 'Verified'}`,
       date: ocrResult.date || new Date().toISOString().split('T')[0],
     };
 
@@ -258,7 +224,6 @@ export default function DuitNowHub({
     playSound('approve');
     fireCelebration();
     setOcrResult(null);
-    setReceiptImage(null);
     if (onClose) onClose();
   };
 
@@ -278,7 +243,7 @@ export default function DuitNowHub({
         }
       }
     } catch (err) {
-      console.warn('Camera access denied or unavailable in simulator, using interactive emulator.', err);
+      console.warn('Camera feed simulated in browser sandbox.', err);
     }
   };
 
@@ -296,7 +261,6 @@ export default function DuitNowHub({
     };
   }, []);
 
-  // Quick Merchant Scan Simulator
   const handleQuickMerchantScan = (merchant) => {
     playSound('duitnow');
     fireCelebration();
@@ -306,7 +270,7 @@ export default function DuitNowHub({
       category: merchant.category,
       amount: Number(merchant.amount),
       method: 'DuitNow QR',
-      note: merchant.note || 'DuitNow QR Payment',
+      note: merchant.note || 'DuitNow Payment',
       date: new Date().toISOString().split('T')[0],
     };
 
@@ -325,10 +289,10 @@ export default function DuitNowHub({
     if (activeTab === 'generate' && qrCanvasRef.current) {
       const payload = `DUITNOW|MYR|${genAmount}|${encodeURIComponent(userProfile?.name || 'User')}|${encodeURIComponent(genNote)}`;
       QRCode.toCanvas(qrCanvasRef.current, payload, {
-        width: 220,
+        width: 200,
         margin: 2,
         color: {
-          dark: '#0f172a',
+          dark: '#09090b',
           light: '#ffffff'
         }
       });
@@ -340,7 +304,7 @@ export default function DuitNowHub({
   // ==========================================
   const [splitBillAmount, setSplitBillAmount] = useState('68.40');
   const [splitPax, setSplitPax] = useState('4');
-  const [splitNote, setSplitNote] = useState('Mamak Lepak SS15');
+  const [splitNote, setSplitNote] = useState('Mamak SS15');
   const splitQrRef = useRef(null);
 
   const rawPerPax = Number(splitPax) > 0 ? Number(splitBillAmount) / Number(splitPax) : 0;
@@ -350,10 +314,10 @@ export default function DuitNowHub({
     if (activeTab === 'split' && splitQrRef.current) {
       const payload = `DUITNOW|SPLIT|MYR|${roundedPerPax}|${encodeURIComponent(splitNote)}`;
       QRCode.toCanvas(splitQrRef.current, payload, {
-        width: 190,
+        width: 180,
         margin: 2,
         color: {
-          dark: '#0f172a',
+          dark: '#09090b',
           light: '#ffffff'
         }
       });
@@ -361,30 +325,27 @@ export default function DuitNowHub({
   }, [activeTab, roundedPerPax, splitNote]);
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-2xl relative overflow-hidden transition-colors">
+    <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl p-6 shadow-xl transition-colors">
       
-      {/* Ambient Red Glow for DuitNow Branding */}
-      <div className="absolute -top-12 -right-12 w-48 h-48 bg-rose-500/10 dark:bg-rose-500/20 rounded-full blur-3xl pointer-events-none"></div>
-
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-5">
+      <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-4 mb-5">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-red-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/30">
-            <QrCode className="w-5 h-5" />
+          <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-xs border border-rose-200/60 dark:border-rose-900/50">
+            QR
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                DuitNow <span className="text-rose-600 dark:text-rose-400">QR & OCR Hub</span>
-              </h2>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/70 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                DuitNow Hub &amp; Receipt OCR
+              </h3>
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
                 Malaysia Interoperable
               </span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
               {isBM 
-                ? 'Imbas resit transaksi MAE, TNG & DuitNow secara pantas dengan OCR pintar.'
-                : 'AI OCR receipt scanner for MAE, TNG eWallet, CIMB OCTO & standard DuitNow QR.'}
+                ? 'Imbas resit MAE, TNG & DuitNow atau jana kod QR bayaran.'
+                : 'Extract payment amounts from receipt slips or scan live QR codes.'}
             </p>
           </div>
         </div>
@@ -392,76 +353,69 @@ export default function DuitNowHub({
         {onClose && (
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg"
+            className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 p-1 rounded-md"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         )}
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 mb-5">
+      {/* Segmented Navigation Tabs */}
+      <div className="flex space-x-1 p-0.5 bg-zinc-100 dark:bg-zinc-800/60 rounded-xl mb-5 text-xs">
         <button
           onClick={() => { setActiveTab('ocr'); stopCamera(); }}
-          className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+          className={`flex-1 py-1.5 rounded-lg font-medium transition-all ${
             activeTab === 'ocr'
-              ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-2xs'
+              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
           }`}
         >
-          <Receipt className="w-4 h-4" />
-          <span>{isBM ? 'Imbas Resit OCR' : 'Receipt OCR Scanner'}</span>
-          <span className="text-[9px] bg-white/20 text-white px-1.5 py-0.2 rounded-full font-extrabold uppercase">
-            AI
-          </span>
+          {isBM ? 'Imbas Resit' : 'Receipt OCR'}
         </button>
 
         <button
           onClick={() => { setActiveTab('camera_qr'); startCamera(); }}
-          className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+          className={`flex-1 py-1.5 rounded-lg font-medium transition-all ${
             activeTab === 'camera_qr'
-              ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-2xs'
+              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
           }`}
         >
-          <Camera className="w-4 h-4" />
-          <span>{isBM ? 'Pengimbas Kamera QR' : 'Live QR Scanner'}</span>
+          {isBM ? 'Kamera QR' : 'Scan QR'}
         </button>
 
         <button
           onClick={() => { setActiveTab('generate'); stopCamera(); }}
-          className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+          className={`flex-1 py-1.5 rounded-lg font-medium transition-all ${
             activeTab === 'generate'
-              ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-2xs'
+              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
           }`}
         >
-          <QrCode className="w-4 h-4" />
-          <span>{isBM ? 'Jana QR Terima Bayaran' : 'Generate QR'}</span>
+          {isBM ? 'Jana QR' : 'Generate QR'}
         </button>
 
         <button
           onClick={() => { setActiveTab('split'); stopCamera(); }}
-          className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+          className={`flex-1 py-1.5 rounded-lg font-medium transition-all ${
             activeTab === 'split'
-              ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-2xs'
+              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
           }`}
         >
-          <Users className="w-4 h-4" />
-          <span>{isBM ? 'Pembahagi Bil Mamak' : 'Mamak Bill Splitter'}</span>
+          {isBM ? 'Bahagi Bil' : 'Split Bill'}
         </button>
       </div>
 
       {/* ================================================================= */}
-      {/* TAB 1: RECEIPT OCR SCANNER (AI Client-Side Powered)               */}
+      {/* TAB 1: RECEIPT OCR SCANNER                                        */}
       {/* ================================================================= */}
       {activeTab === 'ocr' && (
-        <div className="space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
             
             {/* Upload Zone */}
-            <div className="md:col-span-7">
+            <div className="md:col-span-7 space-y-3">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -472,149 +426,110 @@ export default function DuitNowHub({
 
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-rose-500 dark:hover:border-rose-500 rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all bg-slate-50 dark:bg-slate-950/60 hover:bg-rose-50/40 dark:hover:bg-rose-950/20 group"
+                className="border border-dashed border-zinc-300 dark:border-zinc-700 hover:border-zinc-500 dark:hover:border-zinc-400 rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-colors bg-zinc-50/60 dark:bg-zinc-950/40"
               >
-                <div className="w-14 h-14 rounded-2xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                  <UploadCloud className="w-7 h-7" />
-                </div>
-                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                  {isBM ? 'Muat Naik Tangkap Layar Resit DuitNow' : 'Upload DuitNow Receipt Screenshot'}
-                </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs">
-                  {isBM 
-                    ? 'Seret & lepas atau klik untuk memilih tangkap layar MAE, Touch n Go eWallet atau CIMB.'
-                    : 'Click or drop payment slip screenshots from MAE, Touch n Go, CIMB OCTO, GrabPay.'}
-                </p>
-                <span className="mt-3 inline-flex items-center space-x-1.5 text-[11px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 px-3 py-1 rounded-full border border-rose-200 dark:border-rose-800/80">
-                  <Camera className="w-3.5 h-3.5" />
-                  <span>{isBM ? 'Pilih Gambar Resit' : 'Browse Receipt Image'}</span>
+                <Upload className="w-5 h-5 text-zinc-400 mb-2" />
+                <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                  {isBM ? 'Pilih atau letak tangkap layar resit' : 'Upload payment slip screenshot'}
+                </span>
+                <span className="text-[11px] text-zinc-400 mt-0.5">
+                  MAE by Maybank, TNG eWallet, CIMB OCTO, GrabPay
                 </span>
               </div>
 
-              {/* Sample Receipts 1-Click Buttons */}
-              <div className="mt-3">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1.5">
-                  {isBM ? '⚡ Uji Segera dengan Contoh Resit Malaysia:' : '⚡ Test Instantly with Sample Malaysian Receipts:'}
+              {/* Sample Receipts Quick Load */}
+              <div>
+                <span className="text-[10px] font-semibold text-zinc-400 block mb-1.5 uppercase tracking-wider">
+                  {isBM ? 'Uji Resit Contoh:' : 'Test with sample slips:'}
                 </span>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   <button
                     type="button"
                     onClick={() => handleLoadSampleReceipt('mbb')}
-                    className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-rose-500 border border-slate-200 dark:border-slate-700 text-xs font-semibold flex items-center space-x-1 transition-all"
+                    className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors"
                   >
-                    <span>🟡 MAE DuitNow (RM14.80)</span>
+                    MAE DuitNow (RM14.80)
                   </button>
                   <button
                     type="button"
                     onClick={() => handleLoadSampleReceipt('tng')}
-                    className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-rose-500 border border-slate-200 dark:border-slate-700 text-xs font-semibold flex items-center space-x-1 transition-all"
+                    className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors"
                   >
-                    <span>🔵 TNG eWallet (RM28.50)</span>
+                    TNG eWallet (RM28.50)
                   </button>
                   <button
                     type="button"
                     onClick={() => handleLoadSampleReceipt('zus')}
-                    className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-rose-500 border border-slate-200 dark:border-slate-700 text-xs font-semibold flex items-center space-x-1 transition-all"
+                    className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors"
                   >
-                    <span>☕ ZUS Coffee (RM13.90)</span>
+                    ZUS Coffee (RM13.90)
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* OCR Processing or Extracted Result Card */}
+            {/* Extracted Result or Status */}
             <div className="md:col-span-5 flex flex-col justify-center">
               {ocrLoading ? (
-                <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-6 bg-slate-50 dark:bg-slate-950/80 flex flex-col items-center justify-center text-center space-y-3 min-h-[220px]">
-                  <RefreshCw className="w-8 h-8 text-rose-500 animate-spin" />
-                  <div>
-                    <h5 className="text-xs font-bold text-slate-900 dark:text-white">
-                      {ocrStatusText || 'Scanning receipt...'}
-                    </h5>
-                    <div className="w-48 bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden mt-2">
-                      <div
-                        className="bg-gradient-to-r from-rose-500 to-red-600 h-full transition-all duration-300"
-                        style={{ width: `${ocrProgress}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 block">
-                      {ocrProgress}% complete
-                    </span>
-                  </div>
+                <div className="border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl p-5 flex flex-col items-center justify-center text-center space-y-2 min-h-[180px]">
+                  <Loader2 className="w-5 h-5 text-zinc-600 dark:text-zinc-400 animate-spin" />
+                  <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                    {ocrStatusText}
+                  </span>
                 </div>
               ) : ocrResult ? (
-                <div className="border-2 border-emerald-500/50 rounded-2xl p-4 bg-emerald-50/20 dark:bg-emerald-950/20 space-y-3 relative">
-                  <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2">
-                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center space-x-1">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>{isBM ? 'Resit Berjaya Dikesan' : 'Receipt OCR Extracted'}</span>
-                    </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                <div className="border border-emerald-500/40 rounded-xl p-4 bg-emerald-50/20 dark:bg-emerald-950/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
                       {ocrResult.detectedBank}
                     </span>
+                    <span className="text-[10px] text-zinc-400">
+                      Ref: {ocrResult.refNo || 'Verified'}
+                    </span>
                   </div>
 
-                  {/* Amount RM */}
                   <div>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">
-                      {isBM ? 'Jumlah Bayaran' : 'Transaction Amount'}
-                    </span>
-                    <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                    <span className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight tabular-nums block">
                       {formatRM(ocrResult.amount)}
                     </span>
+                    <input
+                      type="text"
+                      value={ocrResult.merchant}
+                      onChange={(e) => setOcrResult({ ...ocrResult, merchant: e.target.value })}
+                      className="w-full mt-1 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-md px-2 py-1 text-xs text-zinc-900 dark:text-zinc-100 font-medium focus:outline-none"
+                    />
                   </div>
 
-                  {/* Merchant & Category */}
-                  <div className="space-y-2 text-xs">
-                    <div>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">
-                        {isBM ? 'Penerima / Peniaga' : 'Merchant / Recipient'}
-                      </span>
-                      <input
-                        type="text"
-                        value={ocrResult.merchant}
-                        onChange={(e) => setOcrResult({ ...ocrResult, merchant: e.target.value })}
-                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white font-semibold focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium mb-1">
-                        {isBM ? 'Kategori Perbelanjaan' : 'Expense Category'}
-                      </span>
-                      <select
-                        value={ocrResult.suggestedCat}
-                        onChange={(e) => setOcrResult({ ...ocrResult, suggestedCat: e.target.value })}
-                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white font-semibold focus:outline-none"
-                      >
-                        {categories.map((c) => (
-                          <option key={c.id || c.name} value={c.name}>
-                            {c.icon ? `${c.icon} ` : ''}{c.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  <div>
+                    <select
+                      value={ocrResult.suggestedCat}
+                      onChange={(e) => setOcrResult({ ...ocrResult, suggestedCat: e.target.value })}
+                      className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-md px-2 py-1 text-xs text-zinc-800 dark:text-zinc-200 focus:outline-none"
+                    >
+                      {categories.map((c) => (
+                        <option key={c.id || c.name} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
-                  {/* Confirm & Log Button */}
                   <button
                     onClick={handleConfirmOcrTransaction}
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow-lg shadow-emerald-600/30 transition-all active:scale-95"
+                    className="w-full bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-950 font-semibold py-1.5 rounded-lg text-xs transition-colors"
                   >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>{isBM ? 'Sahkan & Simpan ke Lejar' : 'Confirm & Log Expense (RM)'}</span>
+                    {isBM ? 'Sahkan & Catat ke Lejar' : 'Confirm & Log Expense'}
                   </button>
                 </div>
               ) : (
-                <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-6 bg-slate-50 dark:bg-slate-950/60 flex flex-col items-center justify-center text-center space-y-2 min-h-[220px]">
-                  <FileText className="w-10 h-10 text-slate-300 dark:text-slate-600" />
-                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                    {isBM ? 'Tiada resit dimuat naik' : 'No receipt uploaded yet'}
+                <div className="border border-zinc-200/60 dark:border-zinc-800/60 rounded-xl p-5 flex flex-col items-center justify-center text-center space-y-1 min-h-[180px]">
+                  <FileText className="w-5 h-5 text-zinc-400 mb-1" />
+                  <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                    {isBM ? 'Menunggu resit' : 'No receipt uploaded'}
                   </span>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500 max-w-xs">
-                    {isBM 
-                      ? 'Muat naik gambar resit untuk mengekstrak jumlah Ringgit secara automatik.'
-                      : 'Upload or click one of the quick test receipts to see AI OCR extraction in action.'}
-                  </p>
+                  <span className="text-[11px] text-zinc-400 max-w-[200px]">
+                    {isBM ? 'Muat naik gambar untuk imbas jumlah RM' : 'Upload an image or pick a test sample'}
+                  </span>
                 </div>
               )}
             </div>
@@ -624,131 +539,79 @@ export default function DuitNowHub({
       )}
 
       {/* ================================================================= */}
-      {/* TAB 2: LIVE CAMERA / QUICK SCAN SIMULATOR                        */}
+      {/* TAB 2: LIVE CAMERA / QUICK PRESETS                                */}
       {/* ================================================================= */}
       {activeTab === 'camera_qr' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            
-            {/* Camera Viewfinder */}
-            <div className="relative bg-black rounded-2xl overflow-hidden aspect-video flex items-center justify-center border border-slate-800">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                className="w-full h-full object-cover"
-              />
-              
-              {/* QR Targeting Overlay */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-48 h-48 border-2 border-rose-500/80 rounded-2xl relative animate-pulse">
-                  <div className="absolute -top-1 -left-1 w-5 h-5 border-t-4 border-l-4 border-rose-500"></div>
-                  <div className="absolute -top-1 -right-1 w-5 h-5 border-t-4 border-r-4 border-rose-500"></div>
-                  <div className="absolute -bottom-1 -left-1 w-5 h-5 border-b-4 border-l-4 border-rose-500"></div>
-                  <div className="absolute -bottom-1 -right-1 w-5 h-5 border-b-4 border-r-4 border-rose-500"></div>
-                  <div className="w-full h-0.5 bg-rose-500/80 shadow-[0_0_8px_#f43f5e] animate-bounce mt-24"></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="relative bg-zinc-950 rounded-xl overflow-hidden aspect-video flex items-center justify-center border border-zinc-800">
+            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="w-36 h-36 border border-zinc-500/80 rounded-lg relative"></div>
+            </div>
+            <div className="absolute bottom-2 text-center text-[10px] text-zinc-400 bg-black/60 px-2 py-0.5 rounded">
+              {isBM ? 'Arahkan ke kod DuitNow QR' : 'Align camera with DuitNow QR'}
+            </div>
+          </div>
+
+          <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+            <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide block mb-1">
+              {isBM ? 'Imbas Pantas Peniaga Popular:' : 'Quick Merchant Presets:'}
+            </span>
+            {POPULAR_MALAYSIAN_MERCHANTS.map((m) => (
+              <button
+                key={m.name}
+                onClick={() => handleQuickMerchantScan(m)}
+                className="w-full flex items-center justify-between p-2 rounded-lg border border-zinc-200/80 dark:border-zinc-800/80 hover:border-zinc-400 dark:hover:border-zinc-600 text-left transition-colors"
+              >
+                <div>
+                  <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{m.name}</div>
+                  <div className="text-[10px] text-zinc-400">{m.category}</div>
                 </div>
-              </div>
-
-              <div className="absolute bottom-3 left-3 right-3 text-center bg-black/60 backdrop-blur-xs py-1 px-2 rounded-lg text-[10px] text-white">
-                {isBM ? 'Arahkan kamera ke kod DuitNow QR' : 'Align camera with any DuitNow QR code'}
-              </div>
-            </div>
-
-            {/* Malaysian Preset Merchants for 1-Tap QR Pay */}
-            <div className="space-y-2">
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
-                {isBM ? 'Imbasan Pantas Peniaga Popular Malaysia:' : 'Quick Scan Popular Malaysian Merchants:'}
-              </span>
-              <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
-                {POPULAR_MALAYSIAN_MERCHANTS.map((m) => (
-                  <button
-                    key={m.name}
-                    onClick={() => handleQuickMerchantScan(m)}
-                    className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/80 hover:border-rose-500 dark:hover:border-rose-500 text-left transition-all group"
-                  >
-                    <div className="flex items-center space-x-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 font-bold text-xs flex items-center justify-center shrink-0">
-                        {m.logoText || 'QR'}
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-rose-500 transition-colors">
-                          {m.name}
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                          {m.category}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <div className="text-xs font-black text-slate-900 dark:text-white">
-                        {formatRM(m.amount)}
-                      </div>
-                      <span className="text-[9px] text-rose-500 font-bold">
-                        {isBM ? 'Imbas & Bayar' : 'Tap to Pay'}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
+                <div className="text-xs font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                  {formatRM(m.amount)}
+                </div>
+              </button>
+            ))}
           </div>
         </div>
       )}
 
       {/* ================================================================= */}
-      {/* TAB 3: GENERATE RECEIVE QR CODE                                   */}
+      {/* TAB 3: GENERATE RECEIVE QR                                        */}
       {/* ================================================================= */}
       {activeTab === 'generate' && (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
-          <div className="md:col-span-6 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-center">
+          <div className="space-y-3">
             <div>
-              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
-                {isBM ? 'Jumlah Dituntut (RM)' : 'Amount to Request (RM)'}
+              <label className="text-[11px] font-medium text-zinc-500 block mb-1">
+                {isBM ? 'Jumlah (RM)' : 'Amount to Request (RM)'}
               </label>
-              <div className="relative">
-                <span className="absolute left-3 top-2 text-slate-400 font-bold text-xs">RM</span>
-                <input
-                  type="number"
-                  step="0.05"
-                  value={genAmount}
-                  onChange={(e) => setGenAmount(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl pl-10 pr-3 py-2 text-slate-900 dark:text-white font-bold text-sm focus:outline-none focus:border-rose-500"
-                />
-              </div>
+              <input
+                type="number"
+                step="0.05"
+                value={genAmount}
+                onChange={(e) => setGenAmount(e.target.value)}
+                className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 font-semibold tabular-nums focus:outline-none"
+              />
             </div>
 
             <div>
-              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
-                {isBM ? 'Nota / Sebab Bayaran' : 'Payment Reference / Note'}
+              <label className="text-[11px] font-medium text-zinc-500 block mb-1">
+                {isBM ? 'Catatan Bayaran' : 'Payment Note'}
               </label>
               <input
                 type="text"
                 value={genNote}
                 onChange={(e) => setGenNote(e.target.value)}
-                placeholder="e.g. Mamak Lunch, Rent Share"
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-rose-500"
+                className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none"
               />
             </div>
-
-            <p className="text-[11px] text-slate-400">
-              {isBM 
-                ? 'Kod QR standard DuitNow ini serasi dengan semua aplikasi perbankan Malaysia (MAE, CIMB, TNG eWallet, ShopeePay).'
-                : 'This dynamic DuitNow QR is compatible with all Malaysian banking & eWallet apps.'}
-            </p>
           </div>
 
-          <div className="md:col-span-6 flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-950/80 rounded-2xl border border-slate-200 dark:border-slate-800">
-            <div className="p-3 bg-white rounded-2xl shadow-md border-2 border-rose-500/40">
-              <canvas ref={qrCanvasRef} className="rounded-lg"></canvas>
-            </div>
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-2">
+          <div className="flex flex-col items-center justify-center p-3 bg-zinc-50 dark:bg-zinc-950 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80">
+            <canvas ref={qrCanvasRef} className="rounded-md" />
+            <span className="text-xs font-semibold tabular-nums text-zinc-900 dark:text-zinc-100 mt-2">
               {formatRM(Number(genAmount) || 0)}
-            </span>
-            <span className="text-[11px] text-slate-400">
-              {genNote}
             </span>
           </div>
         </div>
@@ -758,11 +621,11 @@ export default function DuitNowHub({
       {/* TAB 4: MAMAK BILL SPLITTER                                       */}
       {/* ================================================================= */}
       {activeTab === 'split' && (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
-          <div className="md:col-span-6 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-center">
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
+                <label className="text-[11px] font-medium text-zinc-500 block mb-1">
                   {isBM ? 'Jumlah Bil (RM)' : 'Total Bill (RM)'}
                 </label>
                 <input
@@ -770,13 +633,13 @@ export default function DuitNowHub({
                   step="0.05"
                   value={splitBillAmount}
                   onChange={(e) => setSplitBillAmount(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:border-rose-500"
+                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 font-semibold tabular-nums focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
-                  {isBM ? 'Bilangan Orang' : 'Number of Pax'}
+                <label className="text-[11px] font-medium text-zinc-500 block mb-1">
+                  {isBM ? 'Bilangan Pax' : 'Pax'}
                 </label>
                 <input
                   type="number"
@@ -784,46 +647,25 @@ export default function DuitNowHub({
                   max="50"
                   value={splitPax}
                   onChange={(e) => setSplitPax(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:border-rose-500"
+                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 font-semibold tabular-nums focus:outline-none"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
-                {isBM ? 'Tujuan / Lepak' : 'Hangout Occasion'}
-              </label>
-              <input
-                type="text"
-                value={splitNote}
-                onChange={(e) => setSplitNote(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-rose-500"
-              />
-            </div>
-
-            {/* Bank Negara 5-Sen Rounding Badge */}
-            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between">
-              <div>
-                <span className="font-bold block">🇲🇾 {isBM ? 'Bundaran 5 Sen BNM' : 'BNM 5-Sen Rounding:'}</span>
-                <span className="text-[11px] text-amber-700 dark:text-amber-400">
-                  {isBM ? 'Digenapkan mengikut mekanisma Bank Negara Malaysia' : 'Rounded to nearest 5 sen for easy DuitNow transfers'}
-                </span>
-              </div>
-              <span className="text-base font-black">
-                {formatRM(roundedPerPax)}
+            <div className="p-3 bg-zinc-50 dark:bg-zinc-950 rounded-lg border border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between text-xs">
+              <span className="text-zinc-500">
+                {isBM ? 'Bundaran 5-Sen BNM:' : 'BNM 5-Sen Rounding:'}
+              </span>
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">
+                {formatRM(roundedPerPax)} / pax
               </span>
             </div>
           </div>
 
-          <div className="md:col-span-6 flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-950/80 rounded-2xl border border-slate-200 dark:border-slate-800">
-            <div className="p-3 bg-white rounded-2xl shadow-md border-2 border-rose-500/40">
-              <canvas ref={splitQrRef} className="rounded-lg"></canvas>
-            </div>
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-2">
-              {formatRM(roundedPerPax)} {isBM ? '/ seorang' : '/ pax'}
-            </span>
-            <span className="text-[10px] text-slate-400">
-              {splitPax} {isBM ? 'orang' : 'people'} • {splitNote}
+          <div className="flex flex-col items-center justify-center p-3 bg-zinc-50 dark:bg-zinc-950 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80">
+            <canvas ref={splitQrRef} className="rounded-md" />
+            <span className="text-xs font-semibold tabular-nums text-zinc-900 dark:text-zinc-100 mt-2">
+              {formatRM(roundedPerPax)} / pax
             </span>
           </div>
         </div>

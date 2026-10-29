@@ -12,11 +12,9 @@ import {
   INITIAL_USER_PROFILE, 
   SAMPLE_TRANSACTIONS 
 } from './data/initialData';
-import { formatRM } from './utils/helpers';
-import { QrCode, Plus, Sparkles, FolderPlus, Wallet, ShieldCheck, ArrowRight } from 'lucide-react';
 
 export default function App() {
-  // Theme State (Dark / Light mode)
+  // Theme State
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('rw_theme');
     if (saved) return saved;
@@ -39,7 +37,7 @@ export default function App() {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // Language State (en / bm)
+  // Language State
   const [language, setLanguage] = useState(() => {
     return localStorage.getItem('rw_language') || 'en';
   });
@@ -58,7 +56,7 @@ export default function App() {
     localStorage.setItem('rw_categories', JSON.stringify(categories));
   }, [categories]);
 
-  // User Profile & Budget State
+  // User Profile
   const [userProfile, setUserProfile] = useState(() => {
     const saved = localStorage.getItem('rw_profile');
     return saved ? JSON.parse(saved) : INITIAL_USER_PROFILE;
@@ -78,13 +76,13 @@ export default function App() {
     localStorage.setItem('rw_transactions', JSON.stringify(transactions));
   }, [transactions]);
 
-  // Modals
+  // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [isDuitNowOpen, setIsDuitNowOpen] = useState(false);
 
-  // Financial Calculations
+  // Financial Figures
   const totalSpent = transactions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
   const monthlyBudget = userProfile?.monthlyBudget || 3500;
 
@@ -117,7 +115,7 @@ export default function App() {
 
   const handleClearAllData = () => {
     const isBM = language === 'bm';
-    if (window.confirm(isBM ? 'Kosongkan semua rekod perbelanjaan dan mula dari awal?' : 'Clear all transactions and start fresh?')) {
+    if (window.confirm(isBM ? 'Kosongkan semua data perbelanjaan?' : 'Clear all transaction data?')) {
       setTransactions([]);
     }
   };
@@ -128,7 +126,7 @@ export default function App() {
   };
 
   const handleExportCSV = () => {
-    const headers = ['ID', 'Date', 'Merchant / Title', 'Amount (RM)', 'Category', 'Method', 'Note'];
+    const headers = ['ID', 'Date', 'Description', 'Amount (RM)', 'Category', 'Method', 'Note'];
     const rows = transactions.map(t => [
       t.id,
       t.date,
@@ -150,9 +148,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-20 selection:bg-emerald-500 selection:text-white transition-colors duration-200">
+    <div className="min-h-screen bg-zinc-50/50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 pb-20 selection:bg-zinc-900 selection:text-white dark:selection:bg-zinc-100 dark:selection:text-zinc-900 transition-colors duration-200">
       
-      {/* Top Navbar */}
+      {/* Precision Header */}
       <Navbar
         userProfile={userProfile}
         theme={theme}
@@ -167,49 +165,10 @@ export default function App() {
         onOpenDuitNow={() => setIsDuitNowOpen(true)}
       />
 
-      {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {/* Main Content Area */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7 space-y-6">
         
-        {/* Hero Banner with Quick Actions */}
-        <div className="bg-gradient-to-r from-white via-white to-emerald-50/50 dark:from-slate-900 dark:via-slate-900 dark:to-emerald-950/30 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4 transition-colors">
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800/60">
-                🇲🇾 Malaysian Ringgit (RM)
-              </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                • DuitNow QR & AI OCR
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-1.5">
-              Personal Finance & <span className="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">Spending Insights</span>
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
-              {language === 'bm'
-                ? 'Pantau perbelanjaan harian dalam Ringgit Malaysia (RM), imbas resit DuitNow secara pintar dengan OCR, dan lihat pecahan perbelanjaan anda dalam carta separuh bulatan.'
-                : 'Track your daily Ringgit expenses, scan DuitNow receipts with client-side AI OCR, and visualize your spending breakdown with an interactive half-circle arch chart.'}
-            </p>
-          </div>
-
-          <div className="flex items-center space-x-2.5 shrink-0">
-            <button
-              onClick={() => setIsDuitNowOpen(true)}
-              className="flex items-center space-x-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-md shadow-red-600/25 transition-all active:scale-95"
-            >
-              <QrCode className="w-4 h-4" />
-              <span>DuitNow OCR Hub</span>
-            </button>
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-md shadow-emerald-600/25 transition-all active:scale-95"
-            >
-              <Plus className="w-4 h-4" />
-              <span>{language === 'bm' ? 'Rekod RM' : 'Log Expense (RM)'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Budget Summary Cards */}
+        {/* Executive Summary Metrics */}
         <BudgetSummaryCards
           monthlyBudget={monthlyBudget}
           onUpdateBudget={handleUpdateBudget}
@@ -218,29 +177,34 @@ export default function App() {
           language={language}
         />
 
-        {/* Half-Circle Spending Summary Chart (Image 1 Centerpiece) */}
-        <section id="spending-chart-section">
-          <HalfCircleSpendingChart
-            transactions={transactions}
-            categories={categories}
-            language={language}
-            onOpenAddModal={() => setIsAddModalOpen(true)}
-            onLoadSampleData={handleLoadSampleData}
-          />
-        </section>
+        {/* Asymmetrical Bento Grid: Half-Circle Chart (Image 1) & DuitNow Quick Scanner */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          
+          {/* Main Half-Circle Arch Chart (7 columns) */}
+          <div className="lg:col-span-7">
+            <HalfCircleSpendingChart
+              transactions={transactions}
+              categories={categories}
+              language={language}
+              onOpenAddModal={() => setIsAddModalOpen(true)}
+              onLoadSampleData={handleLoadSampleData}
+            />
+          </div>
 
-        {/* DuitNow QR & Receipt OCR Hub */}
-        <section id="duitnow-hub-section">
-          <DuitNowHub
-            onAddTransaction={handleAddTransaction}
-            categories={categories}
-            userProfile={userProfile}
-            language={language}
-          />
-        </section>
+          {/* DuitNow Hub & Receipt OCR (5 columns) */}
+          <div className="lg:col-span-5">
+            <DuitNowHub
+              onAddTransaction={handleAddTransaction}
+              categories={categories}
+              userProfile={userProfile}
+              language={language}
+            />
+          </div>
 
-        {/* Transactions Ledger */}
-        <section id="ledger-section">
+        </div>
+
+        {/* High-Precision Transaction Ledger */}
+        <section>
           <TransactionLedger
             transactions={transactions}
             categories={categories}
@@ -282,18 +246,17 @@ export default function App() {
         language={language}
       />
 
+      {/* Standalone DuitNow Modal if opened from Navbar */}
       {isDuitNowOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-3xl max-h-[92vh] overflow-y-auto">
-            <div className="relative">
-              <DuitNowHub
-                onAddTransaction={handleAddTransaction}
-                categories={categories}
-                userProfile={userProfile}
-                language={language}
-                onClose={() => setIsDuitNowOpen(false)}
-              />
-            </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DuitNowHub
+              onAddTransaction={handleAddTransaction}
+              categories={categories}
+              userProfile={userProfile}
+              language={language}
+              onClose={() => setIsDuitNowOpen(false)}
+            />
           </div>
         </div>
       )}

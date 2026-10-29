@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Wallet, Check } from 'lucide-react';
+import { X } from 'lucide-react';
 import { playSound, fireCelebration, formatRM } from '../utils/helpers';
 
 export default function SetBudgetModal({
@@ -22,7 +22,7 @@ export default function SetBudgetModal({
     if (val <= 0) return;
 
     onSaveBudget({
-      name: name.trim() || 'My Finances',
+      name: name.trim() || 'User',
       monthlyBudget: val,
     });
 
@@ -32,48 +32,29 @@ export default function SetBudgetModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-6 relative transition-colors">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl shadow-xl p-5 relative transition-colors">
         
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <Wallet className="w-4 h-4" />
-            </div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              {isBM ? 'Tetapkan Bajet Bulanan (RM)' : 'Set Monthly Budget (RM)'}
-            </h3>
-          </div>
+        <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-3 mb-4">
+          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            {isBM ? 'Tetapkan Had Bajet' : 'Set Monthly Budget'}
+          </h3>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg"
+            className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 p-1"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          
           <div>
-            <label className="text-slate-700 dark:text-slate-300 font-semibold block mb-1">
-              {isBM ? 'Nama Profil Kewangan' : 'Profile / Account Name'}
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Kwan / Family Budget"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-
-          <div>
-            <label className="text-slate-700 dark:text-slate-300 font-semibold block mb-1">
-              {isBM ? 'Had Bajet Bulanan (RM)' : 'Monthly Budget Limit (RM)'}
+            <label className="text-[11px] font-medium text-zinc-500 block mb-1 uppercase tracking-wider">
+              {isBM ? 'Had Bajet Bulanan (RM)' : 'Monthly Budget (RM)'}
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-2 text-slate-500 dark:text-slate-400 font-bold">RM</span>
+              <span className="absolute left-3 top-2.5 text-zinc-400 font-semibold">RM</span>
               <input
                 type="number"
                 step="50"
@@ -81,22 +62,17 @@ export default function SetBudgetModal({
                 placeholder="3500"
                 value={budget}
                 onChange={(e) => setBudget(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl pl-11 pr-3 py-2 text-slate-900 dark:text-white font-bold text-base focus:outline-none focus:border-emerald-500"
+                className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg pl-10 pr-3 py-2 text-zinc-900 dark:text-zinc-100 font-semibold text-base tabular-nums focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-100"
+                autoFocus
               />
             </div>
           </div>
 
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-            {isBM 
-              ? 'Bajet ini digunakan untuk memantau perbelanjaan bulanan dan baki peruntukan harian anda.'
-              : 'This budget limit is used to calculate your remaining balance and daily safe spending allowance.'}
-          </p>
-
           <button
             type="submit"
-            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl transition-all shadow-md shadow-emerald-600/20"
+            className="w-full bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 font-semibold py-2 rounded-lg transition-colors"
           >
-            {isBM ? 'Simpan Bajet RM' : 'Save Budget (RM)'}
+            {isBM ? 'Simpan Bajet' : 'Save Budget'}
           </button>
         </form>
 

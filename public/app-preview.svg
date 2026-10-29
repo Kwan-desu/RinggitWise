@@ -1,203 +1,190 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 680" width="100%" height="100%">
   <defs>
-    <!-- Background Gradient -->
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#020617"/>
-      <stop offset="50%" stop-color="#0f172a"/>
-      <stop offset="100%" stop-color="#022c22"/>
+    <!-- Background Gradient (Quiet, deep dark zinc) -->
+    <linearGradient id="canvasBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#09090b"/>
+      <stop offset="100%" stop-color="#0c0a09"/>
     </linearGradient>
 
-    <!-- Card Background -->
-    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#1e293b" stop-opacity="0.9"/>
-      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.95"/>
+    <linearGradient id="cardBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#141417"/>
+      <stop offset="100%" stop-color="#0f0f11"/>
     </linearGradient>
-
-    <!-- Glow Filter -->
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="6" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
-    </filter>
   </defs>
 
   <style>
-    .title { font-family: system-ui, -apple-system, sans-serif; font-weight: 900; fill: #ffffff; }
-    .subtitle { font-family: system-ui, -apple-system, sans-serif; font-weight: 500; fill: #94a3b8; font-size: 14px; }
-    .badge { font-family: system-ui, -apple-system, sans-serif; font-weight: 700; font-size: 11px; }
-    .number { font-family: system-ui, -apple-system, sans-serif; font-weight: 800; fill: #ffffff; }
-    .label { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; fill: #94a3b8; }
+    .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 600; fill: #f4f4f5; }
+    .mono { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .label { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; fill: #71717a; }
+    .leader { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; font-weight: 500; fill: #a1a1aa; }
   </style>
 
   <!-- Background -->
-  <rect width="1200" height="680" fill="url(#bgGrad)" rx="16"/>
+  <rect width="1200" height="680" fill="url(#canvasBg)" rx="16"/>
 
-  <!-- Top Navbar Mock -->
-  <rect x="40" y="30" width="1120" height="64" rx="14" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <!-- Top Minimalist Bar -->
+  <rect x="40" y="24" width="1120" height="52" rx="12" fill="#121214" stroke="#27272a" stroke-width="1"/>
   
-  <!-- Logo -->
-  <rect x="60" y="44" width="36" height="36" rx="8" fill="#10b981"/>
-  <text x="78" y="68" font-family="sans-serif" font-weight="900" font-size="16" fill="#ffffff" text-anchor="middle">RM</text>
-  
-  <text x="108" y="62" class="title" font-size="18">Ringgit<tspan fill="#10b981">Wise</tspan></text>
-  <text x="108" y="78" class="label" font-size="10">MALAYSIAN PERSONAL FINANCE • DUITNOW OCR</text>
+  <!-- Brand -->
+  <circle cx="64" cy="50" r="4" fill="#10b981"/>
+  <text x="76" y="54" class="title" font-size="14">RinggitWise</text>
+  <rect x="160" y="40" width="60" height="20" rx="4" fill="#1c1c20" stroke="#2e2e33"/>
+  <text x="190" y="54" class="label" font-size="9" fill="#a1a1aa" text-anchor="middle">MYR (RM)</text>
 
-  <!-- Navbar Badges & Actions -->
-  <rect x="820" y="46" width="110" height="32" rx="8" fill="#e11d48"/>
-  <text x="875" y="66" class="badge" fill="#ffffff" text-anchor="middle">⚡ DuitNow OCR</text>
+  <!-- Month Indicator -->
+  <text x="600" y="54" class="title" font-size="12" fill="#71717a" text-anchor="middle">October 2026</text>
 
-  <rect x="940" y="46" width="90" height="32" rx="8" fill="#10b981"/>
-  <text x="985" y="66" class="badge" fill="#ffffff" text-anchor="middle">+ Rekod RM</text>
+  <!-- Right Actions -->
+  <rect x="910" y="38" width="105" height="26" rx="13" fill="#1f1315" stroke="#4c1d24"/>
+  <text x="962" y="55" font-family="sans-serif" font-weight="500" font-size="11" fill="#f43f5e" text-anchor="middle">DuitNow OCR</text>
 
-  <rect x="1040" y="46" width="100" height="32" rx="8" fill="#1e293b" stroke="#334155"/>
-  <text x="1090" y="66" class="badge" fill="#38bdf8" text-anchor="middle">🌙 Dark/Light</text>
+  <rect x="1025" y="38" width="90" height="26" rx="13" fill="#f4f4f5"/>
+  <text x="1070" y="55" font-family="sans-serif" font-weight="600" font-size="11" fill="#09090b" text-anchor="middle">+ Record RM</text>
 
-  <!-- 3 Quick Stats Cards -->
-  <g transform="translate(40, 114)">
-    <!-- Card 1 -->
-    <rect x="0" y="0" width="355" height="96" rx="14" fill="url(#cardGrad)" stroke="#334155" stroke-width="1"/>
-    <text x="24" y="32" class="label">JUMLAH DIBELANJA (TOTAL SPENT)</text>
-    <text x="24" y="68" class="number" font-size="28" fill="#10b981">RM 1,068.00</text>
-    <circle cx="315" cy="48" r="18" fill="#064e3b"/>
-    <text x="315" y="53" font-size="14" fill="#34d399" text-anchor="middle">RM</text>
+  <!-- Row 1: 4 Quiet Luxury Metric Cards -->
+  <g transform="translate(40, 92)">
+    <!-- Card 1: Total Spent -->
+    <rect x="0" y="0" width="265" height="84" rx="12" fill="url(#cardBg)" stroke="#27272a" stroke-width="1"/>
+    <text x="16" y="26" class="label" font-size="10" letter-spacing="0.5">TOTAL SPENT</text>
+    <text x="249" y="26" class="label" font-size="10" text-anchor="end">30.5% used</text>
+    <text x="16" y="58" class="mono" font-size="22" fill="#f4f4f5">RM 1,068.00</text>
+    <rect x="16" y="70" width="233" height="3" rx="1.5" fill="#27272a"/>
+    <rect x="16" y="70" width="71" height="3" rx="1.5" fill="#10b981"/>
 
-    <!-- Card 2 -->
-    <rect x="382" y="0" width="355" height="96" rx="14" fill="url(#cardGrad)" stroke="#334155" stroke-width="1"/>
-    <text x="406" y="32" class="label">BAJET BULANAN (MONTHLY BUDGET)</text>
-    <text x="406" y="68" class="number" font-size="28" fill="#38bdf8">RM 3,500.00</text>
-    <circle cx="697" cy="48" r="18" fill="#0c4a6e"/>
-    <text x="697" y="53" font-size="14" fill="#38bdf8" text-anchor="middle">🎯</text>
+    <!-- Card 2: Monthly Budget -->
+    <rect x="285" y="0" width="265" height="84" rx="12" fill="url(#cardBg)" stroke="#27272a" stroke-width="1"/>
+    <text x="301" y="26" class="label" font-size="10" letter-spacing="0.5">MONTHLY BUDGET</text>
+    <text x="301" y="58" class="mono" font-size="22" fill="#f4f4f5">RM 3,500.00</text>
+    <text x="301" y="74" class="label" font-size="9">Fixed monthly ceiling</text>
 
-    <!-- Card 3 -->
-    <rect x="765" y="0" width="355" height="96" rx="14" fill="url(#cardGrad)" stroke="#334155" stroke-width="1"/>
-    <text x="789" y="32" class="label">BAKI BAJET BERSIH (REMAINING SAFE SPEND)</text>
-    <text x="789" y="68" class="number" font-size="28" fill="#2dd4bf">RM 2,432.00</text>
-    <circle cx="1080" cy="48" r="18" fill="#134e4a"/>
-    <text x="1080" y="53" font-size="14" fill="#2dd4bf" text-anchor="middle">✨</text>
+    <!-- Card 3: Remaining Balance -->
+    <rect x="570" y="0" width="265" height="84" rx="12" fill="url(#cardBg)" stroke="#27272a" stroke-width="1"/>
+    <text x="586" y="26" class="label" font-size="10" letter-spacing="0.5">REMAINING BALANCE</text>
+    <rect x="785" y="16" width="50" height="16" rx="8" fill="#064e3b"/>
+    <text x="810" y="28" font-family="sans-serif" font-weight="600" font-size="9" fill="#34d399" text-anchor="middle">On Track</text>
+    <text x="586" y="58" class="mono" font-size="22" fill="#f4f4f5">RM 2,432.00</text>
+    <text x="586" y="74" class="label" font-size="9">Safe to end of month</text>
+
+    <!-- Card 4: Daily Allowance -->
+    <rect x="855" y="0" width="265" height="84" rx="12" fill="url(#cardBg)" stroke="#27272a" stroke-width="1"/>
+    <text x="871" y="26" class="label" font-size="10" letter-spacing="0.5">DAILY ALLOWANCE</text>
+    <text x="1104" y="26" class="label" font-size="10" text-anchor="end">2d left</text>
+    <text x="871" y="58" class="mono" font-size="22" fill="#10b981">RM 1,216.00</text>
+    <text x="871" y="74" class="label" font-size="9">Daily safe burn rate</text>
   </g>
 
-  <!-- Centerpiece: Half-Circle Spending Chart (Image 1 Style) -->
-  <g transform="translate(40, 230)">
-    <rect x="0" y="0" width="737" height="410" rx="16" fill="url(#cardGrad)" stroke="#334155" stroke-width="1"/>
+  <!-- Row 2 Bento Grid: Left (Half-Circle Arch Chart) & Right (DuitNow OCR Panel) -->
+  
+  <!-- LEFT: Half-Circle Spending Arch Chart (Image 1 replica) -->
+  <g transform="translate(40, 194)">
+    <rect x="0" y="0" width="675" height="460" rx="16" fill="url(#cardBg)" stroke="#27272a" stroke-width="1"/>
     
-    <text x="28" y="36" class="title" font-size="16">Ringkasan Perbelanjaan Mengikut Kategori</text>
-    <text x="28" y="56" class="label">Visual carta separuh bulatan 180° berinspirasikan rekabentuk moden</text>
+    <text x="24" y="32" class="title" font-size="13">Spending Distribution by Category</text>
+    <text x="24" y="48" class="label">180° semi-circular arch breakdown in Malaysian Ringgit</text>
 
-    <!-- Half Circle SVG Arch (cx=368, cy=270, outerR=175, innerR=105) -->
-    <g transform="translate(368, 260)">
+    <!-- Arch Center (cx=337, cy=290, outerR=175, innerR=110) -->
+    <g transform="translate(337, 290)">
       
-      <!-- Slice 1: Mamak & Dining (Sky Blue #38bdf8, 30.1%) -->
-      <path d="M -175 0 A 175 175 0 0 1 -105 -140 L -63 -84 A 105 105 0 0 0 -105 0 Z" fill="#38bdf8" stroke="#0f172a" stroke-width="2"/>
-      <polyline points="-146,-105 -180,-140 -230,-140" fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="3,3"/>
-      <circle cx="-146" cy="-105" r="3" fill="#38bdf8"/>
-      <text x="-235" y="-136" class="badge" font-size="11" fill="#38bdf8" text-anchor="end">Mamak &amp; Dining: 30.1%</text>
+      <!-- 1. Cerulean (Mamak 30.1%) -->
+      <path d="M -175 0 A 175 175 0 0 1 -105 -140 L -66 -88 A 110 110 0 0 0 -110 0 Z" fill="#54b3d6" stroke="#121214" stroke-width="1.5"/>
+      <polyline points="-145,-105 -180,-140 -230,-140" fill="none" stroke="#54b3d6" stroke-width="0.8"/>
+      <circle cx="-145" cy="-105" r="2" fill="#54b3d6"/>
+      <text x="-236" y="-136" class="leader" text-anchor="end">Mamak &amp; Dining: 30.1%</text>
 
-      <!-- Slice 2: Groceries (Blue #60a5fa, 22.5%) -->
-      <path d="M -102 -142 A 175 175 0 0 1 -18 -174 L -11 -104 A 105 105 0 0 0 -61 -85 Z" fill="#60a5fa" stroke="#0f172a" stroke-width="2"/>
-      <polyline points="-60,-162 -75,-195 -125,-195" fill="none" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="3,3"/>
-      <circle cx="-60" cy="-162" r="3" fill="#60a5fa"/>
-      <text x="-130" y="-191" class="badge" font-size="11" fill="#60a5fa" text-anchor="end">Groceries: 22.5%</text>
+      <!-- 2. Medium Blue (Groceries 22.5%) -->
+      <path d="M -102 -142 A 175 175 0 0 1 -18 -174 L -11 -109 A 110 110 0 0 0 -64 -89 Z" fill="#5b8ee5" stroke="#121214" stroke-width="1.5"/>
+      <polyline points="-60,-162 -75,-195 -125,-195" fill="none" stroke="#5b8ee5" stroke-width="0.8"/>
+      <circle cx="-60" cy="-162" r="2" fill="#5b8ee5"/>
+      <text x="-131" y="-191" class="leader" text-anchor="end">Groceries: 22.5%</text>
 
-      <!-- Slice 3: Utilities (Slate Blue #6366f1, 15.0%) -->
-      <path d="M -14 -174 A 175 175 0 0 1 66 -162 L 40 -97 A 105 105 0 0 0 -8 -104 Z" fill="#6366f1" stroke="#0f172a" stroke-width="2"/>
-      <polyline points="26,-172 38,-205 90,-205" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="3,3"/>
-      <circle cx="26" cy="-172" r="3" fill="#6366f1"/>
-      <text x="95" y="-201" class="badge" font-size="11" fill="#818cf8" text-anchor="start">Utilities: 15.0%</text>
+      <!-- 3. Slate Indigo (Utilities 15.0%) -->
+      <path d="M -14 -174 A 175 175 0 0 1 66 -162 L 41 -102 A 110 110 0 0 0 -8 -109 Z" fill="#5f6fe5" stroke="#121214" stroke-width="1.5"/>
+      <polyline points="26,-172 38,-205 90,-205" fill="none" stroke="#5f6fe5" stroke-width="0.8"/>
+      <circle cx="26" cy="-172" r="2" fill="#5f6fe5"/>
+      <text x="96" y="-201" class="leader" text-anchor="start">Utilities &amp; Bills: 15.0%</text>
 
-      <!-- Slice 4: Transport (Indigo #818cf8, 12.4%) -->
-      <path d="M 70 -160 A 175 175 0 0 1 128 -118 L 77 -71 A 105 105 0 0 0 42 -96 Z" fill="#818cf8" stroke="#0f172a" stroke-width="2"/>
-      <polyline points="102,-142 135,-165 190,-165" fill="none" stroke="#818cf8" stroke-width="1.5" stroke-dasharray="3,3"/>
-      <circle cx="102" cy="-142" r="3" fill="#818cf8"/>
-      <text x="195" y="-161" class="badge" font-size="11" fill="#a78bfa" text-anchor="start">Fuel &amp; Transport: 12.4%</text>
+      <!-- 4. Purple (Transport 12.4%) -->
+      <path d="M 70 -160 A 175 175 0 0 1 128 -118 L 80 -74 A 110 110 0 0 0 44 -101 Z" fill="#7f5ce6" stroke="#121214" stroke-width="1.5"/>
+      <polyline points="102,-142 135,-165 190,-165" fill="none" stroke="#7f5ce6" stroke-width="0.8"/>
+      <circle cx="102" cy="-142" r="2" fill="#7f5ce6"/>
+      <text x="196" y="-161" class="leader" text-anchor="start">Fuel &amp; Transport: 12.4%</text>
 
-      <!-- Slice 5: Shopping (Purple #a855f7, 10.4%) -->
-      <path d="M 132 -114 A 175 175 0 0 1 164 -60 L 98 -36 A 105 105 0 0 0 79 -68 Z" fill="#a855f7" stroke="#0f172a" stroke-width="2"/>
-      <polyline points="152,-90 185,-105 240,-105" fill="none" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="3,3"/>
-      <circle cx="152" cy="-90" r="3" fill="#a855f7"/>
-      <text x="245" y="-101" class="badge" font-size="11" fill="#c084fc" text-anchor="start">Shopping: 10.4%</text>
+      <!-- 5. Violet (Shopping 10.4%) -->
+      <path d="M 132 -114 A 175 175 0 0 1 164 -60 L 103 -37 A 110 110 0 0 0 83 -71 Z" fill="#a856ea" stroke="#121214" stroke-width="1.5"/>
+      <polyline points="152,-90 185,-105 240,-105" fill="none" stroke="#a856ea" stroke-width="0.8"/>
+      <circle cx="152" cy="-90" r="2" fill="#a856ea"/>
+      <text x="246" y="-101" class="leader" text-anchor="start">Shopping &amp; Online: 10.4%</text>
 
-      <!-- Slice 6: Drinks & Cafe (Orchid #c084fc, 9.6%) -->
-      <path d="M 166 -56 A 175 175 0 0 1 175 0 L 105 0 A 105 105 0 0 0 100 -34 Z" fill="#c084fc" stroke="#0f172a" stroke-width="2"/>
-      <polyline points="172,-28 205,-38 255,-38" fill="none" stroke="#c084fc" stroke-width="1.5" stroke-dasharray="3,3"/>
-      <circle cx="172" cy="-28" r="3" fill="#c084fc"/>
-      <text x="260" y="-34" class="badge" font-size="11" fill="#e879f9" text-anchor="start">Drinks &amp; Cafe: 9.6%</text>
+      <!-- 6. Orchid Magenta (Drinks 9.6%) -->
+      <path d="M 166 -56 A 175 175 0 0 1 175 0 L 110 0 A 110 110 0 0 0 104 -35 Z" fill="#c856db" stroke="#121214" stroke-width="1.5"/>
+      <polyline points="172,-28 205,-38 255,-38" fill="none" stroke="#c856db" stroke-width="0.8"/>
+      <circle cx="172" cy="-28" r="2" fill="#c856db"/>
+      <text x="261" y="-34" class="leader" text-anchor="start">Drinks &amp; Cafe: 9.6%</text>
 
-      <!-- Center Hub Metrics -->
-      <text x="0" y="-45" class="label" text-anchor="middle" font-size="11">JUMLAH BELANJA</text>
-      <text x="0" y="-15" class="number" font-size="24" text-anchor="middle">RM 1,068.00</text>
-      <text x="0" y="8" font-family="sans-serif" font-weight="700" font-size="10" fill="#10b981" text-anchor="middle">6 Kategori Aktif</text>
+      <!-- Center Typography -->
+      <text x="0" y="-40" class="label" font-size="9" text-anchor="middle" letter-spacing="1">TOTAL SPENT</text>
+      <text x="0" y="-12" class="mono" font-size="22" fill="#f4f4f5" text-anchor="middle">RM 1,068.00</text>
+      <text x="0" y="10" class="label" font-size="9" text-anchor="middle">6 active categories</text>
     </g>
 
-    <!-- Legend (Matching Image 1) -->
-    <g transform="translate(45, 335)">
+    <!-- Legend (Image 1 rounded square swatches + labels) -->
+    <g transform="translate(38, 385)">
       <!-- Item 1 -->
-      <rect x="0" y="0" width="12" height="12" rx="3" fill="#38bdf8"/>
-      <text x="18" y="10" class="badge" fill="#ffffff">Mamak 30.1% (RM320.50)</text>
+      <rect x="0" y="0" width="11" height="11" rx="2.5" fill="#54b3d6"/>
+      <text x="18" y="10" font-family="sans-serif" font-size="11" fill="#d4d4d8">Mamak 30.1%</text>
 
       <!-- Item 2 -->
-      <rect x="220" y="0" width="12" height="12" rx="3" fill="#60a5fa"/>
-      <text x="238" y="10" class="badge" fill="#ffffff">Groceries 22.5% (RM240.00)</text>
+      <rect x="210" y="0" width="11" height="11" rx="2.5" fill="#5b8ee5"/>
+      <text x="228" y="10" font-family="sans-serif" font-size="11" fill="#d4d4d8">Groceries 22.5%</text>
 
       <!-- Item 3 -->
-      <rect x="440" y="0" width="12" height="12" rx="3" fill="#6366f1"/>
-      <text x="458" y="10" class="badge" fill="#ffffff">Utilities 15.0% (RM160.00)</text>
+      <rect x="420" y="0" width="11" height="11" rx="2.5" fill="#5f6fe5"/>
+      <text x="438" y="10" font-family="sans-serif" font-size="11" fill="#d4d4d8">Utilities 15.0%</text>
 
       <!-- Item 4 -->
-      <rect x="0" y="30" width="12" height="12" rx="3" fill="#818cf8"/>
-      <text x="18" y="40" class="badge" fill="#ffffff">Transport 12.4% (RM132.00)</text>
+      <rect x="0" y="28" width="11" height="11" rx="2.5" fill="#7f5ce6"/>
+      <text x="18" y="38" font-family="sans-serif" font-size="11" fill="#d4d4d8">Transport 12.4%</text>
 
       <!-- Item 5 -->
-      <rect x="220" y="30" width="12" height="12" rx="3" fill="#a855f7"/>
-      <text x="238" y="40" class="badge" fill="#ffffff">Shopping 10.4% (RM111.00)</text>
+      <rect x="210" y="28" width="11" height="11" rx="2.5" fill="#a856ea"/>
+      <text x="228" y="38" font-family="sans-serif" font-size="11" fill="#d4d4d8">Shopping 10.4%</text>
 
       <!-- Item 6 -->
-      <rect x="440" y="30" width="12" height="12" rx="3" fill="#c084fc"/>
-      <text x="458" y="40" class="badge" fill="#ffffff">Drinks 9.6% (RM102.50)</text>
+      <rect x="420" y="28" width="11" height="11" rx="2.5" fill="#c856db"/>
+      <text x="438" y="38" font-family="sans-serif" font-size="11" fill="#d4d4d8">Drinks 9.6%</text>
     </g>
   </g>
 
-  <!-- Right Side Column: DuitNow AI OCR & Quick Categories -->
-  <g transform="translate(805, 230)">
-    <!-- OCR Card -->
-    <rect x="0" y="0" width="355" height="195" rx="16" fill="url(#cardGrad)" stroke="#e11d48" stroke-width="1.5"/>
-    <rect x="20" y="20" width="32" height="32" rx="8" fill="#e11d48"/>
-    <text x="36" y="42" font-size="16" fill="#ffffff" text-anchor="middle">⚡</text>
-    <text x="62" y="36" class="title" font-size="14">DuitNow OCR Receipt Scanner</text>
-    <text x="62" y="52" class="label">Imbas Resit MAE &amp; TNG eWallet</text>
+  <!-- RIGHT: Precision DuitNow Hub & OCR Extractor -->
+  <g transform="translate(735, 194)">
+    <rect x="0" y="0" width="425" height="460" rx="16" fill="url(#cardBg)" stroke="#27272a" stroke-width="1"/>
+    
+    <text x="24" y="32" class="title" font-size="13">DuitNow Hub &amp; Receipt OCR</text>
+    <text x="24" y="48" class="label">Extract payment amounts from receipt slips</text>
 
-    <!-- Simulated Extracted Slip -->
-    <rect x="20" y="70" width="315" height="70" rx="10" fill="#020617" stroke="#334155"/>
-    <text x="32" y="92" class="badge" fill="#34d399">✓ RESIT DIKESAN: MAE DuitNow</text>
-    <text x="32" y="112" class="number" font-size="16">RM 14.80</text>
-    <text x="32" y="128" class="label" font-size="10">Peniaga: Nasi Kandar Pelita • Ref: MBB20261029</text>
+    <!-- Clean Segmented Control -->
+    <rect x="24" y="66" width="377" height="30" rx="8" fill="#1c1c20" stroke="#27272a"/>
+    <rect x="26" y="68" width="90" height="26" rx="6" fill="#27272a"/>
+    <text x="71" y="85" font-family="sans-serif" font-size="10" font-weight="600" fill="#f4f4f5" text-anchor="middle">Receipt OCR</text>
+    <text x="165" y="85" font-family="sans-serif" font-size="10" fill="#71717a" text-anchor="middle">Scan QR</text>
+    <text x="260" y="85" font-family="sans-serif" font-size="10" fill="#71717a" text-anchor="middle">Generate</text>
+    <text x="355" y="85" font-family="sans-serif" font-size="10" fill="#71717a" text-anchor="middle">Split Bill</text>
 
-    <rect x="20" y="152" width="315" height="28" rx="8" fill="#10b981"/>
-    <text x="177" y="170" class="badge" fill="#ffffff" text-anchor="middle">✓ Sahkan &amp; Simpan ke Bajet</text>
+    <!-- Upload Box -->
+    <rect x="24" y="112" width="377" height="100" rx="10" fill="#09090b" stroke="#27272a" stroke-dasharray="4,4"/>
+    <text x="212" y="156" class="title" font-size="12" fill="#a1a1aa" text-anchor="middle">Drop payment slip screenshot here</text>
+    <text x="212" y="174" class="label" font-size="10" text-anchor="middle">Supports MAE, Touch 'n Go eWallet &amp; CIMB OCTO</text>
 
-    <!-- Category Manager Card -->
-    <rect x="0" y="215" width="355" height="195" rx="16" fill="url(#cardGrad)" stroke="#334155" stroke-width="1"/>
-    <text x="20" y="244" class="title" font-size="14">📁 Pengurus Kategori Pantas</text>
-    <text x="20" y="262" class="label">Cipta kategori baharu &amp; warna tersuai</text>
+    <!-- Extracted Item Preview (Stripe/Linear style) -->
+    <rect x="24" y="230" width="377" height="145" rx="10" fill="#09090b" stroke="#27272a"/>
+    <text x="40" y="254" font-family="sans-serif" font-weight="600" font-size="9" fill="#10b981" letter-spacing="0.5">PARSED RECEIPT: MAE DUITNOW</text>
+    <text x="40" y="280" class="mono" font-size="18" fill="#f4f4f5">RM 14.80</text>
+    
+    <text x="40" y="306" class="label" font-size="10">Merchant: Nasi Kandar Pelita</text>
+    <text x="40" y="324" class="label" font-size="10">Category: Mamak &amp; Dining</text>
+    <text x="40" y="342" class="label" font-size="10">Ref: MBB202610294821</text>
 
-    <g transform="translate(20, 280)">
-      <rect x="0" y="0" width="95" height="28" rx="6" fill="#0f172a" stroke="#38bdf8"/>
-      <text x="47" y="18" class="badge" fill="#38bdf8" text-anchor="middle">🍔 Mamak</text>
-
-      <rect x="105" y="0" width="95" height="28" rx="6" fill="#0f172a" stroke="#60a5fa"/>
-      <text x="152" y="18" class="badge" fill="#60a5fa" text-anchor="middle">🛒 Groceries</text>
-
-      <rect x="210" y="0" width="105" height="28" rx="6" fill="#0f172a" stroke="#6366f1"/>
-      <text x="262" y="18" class="badge" fill="#6366f1" text-anchor="middle">⛽ Petrol &amp; Tol</text>
-
-      <rect x="0" y="36" width="95" height="28" rx="6" fill="#0f172a" stroke="#8b5cf6"/>
-      <text x="47" y="54" class="badge" fill="#8b5cf6" text-anchor="middle">💡 TNB &amp; Air</text>
-
-      <rect x="105" y="36" width="95" height="28" rx="6" fill="#0f172a" stroke="#a855f7"/>
-      <text x="152" y="54" class="badge" fill="#a855f7" text-anchor="middle">🧋 Cafe &amp; Boba</text>
-
-      <rect x="210" y="36" width="105" height="28" rx="6" fill="#0f172a" stroke="#10b981"/>
-      <text x="262" y="54" class="badge" fill="#10b981" text-anchor="middle">+ Kategori Baharu</text>
-    </g>
-
-    <text x="177" y="392" class="label" text-anchor="middle" font-size="10">⚡ Cipta dalam modal atau semasa rekod transaksi</text>
+    <rect x="24" y="395" width="377" height="34" rx="8" fill="#f4f4f5"/>
+    <text x="212" y="416" font-family="sans-serif" font-weight="600" font-size="11" fill="#09090b" text-anchor="middle">Confirm &amp; Log Expense</text>
   </g>
 </svg>
