@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Plus, QrCode, Sparkles } from 'lucide-react';
 import { formatRM } from '../utils/helpers';
 
 // Exact harmonic color palette derived directly from Image 1:
@@ -26,32 +27,40 @@ export default function HalfCircleSpendingChart({
   categories = [],
   language = 'en',
   onOpenAddModal,
+  onOpenDuitNow,
   onLoadSampleData
 }) {
   const isBM = language === 'bm';
   const [hoveredIndex, setHoveredIndex] = useState(null);
   const [period, setPeriod] = useState('month'); // 'month' | 'all'
 
-  // Filter transactions by period
-  const filteredTransactions = useMemo(() => {
+  // Filter transactions strictly for real spending expenses (exclude income)
+  const filteredExpenses = useMemo(() => {
+    let list = transactions.filter(t => 
+      Number(t.amount) > 0 &&
+      t.type !== 'income' &&
+      t.bucket !== 'income' &&
+      t.category?.toLowerCase() !== 'income'
+    );
+
     if (period === 'month') {
       const currentMonth = new Date().toISOString().slice(0, 7);
-      return transactions.filter(t => t.date && t.date.startsWith(currentMonth));
+      list = list.filter(t => t.date && t.date.startsWith(currentMonth));
     }
-    return transactions;
+
+    return list;
   }, [transactions, period]);
 
   // Aggregate by Category
   const { slices, totalSpent, count } = useMemo(() => {
-    const expenses = filteredTransactions.filter(t => Number(t.amount) > 0);
-    const total = expenses.reduce((sum, t) => sum + Number(t.amount), 0);
+    const total = filteredExpenses.reduce((sum, t) => sum + Number(t.amount), 0);
 
     if (total === 0) {
       return { slices: [], totalSpent: 0, count: 0 };
     }
 
     const catMap = {};
-    expenses.forEach(tx => {
+    filteredExpenses.forEach(tx => {
       const cat = tx.category || 'General';
       if (!catMap[cat]) {
         const found = categories.find(c => c.name === cat);
@@ -99,8 +108,8 @@ export default function HalfCircleSpendingChart({
       }
     }
 
-    return { slices: finalSlices, totalSpent: total, count: expenses.length };
-  }, [filteredTransactions, categories, isBM]);
+    return { slices: finalSlices, totalSpent: total, count: filteredExpenses.length };
+  }, [filteredExpenses, categories, isBM]);
 
   // SVG Geometry Dimensions
   const svgWidth = 620;
@@ -179,15 +188,15 @@ export default function HalfCircleSpendingChart({
     <div className="bg-white dark:bg-zinc-900/70 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl p-5 sm:p-7 shadow-2xs transition-colors">
       
       {/* Top Header */}
-      <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-4 mb-2">
+      <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-4 mb-3">
         <div>
           <h2 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
             {isBM ? 'Pecahan Perbelanjaan Mengikut Kategori' : 'Spending Distribution by Category'}
           </h2>
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
             {isBM 
-              ? 'Carta separuh bulatan 180° memaparkan nisbah perbelanjaan semasa.' 
-              : 'Semi-circular arch breakdown of expenses in Ringgit.'}
+              ? 'Carta separuh bulatan 180° memaparkan nisbah perbelanjaan sebenar.' 
+              : 'Semi-circular arch breakdown of expenses in Ringgit (RM).'}
           </p>
         </div>
 
@@ -216,30 +225,91 @@ export default function HalfCircleSpendingChart({
         </div>
       </div>
 
-      {/* Main Chart Canvas or Empty State */}
+      {/* Main Chart Graphic or Functional Empty State */}
       {slices.length === 0 ? (
-        <div className="py-14 flex flex-col items-center justify-center text-center space-y-2">
-          <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-            {isBM ? 'Tiada data perbelanjaan' : 'No expense data for this period'}
-          </span>
-          <p className="text-[11px] text-zinc-400 dark:text-zinc-500 max-w-xs">
-            {isBM ? 'Rekod perbelanjaan atau muat contoh data untuk memaparkan carta.' : 'Add your first transaction or load sample data to render the chart.'}
-          </p>
-          <div className="flex items-center space-x-2 pt-2">
-            {onOpenAddModal && (
-              <button
-                onClick={onOpenAddModal}
-                className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 rounded-lg text-xs font-semibold transition-colors"
-              >
-                + {isBM ? 'Rekod RM' : 'Add Expense'}
-              </button>
-            )}
+        <div className="relative flex flex-col items-center justify-center py-6">
+          {/* Visual Dashed Arch Placeholder */}
+          <div className="w-full max-w-[560px]">
+            <svg
+              viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+              className="w-full h-auto select-none"
+            >
+              {/* Dashed placeholder arch */}
+              <path
+                d={`M ${cx - outerR} ${cy} A ${outerR} ${outerR} 0 0 1 ${cx + outerR} ${cy} L ${cx + innerR} ${cy} A ${innerR} ${innerR} 0 0 0 ${cx - innerR} ${cy} Z`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeDasharray="6,6"
+                className="text-zinc-200 dark:text-zinc-800"
+              />
+
+              {/* Center Metrics (Zero State) */}
+              <g className="select-none pointer-events-none">
+                <text
+                  x={cx}
+                  y={cy - 44}
+                  textAnchor="middle"
+                  className="fill-zinc-400 dark:fill-zinc-500 text-[10px] font-semibold tracking-wider uppercase"
+                >
+                  {isBM ? 'JUMLAH BELANJA' : 'TOTAL SPENT'}
+                </text>
+                <text
+                  x={cx}
+                  y={cy - 12}
+                  textAnchor="middle"
+                  className="fill-zinc-400 dark:fill-zinc-500 text-2xl font-semibold tracking-tight tabular-nums"
+                >
+                  RM 0.00
+                </text>
+                <text
+                  x={cx}
+                  y={cy + 12}
+                  textAnchor="middle"
+                  className="fill-zinc-400 dark:fill-zinc-500 text-[10.5px] font-medium"
+                >
+                  {isBM ? '0 rekod perbelanjaan' : '0 transactions logged'}
+                </text>
+              </g>
+            </svg>
+          </div>
+
+          {/* Functional Call-To-Action Pills */}
+          <div className="flex flex-col items-center space-y-3 mt-2">
+            <span className="text-xs text-zinc-600 dark:text-zinc-400 font-medium text-center">
+              {isBM 
+                ? 'Belum ada perbelanjaan direkodkan untuk tempoh ini.' 
+                : 'No expenses logged yet. Record your first Ringgit payment to activate the chart:'}
+            </span>
+
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {onOpenAddModal && (
+                <button
+                  onClick={onOpenAddModal}
+                  className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 rounded-full text-xs font-semibold shadow-xs transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{isBM ? 'Rekod Perbelanjaan (RM)' : 'Add Expense (RM)'}</span>
+                </button>
+              )}
+
+              {onOpenDuitNow && (
+                <button
+                  onClick={onOpenDuitNow}
+                  className="flex items-center space-x-1.5 px-3.5 py-1.5 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-full text-xs font-medium transition-colors"
+                >
+                  <QrCode className="w-3.5 h-3.5 text-rose-500" />
+                  <span>{isBM ? 'Imbas Resit DuitNow' : 'Scan DuitNow Slip'}</span>
+                </button>
+              )}
+            </div>
+
             {onLoadSampleData && (
               <button
                 onClick={onLoadSampleData}
-                className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-lg text-xs font-medium transition-colors"
+                className="text-[11px] text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 underline underline-offset-4 pt-1 transition-colors"
               >
-                {isBM ? 'Muat Contoh' : 'Load Preview Data'}
+                {isBM ? 'Atau muat contoh data demonstrasi' : 'Or load sample demo data to preview'}
               </button>
             )}
           </div>

@@ -16,13 +16,13 @@ import {
 export default function App() {
   // Theme State
   const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem('rw_theme');
+    const saved = localStorage.getItem('rw_v2_theme');
     if (saved) return saved;
     return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
   useEffect(() => {
-    localStorage.setItem('rw_theme', theme);
+    localStorage.setItem('rw_v2_theme', theme);
     const root = document.documentElement;
     if (theme === 'dark') {
       root.classList.add('dark');
@@ -39,41 +39,57 @@ export default function App() {
 
   // Language State
   const [language, setLanguage] = useState(() => {
-    return localStorage.getItem('rw_language') || 'en';
+    return localStorage.getItem('rw_v2_language') || 'en';
   });
 
   useEffect(() => {
-    localStorage.setItem('rw_language', language);
+    localStorage.setItem('rw_v2_language', language);
   }, [language]);
 
-  // Categories State
+  // Categories State (Clean defaults, extensible)
   const [categories, setCategories] = useState(() => {
-    const saved = localStorage.getItem('rw_categories');
+    const saved = localStorage.getItem('rw_v2_categories');
     return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
   });
 
   useEffect(() => {
-    localStorage.setItem('rw_categories', JSON.stringify(categories));
+    localStorage.setItem('rw_v2_categories', JSON.stringify(categories));
   }, [categories]);
 
-  // User Profile
+  // User Profile & Budget State
   const [userProfile, setUserProfile] = useState(() => {
-    const saved = localStorage.getItem('rw_profile');
+    const saved = localStorage.getItem('rw_v2_profile');
     return saved ? JSON.parse(saved) : INITIAL_USER_PROFILE;
   });
 
   useEffect(() => {
-    localStorage.setItem('rw_profile', JSON.stringify(userProfile));
+    localStorage.setItem('rw_v2_profile', JSON.stringify(userProfile));
   }, [userProfile]);
 
-  // Transactions State
+  // Transactions State: 100% EMPTY by default for real user usage!
   const [transactions, setTransactions] = useState(() => {
-    const saved = localStorage.getItem('rw_transactions');
-    return saved ? JSON.parse(saved) : SAMPLE_TRANSACTIONS;
+    // Purge any legacy polluted keys from old app versions
+    localStorage.removeItem('rw_transactions');
+    localStorage.removeItem('rw_debts');
+    localStorage.removeItem('rw_savings');
+    localStorage.removeItem('rw_swipe_queue');
+
+    const saved = localStorage.getItem('rw_v2_transactions');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Ensure no corrupt old income or non-expense data polluted the array
+        return parsed.filter(t => t.category?.toLowerCase() !== 'income' && t.bucket !== 'income');
+      } catch (e) {
+        return [];
+      }
+    }
+    // Start with a clean slate (zero mock transactions)
+    return [];
   });
 
   useEffect(() => {
-    localStorage.setItem('rw_transactions', JSON.stringify(transactions));
+    localStorage.setItem('rw_v2_transactions', JSON.stringify(transactions));
   }, [transactions]);
 
   // Modal States
@@ -82,8 +98,15 @@ export default function App() {
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [isDuitNowOpen, setIsDuitNowOpen] = useState(false);
 
-  // Financial Figures
-  const totalSpent = transactions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
+  // Financial Figures (strictly real expenses only, exclude any income or negative amounts)
+  const expenseTransactions = transactions.filter(t => 
+    Number(t.amount) > 0 && 
+    t.type !== 'income' && 
+    t.bucket !== 'income' && 
+    t.category?.toLowerCase() !== 'income'
+  );
+
+  const totalSpent = expenseTransactions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
   const monthlyBudget = userProfile?.monthlyBudget || 3500;
 
   // Handlers
@@ -115,8 +138,9 @@ export default function App() {
 
   const handleClearAllData = () => {
     const isBM = language === 'bm';
-    if (window.confirm(isBM ? 'Kosongkan semua data perbelanjaan?' : 'Clear all transaction data?')) {
+    if (window.confirm(isBM ? 'Kosongkan semua data perbelanjaan dan mula dari sifar?' : 'Reset and clear all transactions to start completely fresh?')) {
       setTransactions([]);
+      localStorage.removeItem('rw_v2_transactions');
     }
   };
 
@@ -127,7 +151,7 @@ export default function App() {
 
   const handleExportCSV = () => {
     const headers = ['ID', 'Date', 'Description', 'Amount (RM)', 'Category', 'Method', 'Note'];
-    const rows = transactions.map(t => [
+    const rows = expenseTransactions.map(t => [
       t.id,
       t.date,
       `"${t.title.replace(/"/g, '""')}"`,
@@ -173,7 +197,7 @@ export default function App() {
           monthlyBudget={monthlyBudget}
           onUpdateBudget={handleUpdateBudget}
           totalSpent={totalSpent}
-          transactionCount={transactions.length}
+          transactionCount={expenseTransactions.length}
           language={language}
         />
 
@@ -183,10 +207,11 @@ export default function App() {
           {/* Main Half-Circle Arch Chart (7 columns) */}
           <div className="lg:col-span-7">
             <HalfCircleSpendingChart
-              transactions={transactions}
+              transactions={expenseTransactions}
               categories={categories}
               language={language}
               onOpenAddModal={() => setIsAddModalOpen(true)}
+              onOpenDuitNow={() => setIsDuitNowOpen(true)}
               onLoadSampleData={handleLoadSampleData}
             />
           </div>
@@ -206,7 +231,7 @@ export default function App() {
         {/* High-Precision Transaction Ledger */}
         <section>
           <TransactionLedger
-            transactions={transactions}
+            transactions={expenseTransactions}
             categories={categories}
             onDeleteTransaction={handleDeleteTransaction}
             onExportCSV={handleExportCSV}
