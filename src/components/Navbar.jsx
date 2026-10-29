@@ -8,9 +8,10 @@ import {
   Calendar, 
   ChevronLeft, 
   ChevronRight,
-  Trash2
+  Trash2,
+  History
 } from 'lucide-react';
-import { formatRM } from '../utils/helpers';
+import { formatRM, formatMonthYear } from '../utils/helpers';
 
 export default function Navbar({
   userProfile,
@@ -18,6 +19,12 @@ export default function Navbar({
   onToggleTheme,
   language = 'en',
   setLanguage,
+  selectedMonth = '2026-10',
+  onPrevMonth,
+  onNextMonth,
+  onSelectMonth,
+  onOpenPastSpending,
+  availableMonths = [],
   onOpenAddModal,
   onOpenCategoryManager,
   onOpenBudgetModal,
@@ -45,16 +52,65 @@ export default function Navbar({
             </span>
           </div>
 
-          {/* Middle: Month & Budget Quick Status */}
-          <div className="hidden md:flex items-center space-x-4">
-            <div className="flex items-center space-x-1.5 text-xs text-zinc-600 dark:text-zinc-400 bg-zinc-100/70 dark:bg-zinc-900/70 px-3 py-1.5 rounded-full border border-zinc-200/60 dark:border-zinc-800/60">
-              <Calendar className="w-3.5 h-3.5 text-zinc-400" />
-              <span className="font-medium">October 2026</span>
+          {/* Middle: Interactive Month Navigator & Past Spending Switcher */}
+          <div className="hidden md:flex items-center space-x-3">
+            
+            {/* Month Stepper */}
+            <div className="flex items-center space-x-0.5 text-xs bg-zinc-100/80 dark:bg-zinc-900/80 px-1.5 py-1 rounded-full border border-zinc-200/60 dark:border-zinc-800/60 shadow-2xs">
+              <button
+                type="button"
+                onClick={onPrevMonth}
+                className="p-1 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
+                title={isBM ? "Bulan Sebelumnya" : "Previous Month"}
+                aria-label="Previous Month"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+
+              <div className="flex items-center space-x-1 px-1">
+                <Calendar className="w-3.5 h-3.5 text-zinc-400" />
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => onSelectMonth && onSelectMonth(e.target.value)}
+                  className="bg-transparent border-none text-xs font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer focus:outline-none"
+                >
+                  {availableMonths.map((mStr) => (
+                    <option key={mStr} value={mStr} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                      {formatMonthYear(mStr, isBM)}
+                    </option>
+                  ))}
+                  <option value="all" className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                    {isBM ? 'Semua Masa' : 'All Time'}
+                  </option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                onClick={onNextMonth}
+                className="p-1 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
+                title={isBM ? "Bulan Seterusnya" : "Next Month"}
+                aria-label="Next Month"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             </div>
 
+            {/* Past Spending Overview Button */}
+            <button
+              type="button"
+              onClick={onOpenPastSpending}
+              className="flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-medium border border-zinc-200/80 dark:border-zinc-800/80 hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+              title={isBM ? "Lihat Sejarah Perbelanjaan Mengikut Bulan" : "View Historical Spending by Month"}
+            >
+              <History className="w-3.5 h-3.5 text-zinc-400" />
+              <span>{isBM ? 'Rekod Lepas' : 'Past Spending'}</span>
+            </button>
+
+            {/* Budget status quick link */}
             <button
               onClick={onOpenBudgetModal}
-              className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+              className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors pl-1"
             >
               <span>{isBM ? 'Bajet: ' : 'Budget: '}</span>
               <span className="font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">

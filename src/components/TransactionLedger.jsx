@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { Search, Download, Trash2, Plus } from 'lucide-react';
-import { formatRM } from '../utils/helpers';
+import { Search, Download, Trash2, Plus, Calendar } from 'lucide-react';
+import { formatRM, formatMonthYear } from '../utils/helpers';
 
 export default function TransactionLedger({
   transactions = [],
   categories = [],
+  selectedMonth = '2026-10',
+  onSelectMonth,
+  availableMonths = [],
   onDeleteTransaction,
   onExportCSV,
   onOpenAddModal,
@@ -21,7 +24,8 @@ export default function TransactionLedger({
       (tx.note && tx.note.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesCat = selectedCategory === 'all' || tx.category === selectedCategory;
-    return matchesSearch && matchesCat;
+    const matchesMonth = !selectedMonth || selectedMonth === 'all' || (tx.date && tx.date.startsWith(selectedMonth));
+    return matchesSearch && matchesCat && matchesMonth;
   });
 
   return (
@@ -75,6 +79,26 @@ export default function TransactionLedger({
             </div>
 
             <div className="flex items-center space-x-2 overflow-x-auto pb-1 sm:pb-0">
+              {/* Month Selector Filter */}
+              <div className="flex items-center space-x-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2 py-1">
+                <Calendar className="w-3.5 h-3.5 text-zinc-400" />
+                <select
+                  value={selectedMonth || 'all'}
+                  onChange={(e) => onSelectMonth && onSelectMonth(e.target.value)}
+                  className="bg-transparent border-none text-xs text-zinc-800 dark:text-zinc-200 focus:outline-none cursor-pointer"
+                >
+                  {availableMonths.map((mStr) => (
+                    <option key={mStr} value={mStr} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                      {formatMonthYear(mStr, isBM)}
+                    </option>
+                  ))}
+                  <option value="all" className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                    {isBM ? 'Semua Bulan' : 'All Months'}
+                  </option>
+                </select>
+              </div>
+
+              {/* Category Filter */}
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
@@ -82,7 +106,7 @@ export default function TransactionLedger({
               >
                 <option value="all">{isBM ? 'Semua Kategori' : 'All Categories'}</option>
                 {categories.map((c) => (
-                  <option key={c.id || c.name} value={c.name}>
+                  <option key={c.id || c.name} value={c.name} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
                     {c.name}
                   </option>
                 ))}

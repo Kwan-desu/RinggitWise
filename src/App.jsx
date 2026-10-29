@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Navbar from './components/Navbar';
 import HalfCircleSpendingChart from './components/HalfCircleSpendingChart';
 import BudgetSummaryCards from './components/BudgetSummaryCards';
@@ -7,10 +7,12 @@ import DuitNowHub from './components/DuitNowHub';
 import AddTransactionModal from './components/AddTransactionModal';
 import CategoryManagerModal from './components/CategoryManagerModal';
 import SetBudgetModal from './components/SetBudgetModal';
+import PastSpendingModal from './components/PastSpendingModal';
 import { 
   DEFAULT_CATEGORIES, 
   INITIAL_USER_PROFILE 
 } from './data/initialData';
+import { getPreviousMonthStr, getNextMonthStr } from './utils/helpers';
 
 export default function App() {
   // Theme State
@@ -105,6 +107,12 @@ export default function App() {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [isDuitNowOpen, setIsDuitNowOpen] = useState(false);
+  const [isPastSpendingOpen, setIsPastSpendingOpen] = useState(false);
+
+  // Active Month Navigation State (defaults to current month YYYY-MM)
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    return new Date().toISOString().slice(0, 7);
+  });
 
   // Financial Figures (strictly real expenses only, exclude any income or negative amounts)
   const expenseTransactions = transactions.filter(t => 
@@ -114,8 +122,40 @@ export default function App() {
     t.category?.toLowerCase() !== 'income'
   );
 
-  const totalSpent = expenseTransactions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
+  // Available distinct months found in transactions + current month
+  const availableMonths = useMemo(() => {
+    const set = new Set();
+    set.add(new Date().toISOString().slice(0, 7));
+    expenseTransactions.forEach(t => {
+      if (t.date && t.date.length >= 7) {
+        set.add(t.date.slice(0, 7));
+      }
+    });
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [expenseTransactions]);
+
+  // Expenses for the currently selected month
+  const activeMonthExpenses = useMemo(() => {
+    if (!selectedMonth || selectedMonth === 'all') return expenseTransactions;
+    return expenseTransactions.filter(t => t.date && t.date.startsWith(selectedMonth));
+  }, [expenseTransactions, selectedMonth]);
+
+  const activeMonthSpent = activeMonthExpenses.reduce((acc, t) => acc + Number(t.amount || 0), 0);
+  const totalLifetimeSpent = expenseTransactions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
   const monthlyBudget = userProfile?.monthlyBudget || 3500;
+
+  // Month Navigation Handlers
+  const handlePrevMonth = () => {
+    setSelectedMonth(prev => getPreviousMonthStr(prev));
+  };
+
+  const handleNextMonth = () => {
+    setSelectedMonth(prev => getNextMonthStr(prev));
+  };
+
+  const handleSelectMonth = (monthStr) => {
+    setSelectedMonth(monthStr);
+  };
 
   // Handlers
   const handleAddTransaction = (newTx) => {
@@ -194,6 +234,12 @@ export default function App() {
         onToggleTheme={toggleTheme}
         language={language}
         setLanguage={setLanguage}
+        selectedMonth={selectedMonth}
+        onPrevMonth={handlePrevMonth}
+        onNextMonth={handleNextMonth}
+        onSelectMonth={handleSelectMonth}
+        onOpenPastSpending={() => setIsPastSpendingOpen(true)}
+        availableMonths={availableMonths}
         onOpenAddModal={() => setIsAddModalOpen(true)}
         onOpenCategoryManager={() => setIsCategoryModalOpen(true)}
         onOpenBudgetModal={() => setIsBudgetModalOpen(true)}
@@ -208,8 +254,9 @@ export default function App() {
         <BudgetSummaryCards
           monthlyBudget={monthlyBudget}
           onUpdateBudget={handleUpdateBudget}
-          totalSpent={totalSpent}
-          transactionCount={expenseTransactions.length}
+          totalSpent={activeMonthSpent}
+          transactionCount={activeMonthExpenses.length}
+          selectedMonth={selectedMonth}
           language={language}
         />
 
@@ -221,6 +268,7 @@ export default function App() {
             <HalfCircleSpendingChart
               transactions={expenseTransactions}
               categories={categories}
+              selectedMonth={selectedMonth}
               language={language}
               onOpenAddModal={() => setIsAddModalOpen(true)}
               onOpenDuitNow={() => setIsDuitNowOpen(true)}
@@ -246,6 +294,9 @@ export default function App() {
           <TransactionLedger
             transactions={expenseTransactions}
             categories={categories}
+            selectedMonth={selectedMonth}
+            onSelectMonth={handleSelectMonth}
+            availableMonths={availableMonths}
             onDeleteTransaction={handleDeleteTransaction}
             onExportCSV={handleExportCSV}
             onOpenAddModal={() => setIsAddModalOpen(true)}
@@ -281,6 +332,18 @@ export default function App() {
         onSaveBudget={(data) => {
           setUserProfile(prev => ({ ...prev, ...data }));
         }}
+        language={language}
+      />
+
+      {/* Past Spending Historical Timeline Modal */}
+      <PastSpendingModal
+        isOpen={isPastSpendingOpen}
+        onClose={() => setIsPastSpendingOpen(false)}
+        transactions={expenseTransactions}
+        categories={categories}
+        monthlyBudget={monthlyBudget}
+        selectedMonth={selectedMonth}
+        onSelectMonth={handleSelectMonth}
         language={language}
       />
 

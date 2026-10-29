@@ -104,3 +104,74 @@ export const fireCelebration = () => {
     // ignore
   }
 };
+
+// Format YYYY-MM to human readable (e.g. '2026-10' -> 'October 2026')
+export const formatMonthYear = (yyyyMm, isBM = false) => {
+  if (!yyyyMm || yyyyMm === 'all') return isBM ? 'Semua Masa' : 'All Time';
+  const parts = yyyyMm.split('-');
+  if (parts.length < 2) return yyyyMm;
+  const year = parts[0];
+  const monthIdx = parseInt(parts[1], 10) - 1;
+
+  const enMonths = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const bmMonths = [
+    'Januari', 'Februari', 'Mac', 'April', 'Mei', 'Jun',
+    'Julai', 'Ogos', 'September', 'Oktober', 'November', 'Disember'
+  ];
+
+  const mName = isBM ? bmMonths[monthIdx] : enMonths[monthIdx];
+  return `${mName || ''} ${year}`.trim();
+};
+
+// Calculate previous YYYY-MM
+export const getPreviousMonthStr = (yyyyMm) => {
+  if (!yyyyMm || yyyyMm === 'all') {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+  const [yearStr, monthStr] = yyyyMm.split('-');
+  let y = parseInt(yearStr, 10);
+  let m = parseInt(monthStr, 10) - 1;
+  if (m < 1) {
+    m = 12;
+    y -= 1;
+  }
+  return `${y}-${String(m).padStart(2, '0')}`;
+};
+
+// Calculate next YYYY-MM
+export const getNextMonthStr = (yyyyMm) => {
+  if (!yyyyMm || yyyyMm === 'all') {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+  const [yearStr, monthStr] = yyyyMm.split('-');
+  let y = parseInt(yearStr, 10);
+  let m = parseInt(monthStr, 10) + 1;
+  if (m > 12) {
+    m = 1;
+    y += 1;
+  }
+  return `${y}-${String(m).padStart(2, '0')}`;
+};
+
+// Group transactions by month descending
+export const groupTransactionsByMonth = (transactions) => {
+  const map = {};
+  transactions.forEach(tx => {
+    const mStr = (tx.date && tx.date.length >= 7) ? tx.date.slice(0, 7) : 'Unknown';
+    if (!map[mStr]) map[mStr] = [];
+    map[mStr].push(tx);
+  });
+  return Object.keys(map)
+    .sort((a, b) => b.localeCompare(a))
+    .map(month => ({
+      month,
+      transactions: map[month],
+      totalSpent: map[month].reduce((sum, t) => sum + Number(t.amount || 0), 0),
+      count: map[month].length
+    }));
+};

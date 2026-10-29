@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, QrCode, Sparkles } from 'lucide-react';
-import { formatRM } from '../utils/helpers';
+import { formatRM, formatMonthYear } from '../utils/helpers';
 
 // Exact harmonic color palette derived directly from Image 1:
 // 1. Lithuania (Cerulean / Sky Blue)
@@ -25,6 +25,7 @@ const EXACT_IMAGE1_COLORS = [
 export default function HalfCircleSpendingChart({
   transactions = [],
   categories = [],
+  selectedMonth = '2026-10',
   language = 'en',
   onOpenAddModal,
   onOpenDuitNow
@@ -36,19 +37,20 @@ export default function HalfCircleSpendingChart({
   // Filter transactions strictly for real spending expenses (exclude income)
   const filteredExpenses = useMemo(() => {
     let list = transactions.filter(t => 
-      Number(t.amount) > 0 &&
-      t.type !== 'income' &&
-      t.bucket !== 'income' &&
+      Number(t.amount) > 0 && 
+      t.type !== 'income' && 
+      t.bucket !== 'income' && 
       t.category?.toLowerCase() !== 'income'
     );
 
     if (period === 'month') {
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      list = list.filter(t => t.date && t.date.startsWith(currentMonth));
+      if (selectedMonth && selectedMonth !== 'all') {
+        list = list.filter(t => t.date && t.date.startsWith(selectedMonth));
+      }
     }
 
     return list;
-  }, [transactions, period]);
+  }, [transactions, period, selectedMonth]);
 
   // Aggregate by Category
   const { slices, totalSpent, count } = useMemo(() => {
@@ -209,7 +211,7 @@ export default function HalfCircleSpendingChart({
                 : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
             }`}
           >
-            {isBM ? 'Bulan Ini' : 'This Month'}
+            {selectedMonth === 'all' ? (isBM ? 'Semua Masa' : 'All Time') : formatMonthYear(selectedMonth, isBM)}
           </button>
           <button
             onClick={() => setPeriod('all')}
@@ -219,7 +221,7 @@ export default function HalfCircleSpendingChart({
                 : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
             }`}
           >
-            {isBM ? 'Semua' : 'All Time'}
+            {isBM ? 'Semua Masa' : 'All Time'}
           </button>
         </div>
       </div>
@@ -389,7 +391,9 @@ export default function HalfCircleSpendingChart({
                   textAnchor="middle"
                   className="fill-zinc-400 dark:fill-zinc-500 text-[10px] font-semibold tracking-wider uppercase"
                 >
-                  {isBM ? 'JUMLAH BELANJA' : 'TOTAL SPENT'}
+                  {period === 'all' || selectedMonth === 'all' 
+                    ? (isBM ? 'JUMLAH BELANJA (SEMUA MASA)' : 'TOTAL SPENT (ALL TIME)') 
+                    : (isBM ? `JUMLAH BELANJA (${formatMonthYear(selectedMonth, true).toUpperCase()})` : `TOTAL SPENT (${formatMonthYear(selectedMonth, false).toUpperCase()})`)}
                 </text>
                 <text
                   x={cx}

@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Edit2, Check, ArrowUpRight } from 'lucide-react';
-import { formatRM } from '../utils/helpers';
+import { formatRM, formatMonthYear } from '../utils/helpers';
 
 export default function BudgetSummaryCards({
   monthlyBudget = 3500,
   onUpdateBudget,
   totalSpent = 0,
   transactionCount = 0,
+  selectedMonth = '2026-10',
   language = 'en',
 }) {
   const isBM = language === 'bm';
@@ -62,7 +63,7 @@ export default function BudgetSummaryCards({
 
         <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
           <span>{transactionCount} {isBM ? 'transaksi' : 'transactions'}</span>
-          <span>{isBM ? 'Bulan Ini' : 'October 2026'}</span>
+          <span className="font-medium text-zinc-700 dark:text-zinc-300">{formatMonthYear(selectedMonth, isBM)}</span>
         </div>
       </div>
 
