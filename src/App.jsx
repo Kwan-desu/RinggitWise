@@ -118,6 +118,16 @@ export default function App() {
     setTransactions(prev => [tx, ...prev]);
   };
 
+  const handleAddMultipleTransactions = (newTxs) => {
+    if (!Array.isArray(newTxs) || newTxs.length === 0) return;
+    const formatted = newTxs.map((t, idx) => ({
+      id: `tx-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
+      date: t.date || new Date().toISOString().split('T')[0],
+      ...t,
+    }));
+    setTransactions(prev => [...formatted, ...prev]);
+  };
+
   const handleDeleteTransaction = (id) => {
     setTransactions(prev => prev.filter(t => t.id !== id));
   };
@@ -212,6 +222,7 @@ export default function App() {
           <div className="lg:col-span-5">
             <DuitNowHub
               onAddTransaction={handleAddTransaction}
+              onAddMultipleTransactions={handleAddMultipleTransactions}
               categories={categories}
               userProfile={userProfile}
               language={language}
@@ -269,6 +280,7 @@ export default function App() {
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <DuitNowHub
               onAddTransaction={handleAddTransaction}
+              onAddMultipleTransactions={handleAddMultipleTransactions}
               categories={categories}
               userProfile={userProfile}
               language={language}
