@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -230,7 +231,7 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                         navigationIcon = {
                             if (selectedTab == 4) {
                                 IconButton(onClick = { selectedTab = previousTab }) {
-                                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
                                 }
                             }
                         },
@@ -348,13 +349,13 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                             }
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = if (bgBitmap != null) Color.Black.copy(alpha = 0.45f) else MaterialTheme.colorScheme.surface
+                            containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surface)
                         )
                     )
                 },
                 bottomBar = {
                     NavigationBar(
-                        containerColor = if (bgBitmap != null) Color.Black.copy(alpha = 0.65f) else MaterialTheme.colorScheme.surfaceContainer
+                        containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer)
                     ) {
                         NavigationBarItem(
                             selected = selectedTab == 0,
