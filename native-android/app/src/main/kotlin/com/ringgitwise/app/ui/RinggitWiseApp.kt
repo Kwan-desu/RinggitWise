@@ -33,10 +33,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
@@ -53,11 +57,35 @@ fun RinggitWiseApp(repository: FinanceRepository) {
     val monthlyBudget by repository.monthlyBudget.collectAsState()
     val selectedMonth by repository.selectedMonth.collectAsState()
 
+    // Profile & Background Customizations
+    val userProfileEmoji by repository.userProfileEmoji.collectAsState()
+    val hasCustomProfileImage by repository.hasCustomProfileImage.collectAsState()
+    val avatarTrigger by repository.avatarUpdateTrigger.collectAsState()
+    val hasCustomBackground by repository.hasCustomBackground.collectAsState()
+    val bgTrigger by repository.bgUpdateTrigger.collectAsState()
+    val customBgDim by repository.customBgDim.collectAsState()
+    val chartMode by repository.chartMode.collectAsState()
+
     var selectedTab by remember { mutableIntStateOf(0) }
     var showAddSheet by remember { mutableStateOf(false) }
     var showBudgetDialog by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
     var showMonthPicker by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+
+    val avatarBitmap = remember(hasCustomProfileImage, avatarTrigger) {
+        if (hasCustomProfileImage) {
+            val file = repository.getProfileAvatarFile()
+            if (file.exists()) BitmapFactory.decodeFile(file.absolutePath) else null
+        } else null
+    }
+
+    val bgBitmap = remember(hasCustomBackground, bgTrigger) {
+        if (hasCustomBackground) {
+            val file = repository.getBackgroundFile()
+            if (file.exists()) BitmapFactory.decodeFile(file.absolutePath) else null
+        } else null
+    }
 
     // Filter only genuine expenses (exclude credit/topups)
     val expenses = remember(transactions) {
@@ -85,171 +113,214 @@ fun RinggitWiseApp(repository: FinanceRepository) {
     val daysRemaining = (daysInMonth - currentDay).coerceAtLeast(1)
     val dailySafeSpend = if (remaining > 0) remaining / daysRemaining else 0.0
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Custom Wallpaper Layer
+        if (bgBitmap != null) {
+            Image(
+                bitmap = bgBitmap.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+            // Contrast Scrim Overlay
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = customBgDim))
+            )
+        }
+
+        Scaffold(
+            containerColor = if (bgBitmap != null) Color.Transparent else MaterialTheme.colorScheme.surface,
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .clickable { showSettingsDialog = true }
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    if (avatarBitmap != null) {
+                                        Image(
+                                            bitmap = avatarBitmap.asImageBitmap(),
+                                            contentDescription = "Profile Avatar",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else if (userProfileEmoji.isNotEmpty() && userProfileEmoji != "RM") {
+                                        Text(userProfileEmoji, fontSize = 18.sp)
+                                    } else {
+                                        Text("RM", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "RinggitWise",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable { showSettingsDialog = true }
+                            )
+                        }
+                    },
+                    actions = {
+                        // Month Stepper with Left/Right chevrons and interactive calendar picker
                         Surface(
                             shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.size(32.dp)
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            modifier = Modifier.padding(end = 4.dp)
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text("RM", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("RinggitWise", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    }
-                },
-                actions = {
-                    // Month Stepper with Left/Right chevrons and interactive calendar picker
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        modifier = Modifier.padding(end = 4.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 2.dp, vertical = 2.dp)
-                        ) {
-                            IconButton(
-                                onClick = { repository.selectMonth(getPreviousMonth(selectedMonth)) },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.ChevronLeft,
-                                    contentDescription = "Previous Month",
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { showMonthPicker = true }
-                                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                                modifier = Modifier.padding(horizontal = 2.dp, vertical = 2.dp)
                             ) {
-                                Icon(
-                                    Icons.Default.CalendarMonth,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = formatDisplayMonth(selectedMonth),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
+                                IconButton(
+                                    onClick = { repository.selectMonth(getPreviousMonth(selectedMonth)) },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.ChevronLeft,
+                                        contentDescription = "Previous Month",
+                                        modifier = Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
 
-                            IconButton(
-                                onClick = { repository.selectMonth(getNextMonth(selectedMonth)) },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.ChevronRight,
-                                    contentDescription = "Next Month",
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable { showMonthPicker = true }
+                                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.CalendarMonth,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = formatDisplayMonth(selectedMonth),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = { repository.selectMonth(getNextMonth(selectedMonth)) },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.ChevronRight,
+                                        contentDescription = "Next Month",
+                                        modifier = Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
-                    }
 
-                    IconButton(onClick = { showClearDialog = true }) {
-                        Icon(Icons.Outlined.DeleteSweep, contentDescription = "Clear Data", tint = MaterialTheme.colorScheme.error)
+                        IconButton(onClick = { showSettingsDialog = true }) {
+                            Icon(Icons.Outlined.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = if (bgBitmap != null) Color.Black.copy(alpha = 0.45f) else MaterialTheme.colorScheme.surface
+                    )
+                )
+            },
+            bottomBar = {
+                NavigationBar(
+                    containerColor = if (bgBitmap != null) Color.Black.copy(alpha = 0.65f) else MaterialTheme.colorScheme.surfaceContainer
+                ) {
+                    NavigationBarItem(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        icon = { Icon(Icons.Default.Dashboard, contentDescription = "Overview") },
+                        label = { Text("Overview") }
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        icon = { Icon(Icons.Default.PieChart, contentDescription = "Charts") },
+                        label = { Text("Charts") }
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                        icon = { Icon(Icons.Default.DocumentScanner, contentDescription = "AI OCR Scan") },
+                        label = { Text("AI Scan") }
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 3,
+                        onClick = { selectedTab = 3 },
+                        icon = { Icon(Icons.Default.History, contentDescription = "Ledger") },
+                        label = { Text("Ledger") }
+                    )
+                }
+            },
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = { showAddSheet = true },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = RoundedCornerShape(18.dp)
+                ) {
+                    Row(modifier = Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Add, contentDescription = "Add Expense")
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Add RM", fontWeight = FontWeight.Bold)
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-        },
-        bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-                NavigationBarItem(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    icon = { Icon(Icons.Default.Dashboard, contentDescription = "Overview") },
-                    label = { Text("Overview") }
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    icon = { Icon(Icons.Default.PieChart, contentDescription = "Charts") },
-                    label = { Text("Charts") }
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
-                    icon = { Icon(Icons.Default.DocumentScanner, contentDescription = "AI OCR Scan") },
-                    label = { Text("AI Scan") }
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 3,
-                    onClick = { selectedTab = 3 },
-                    icon = { Icon(Icons.Default.History, contentDescription = "Ledger") },
-                    label = { Text("Ledger") }
-                )
-            }
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddSheet = true },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = RoundedCornerShape(18.dp)
-            ) {
-                Row(modifier = Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Expense")
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Add RM", fontWeight = FontWeight.Bold)
                 }
             }
-        }
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.surface)
-        ) {
-            when (selectedTab) {
-                0 -> OverviewTab(
-                    totalSpent = totalSpent,
-                    monthlyBudget = monthlyBudget,
-                    remaining = remaining,
-                    dailySafeSpend = dailySafeSpend,
-                    percentUsed = percentUsed,
-                    isOverBudget = isOverBudget,
-                    daysRemaining = daysRemaining,
-                    selectedMonth = selectedMonth,
-                    recentTransactions = activeMonthExpenses.take(5),
-                    onEditBudget = { showBudgetDialog = true },
-                    onNavigateToHistory = { selectedTab = 3 },
-                    onDeleteTransaction = { repository.deleteTransaction(it) }
-                )
-                1 -> ChartsTab(
-                    expenses = activeMonthExpenses,
-                    totalSpent = totalSpent,
-                    selectedMonth = selectedMonth
-                )
-                2 -> ImportTab(
-                    onImportTransactions = { list ->
-                        repository.addMultipleTransactions(list)
-                        selectedTab = 3
-                    }
-                )
-                3 -> LedgerTab(
-                    transactions = activeMonthExpenses,
-                    onDelete = { repository.deleteTransaction(it) }
-                )
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .background(if (bgBitmap != null) Color.Transparent else MaterialTheme.colorScheme.surface)
+            ) {
+                when (selectedTab) {
+                    0 -> OverviewTab(
+                        totalSpent = totalSpent,
+                        monthlyBudget = monthlyBudget,
+                        remaining = remaining,
+                        dailySafeSpend = dailySafeSpend,
+                        percentUsed = percentUsed,
+                        isOverBudget = isOverBudget,
+                        daysRemaining = daysRemaining,
+                        selectedMonth = selectedMonth,
+                        recentTransactions = activeMonthExpenses.take(5),
+                        onEditBudget = { showBudgetDialog = true },
+                        onNavigateToHistory = { selectedTab = 3 },
+                        onDeleteTransaction = { repository.deleteTransaction(it) }
+                    )
+                    1 -> ChartsTab(
+                        expenses = activeMonthExpenses,
+                        totalSpent = totalSpent,
+                        monthlyBudget = monthlyBudget,
+                        selectedMonth = selectedMonth,
+                        chartMode = chartMode,
+                        onSelectChartMode = { repository.setChartMode(it) }
+                    )
+                    2 -> ImportTab(
+                        onImportTransactions = { list ->
+                            repository.addMultipleTransactions(list)
+                            selectedTab = 3
+                        }
+                    )
+                    3 -> LedgerTab(
+                        transactions = activeMonthExpenses,
+                        onDelete = { repository.deleteTransaction(it) }
+                    )
+                }
             }
         }
     }
@@ -287,6 +358,36 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                 repository.selectMonth(month)
                 showMonthPicker = false
             }
+        )
+    }
+
+    // Settings & Personalization Dialog
+    if (showSettingsDialog) {
+        SettingsDialog(
+            userProfileEmoji = userProfileEmoji,
+            hasCustomProfileImage = hasCustomProfileImage,
+            avatarBitmap = avatarBitmap,
+            hasCustomBackground = hasCustomBackground,
+            customBgDim = customBgDim,
+            monthlyBudget = monthlyBudget,
+            onSetEmoji = { repository.setProfileEmoji(it) },
+            onPickProfileImage = { uri -> repository.saveProfileImage(uri) },
+            onResetProfile = {
+                repository.removeProfileImage()
+                repository.setProfileEmoji("RM")
+            },
+            onPickBackgroundImage = { uri -> repository.saveBackgroundImage(uri) },
+            onRemoveBackground = { repository.removeBackgroundImage() },
+            onSetBgDim = { repository.setCustomBgDim(it) },
+            onEditBudget = {
+                showSettingsDialog = false
+                showBudgetDialog = true
+            },
+            onClearAllData = {
+                showSettingsDialog = false
+                showClearDialog = true
+            },
+            onDismiss = { showSettingsDialog = false }
         )
     }
 
@@ -473,13 +574,16 @@ fun OverviewTab(
 }
 
 // -------------------------------------------------------------
-// CHARTS TAB (180° Semi-circular Arch Chart)
+// CHARTS TAB (180° Half Pie, 360° Donut, Ranked Bars & Timeline)
 // -------------------------------------------------------------
 @Composable
 fun ChartsTab(
     expenses: List<Transaction>,
     totalSpent: Double,
-    selectedMonth: String
+    monthlyBudget: Double,
+    selectedMonth: String,
+    chartMode: String = "half_pie",
+    onSelectChartMode: (String) -> Unit = {}
 ) {
     // Aggregate by category
     val catMap = remember(expenses) {
@@ -491,6 +595,21 @@ fun ChartsTab(
         map.toList().sortedByDescending { it.second }
     }
 
+    // Daily distribution (Days 1 to 31)
+    val dailyMap = remember(expenses) {
+        val map = sortedMapOf<Int, Double>()
+        for (d in 1..31) map[d] = 0.0
+        expenses.forEach { tx ->
+            val dayPart = tx.date.takeLast(2).toIntOrNull()
+            if (dayPart != null && dayPart in 1..31) {
+                map[dayPart] = (map[dayPart] ?: 0.0) + tx.amount
+            }
+        }
+        map
+    }
+    val maxDaily = remember(dailyMap) { (dailyMap.values.maxOrNull() ?: 1.0).coerceAtLeast(1.0) }
+    val highestSpendDay = remember(dailyMap) { dailyMap.filter { it.value > 0 }.maxByOrNull { it.value } }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -499,112 +618,420 @@ fun ChartsTab(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+        // Chart Style Selector Chips
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text("Category Spending Breakdown", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("180° Arch Distribution in Malaysian Ringgit", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FilterChip(
+                selected = chartMode == "half_pie",
+                onClick = { onSelectChartMode("half_pie") },
+                label = { Text("⌒ 180° Half Pie", fontWeight = FontWeight.Bold) },
+                shape = CircleShape
+            )
+            FilterChip(
+                selected = chartMode == "donut",
+                onClick = { onSelectChartMode("donut") },
+                label = { Text("◯ 360° Donut", fontWeight = FontWeight.Bold) },
+                shape = CircleShape
+            )
+            FilterChip(
+                selected = chartMode == "bar",
+                onClick = { onSelectChartMode("bar") },
+                label = { Text("📊 Ranked Bars", fontWeight = FontWeight.Bold) },
+                shape = CircleShape
+            )
+            FilterChip(
+                selected = chartMode == "timeline",
+                onClick = { onSelectChartMode("timeline") },
+                label = { Text("📅 Daily Timeline", fontWeight = FontWeight.Bold) },
+                shape = CircleShape
+            )
+        }
 
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Native Jetpack Compose Canvas: 180° Semi-Circular Arch
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp),
-                    contentAlignment = Alignment.Center
+        when (chartMode) {
+            "half_pie" -> {
+                // 1. 180° Half Pie / Arch Chart
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
                 ) {
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val strokeWidth = 34.dp.toPx()
-                        val diameter = min(size.width - 40.dp.toPx(), (size.height - 20.dp.toPx()) * 2)
-                        val radius = diameter / 2
-                        val centerX = size.width / 2
-                        val centerY = size.height - 12.dp.toPx()
-                        val topLeft = Offset(centerX - radius, centerY - radius)
-                        val arcSize = Size(radius * 2, radius * 2)
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("Category Spending Breakdown", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("180° Arch Distribution in Malaysian Ringgit", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-                        // Base arc guide - StrokeCap.Butt ensures no dark round caps protrude beyond 180°/360°!
-                        drawArc(
-                            color = Color(0x1F888888),
-                            startAngle = 180f,
-                            sweepAngle = 180f,
-                            useCenter = false,
-                            topLeft = topLeft,
-                            size = arcSize,
-                            style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
-                        )
+                        Spacer(modifier = Modifier.height(20.dp))
 
-                        if (totalSpent > 0 && catMap.isNotEmpty()) {
-                            var currentAngle = 180f
-                            val gap = if (catMap.size > 1) 2.5f else 0f
-                            val totalGaps = (catMap.size - 1) * gap
-                            val availableSpan = 180f - totalGaps
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                val strokeWidth = 34.dp.toPx()
+                                val diameter = min(size.width - 40.dp.toPx(), (size.height - 20.dp.toPx()) * 2)
+                                val radius = diameter / 2
+                                val centerX = size.width / 2
+                                val centerY = size.height - 12.dp.toPx()
+                                val topLeft = Offset(centerX - radius, centerY - radius)
+                                val arcSize = Size(radius * 2, radius * 2)
 
-                            catMap.forEach { (catName, amount) ->
-                                val pct = (amount / totalSpent).toFloat()
-                                val sweep = (pct * availableSpan).coerceAtLeast(1f)
-                                val catObj = DEFAULT_CATEGORIES.find { it.name.equals(catName, true) }
-                                val color = catObj?.color ?: Color(0xFF54B3D6)
-
+                                // Base arc guide
                                 drawArc(
-                                    color = color,
-                                    startAngle = currentAngle,
-                                    sweepAngle = sweep,
+                                    color = Color(0x1F888888),
+                                    startAngle = 180f,
+                                    sweepAngle = 180f,
                                     useCenter = false,
                                     topLeft = topLeft,
                                     size = arcSize,
                                     style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
                                 )
-                                currentAngle += sweep + gap
+
+                                if (totalSpent > 0 && catMap.isNotEmpty()) {
+                                    var currentAngle = 180f
+                                    val gap = if (catMap.size > 1) 2.5f else 0f
+                                    val totalGaps = (catMap.size - 1) * gap
+                                    val availableSpan = 180f - totalGaps
+
+                                    catMap.forEach { (catName, amount) ->
+                                        val pct = (amount / totalSpent).toFloat()
+                                        val sweep = (pct * availableSpan).coerceAtLeast(1f)
+                                        val catObj = DEFAULT_CATEGORIES.find { it.name.equals(catName, true) }
+                                        val color = catObj?.color ?: Color(0xFF54B3D6)
+
+                                        drawArc(
+                                            color = color,
+                                            startAngle = currentAngle,
+                                            sweepAngle = sweep,
+                                            useCenter = false,
+                                            topLeft = topLeft,
+                                            size = arcSize,
+                                            style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
+                                        )
+                                        currentAngle += sweep + gap
+                                    }
+                                }
+                            }
+
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.padding(top = 55.dp)
+                            ) {
+                                Text("TOTAL SPENT", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(formatRM(totalSpent), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+                                val countLabel = if (expenses.size == 1) "1 expense logged" else "${expenses.size} expenses logged"
+                                Text(countLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Category Chips
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            catMap.forEach { (catName, amount) ->
+                                val catObj = DEFAULT_CATEGORIES.find { it.name.equals(catName, true) }
+                                val color = catObj?.color ?: Color(0xFF54B3D6)
+                                val pct = if (totalSpent > 0) (amount / totalSpent * 100).toInt() else 0
+
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surfaceContainer,
+                                    modifier = Modifier.padding(4.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(catName, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("$pct%", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
                             }
                         }
                     }
+                }
+            }
 
-                    // Center Hub Metrics inside the 180° arch
+            "donut" -> {
+                // 2. 360° Full Donut Chart
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                ) {
                     Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(top = 55.dp)
+                        modifier = Modifier.padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("TOTAL SPENT", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(formatRM(totalSpent), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
-                        val countLabel = if (expenses.size == 1) "1 expense logged" else "${expenses.size} expenses logged"
-                        Text(countLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        Text("Full 360° Donut Distribution", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Complete budget allocation across all categories", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(240.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                val strokeWidth = 30.dp.toPx()
+                                val diameter = min(size.width, size.height) - strokeWidth * 2 - 16.dp.toPx()
+                                val radius = diameter / 2
+                                val centerX = size.width / 2
+                                val centerY = size.height / 2
+                                val topLeft = Offset(centerX - radius, centerY - radius)
+                                val arcSize = Size(radius * 2, radius * 2)
+
+                                // Base ring track
+                                drawArc(
+                                    color = Color(0x1F888888),
+                                    startAngle = 0f,
+                                    sweepAngle = 360f,
+                                    useCenter = false,
+                                    topLeft = topLeft,
+                                    size = arcSize,
+                                    style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
+                                )
+
+                                if (totalSpent > 0 && catMap.isNotEmpty()) {
+                                    var currentAngle = -90f // Start from 12 o'clock
+                                    val gap = if (catMap.size > 1) 3f else 0f
+                                    val totalGaps = catMap.size * gap
+                                    val availableSpan = 360f - totalGaps
+
+                                    catMap.forEach { (catName, amount) ->
+                                        val pct = (amount / totalSpent).toFloat()
+                                        val sweep = (pct * availableSpan).coerceAtLeast(2f)
+                                        val catObj = DEFAULT_CATEGORIES.find { it.name.equals(catName, true) }
+                                        val color = catObj?.color ?: Color(0xFF54B3D6)
+
+                                        drawArc(
+                                            color = color,
+                                            startAngle = currentAngle,
+                                            sweepAngle = sweep,
+                                            useCenter = false,
+                                            topLeft = topLeft,
+                                            size = arcSize,
+                                            style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
+                                        )
+                                        currentAngle += sweep + gap
+                                    }
+                                }
+                            }
+
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("TOTAL SPENT", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(formatRM(totalSpent), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+                                val pctBudget = if (monthlyBudget > 0) ((totalSpent / monthlyBudget) * 100).toInt() else 0
+                                Text("$pctBudget% of budget", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Category Chips
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            catMap.forEach { (catName, amount) ->
+                                val catObj = DEFAULT_CATEGORIES.find { it.name.equals(catName, true) }
+                                val color = catObj?.color ?: Color(0xFF54B3D6)
+                                val pct = if (totalSpent > 0) (amount / totalSpent * 100).toInt() else 0
+
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surfaceContainer,
+                                    modifier = Modifier.padding(4.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(catName, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("$pct%", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Legend row
-                FlowRow(
+            "bar" -> {
+                // 3. Ranked Category Progress Bars
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
+                    shape = RoundedCornerShape(28.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
                 ) {
-                    catMap.forEach { (catName, amount) ->
-                        val catObj = DEFAULT_CATEGORIES.find { it.name.equals(catName, true) }
-                        val color = catObj?.color ?: Color(0xFF54B3D6)
-                        val pct = if (totalSpent > 0) (amount / totalSpent * 100).toInt() else 0
-
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceContainer,
-                            modifier = Modifier.padding(4.dp)
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(catName, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("$pct%", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Column {
+                                Text("Ranked Spending by Category", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text("${catMap.size} active categories in $selectedMonth", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
+                            Text(formatRM(totalSpent), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+                        }
+
+                        if (catMap.isEmpty()) {
+                            Text("No expenses logged for this month.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else {
+                            catMap.forEachIndexed { idx, (catName, amount) ->
+                                val pct = if (totalSpent > 0) (amount / totalSpent).toFloat() else 0f
+                                val pctInt = (pct * 100).toInt()
+                                val catObj = DEFAULT_CATEGORIES.find { it.name.equals(catName, true) }
+                                val color = catObj?.color ?: Color(0xFF54B3D6)
+                                val count = expenses.count { it.category.equals(catName, true) }
+
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = MaterialTheme.colorScheme.surfaceContainer,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(14.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text("#${idx + 1}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(color))
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(catName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                            }
+                                            Text(formatRM(amount), fontWeight = FontWeight.Black, style = MaterialTheme.typography.bodyMedium)
+                                        }
+
+                                        Spacer(modifier = Modifier.height(10.dp))
+
+                                        // Linear Progress Bar
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(8.dp)
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth(pct.coerceIn(0.01f, 1f))
+                                                    .fillMaxHeight()
+                                                    .clip(CircleShape)
+                                                    .background(color)
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.height(6.dp))
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("$count transaction(s)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text("$pctInt% of monthly spend", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = color)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            "timeline" -> {
+                // 4. Daily Spending Timeline
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Column {
+                            Text("Daily Spending Burn Rate", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Spending spikes across the 31 days of $selectedMonth", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+
+                        if (highestSpendDay != null && highestSpendDay.value > 0) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Peak Spending: Day ${highestSpendDay.key}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                    Text(formatRM(highestSpendDay.value), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                }
+                            }
+                        }
+
+                        // Daily Timeline Canvas
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp)
+                                .padding(vertical = 8.dp)
+                        ) {
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                val barCount = 31
+                                val availableW = size.width
+                                val barW = (availableW / barCount) * 0.7f
+                                val spacing = availableW / barCount
+                                val maxH = size.height - 16.dp.toPx()
+
+                                for (d in 1..barCount) {
+                                    val spentOnDay = dailyMap[d] ?: 0.0
+                                    val barH = if (maxDaily > 0) ((spentOnDay / maxDaily).toFloat() * maxH).coerceAtLeast(4.dp.toPx()) else 4.dp.toPx()
+                                    val leftX = (d - 1) * spacing + (spacing - barW) / 2
+                                    val topY = size.height - barH
+
+                                    val isPeak = highestSpendDay != null && d == highestSpendDay.key && spentOnDay > 0
+                                    val barColor = if (isPeak) Color(0xFFF43F5E) else if (spentOnDay > 0) Color(0xFF10B981) else Color(0x22888888)
+
+                                    drawRoundRect(
+                                        color = barColor,
+                                        topLeft = Offset(leftX, topY),
+                                        size = Size(barW, barH),
+                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
+                                    )
+                                }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Day 1", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Day 15", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Day 31", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -1482,6 +1909,256 @@ fun MonthPickerDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text("Close") }
+        }
+    )
+}
+
+// -------------------------------------------------------------
+// SETTINGS & PERSONALIZATION DIALOG
+// -------------------------------------------------------------
+@Composable
+fun SettingsDialog(
+    userProfileEmoji: String,
+    hasCustomProfileImage: Boolean,
+    avatarBitmap: Bitmap?,
+    hasCustomBackground: Boolean,
+    customBgDim: Float,
+    monthlyBudget: Double,
+    onSetEmoji: (String) -> Unit,
+    onPickProfileImage: (Uri) -> Unit,
+    onResetProfile: () -> Unit,
+    onPickBackgroundImage: (Uri) -> Unit,
+    onRemoveBackground: () -> Unit,
+    onSetBgDim: (Float) -> Unit,
+    onEditBudget: () -> Unit,
+    onClearAllData: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val profilePhotoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) onPickProfileImage(uri)
+    }
+
+    val bgPhotoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) onPickBackgroundImage(uri)
+    }
+
+    val quickEmojis = listOf("💰", "🦁", "🇲🇾", "🚀", "💳", "📈", "🍔", "☕", "🚗", "🏠", "🐱", "✨", "RM")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Tune, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Settings & Personalization", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Section 1: App Profile Logo / Image / Emoji
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Profile Avatar & Logo", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+
+                        // Current Avatar Preview
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.size(54.dp).clip(CircleShape)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    if (avatarBitmap != null) {
+                                        Image(
+                                            bitmap = avatarBitmap.asImageBitmap(),
+                                            contentDescription = "Avatar Preview",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else if (userProfileEmoji.isNotEmpty() && userProfileEmoji != "RM") {
+                                        Text(userProfileEmoji, fontSize = 28.sp)
+                                    } else {
+                                        Text("RM", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column {
+                                Text(
+                                    text = if (avatarBitmap != null) "Custom Photo Avatar" else if (userProfileEmoji != "RM") "Emoji: $userProfileEmoji" else "Default RM Logo",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text("Displayed on the app top bar", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+
+                        // Pick photo button
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = {
+                                    profilePhotoPicker.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Pick Photo", fontSize = 12.sp)
+                            }
+
+                            FilledTonalButton(
+                                onClick = onResetProfile,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Reset Logo", fontSize = 12.sp)
+                            }
+                        }
+
+                        // Quick Emojis
+                        Text("Or choose an emoji:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            quickEmojis.forEach { em ->
+                                val isSelected = avatarBitmap == null && userProfileEmoji == em
+                                Surface(
+                                    shape = CircleShape,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .clickable { onSetEmoji(em) }
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        if (em == "RM") {
+                                            Text("RM", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                                        } else {
+                                            Text(em, fontSize = 20.sp)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Section 2: Custom Wallpaper Background
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Custom App Wallpaper", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Choose any photo or art from your gallery to use as the background across the whole app.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = {
+                                    bgPhotoPicker.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.Wallpaper, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(if (hasCustomBackground) "Change Image" else "Set Wallpaper", fontSize = 12.sp)
+                            }
+
+                            if (hasCustomBackground) {
+                                FilledTonalButton(
+                                    onClick = onRemoveBackground,
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                                ) {
+                                    Text("Remove", fontSize = 12.sp, color = MaterialTheme.colorScheme.onErrorContainer)
+                                }
+                            }
+                        }
+
+                        if (hasCustomBackground) {
+                            Column {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Dim / Contrast Overlay", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("${(customBgDim * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                }
+                                Slider(
+                                    value = customBgDim,
+                                    onValueChange = onSetBgDim,
+                                    valueRange = 0.40f..0.92f
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Section 3: Monthly Budget Quick Link
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onEditBudget() }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Monthly Budget Ceiling", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                            Text("Current: ${formatRM(monthlyBudget)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                        }
+                        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                // Section 4: Data Reset
+                OutlinedButton(
+                    onClick = onClearAllData,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(Icons.Outlined.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Clear All Recorded Expenses")
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss, shape = CircleShape) {
+                Text("Done")
+            }
         }
     )
 }
