@@ -4,13 +4,20 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.Base64
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -71,6 +78,13 @@ class FinanceRepository(private val context: Context) {
     private val _cardAlpha = MutableStateFlow(prefs.getFloat("card_alpha", 0.55f))
     val cardAlpha: StateFlow<Float> = _cardAlpha.asStateFlow()
 
+    // Google Gemini AI Configuration
+    private val _geminiApiKey = MutableStateFlow(prefs.getString("gemini_api_key", "") ?: "")
+    val geminiApiKey: StateFlow<String> = _geminiApiKey.asStateFlow()
+
+    private val _geminiModel = MutableStateFlow(prefs.getString("gemini_model", "gemini-2.5-flash-lite") ?: "gemini-2.5-flash-lite")
+    val geminiModel: StateFlow<String> = _geminiModel.asStateFlow()
+
     // Chart Display Mode ("half_pie", "donut", "bar", "timeline")
     private val _chartMode = MutableStateFlow(prefs.getString("chart_mode", "half_pie") ?: "half_pie")
     val chartMode: StateFlow<String> = _chartMode.asStateFlow()
@@ -123,6 +137,16 @@ class FinanceRepository(private val context: Context) {
         saveTransactions(current)
     }
 
+    fun updateTransaction(tx: Transaction) {
+        val current = _transactions.value.toMutableList()
+        val idx = current.indexOfFirst { it.id == tx.id }
+        if (idx != -1) {
+            current[idx] = tx
+            _transactions.value = current
+            saveTransactions(current)
+        }
+    }
+
     fun updateBudget(newBudget: Double) {
         _monthlyBudget.value = newBudget
         prefs.edit().putFloat("monthly_budget", newBudget.toFloat()).apply()
@@ -142,6 +166,303 @@ class FinanceRepository(private val context: Context) {
         _userProfileEmoji.value = emoji
         prefs.edit().putString("profile_emoji", emoji).apply()
         removeProfileImage()
+    }
+
+    fun setGeminiApiKey(key: String) {
+        _geminiApiKey.value = key.trim()
+        prefs.edit().putString("gemini_api_key", key.trim()).apply()
+    }
+
+    fun setGeminiModel(model: String) {
+        _geminiModel.value = model.trim()
+        prefs.edit().putString("gemini_model", model.trim()).apply()
+    }
+
+    suspend fun testGeminiApiKey(key: String, model: String): Result<String> = withContext(Dispatchers.IO) {
+        val apiKey = key.trim()
+        if (apiKey.isEmpty()) return@withContext Result.failure(Exception("API Key cannot be blank"))
+        val selectedModel = model.trim().ifBlank { "gemini-2.5-flash-lite" }
+        val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$selectedModel:generateContent?key=$apiKey"
+
+        try {
+            val url = URL(endpoint)
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 15000
+                readTimeout = 15000
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            }
+            val testPayload = """{"contents":[{"parts":[{"text":"Hello, test connection."}]}]}"""
+            conn.outputStream.use { it.write(testPayload.toByteArray(Charsets.UTF_8)) }
+            val code = conn.responseCode
+            if (code in 200..299) {
+                Result.success("Connected to $selectedModel successfully!")
+            } else {
+                val err = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $code"
+                Result.failure(Exception("HTTP $code: $err"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun callGemini(
+        prompt: String,
+        fileBytes: ByteArray? = null,
+        mimeType: String? = null,
+        includeLedgerContext: Boolean = true
+    ): GeminiExecutionResult = withContext(Dispatchers.IO) {
+        val apiKey = _geminiApiKey.value.trim()
+        if (apiKey.isEmpty()) {
+            return@withContext GeminiExecutionResult(
+                success = false,
+                summary = "Please enter your free Google Gemini API key in Settings to use the AI Assistant.",
+                errorMessage = "API key not configured"
+            )
+        }
+
+        val model = _geminiModel.value.trim().ifBlank { "gemini-2.5-flash-lite" }
+        val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
+
+        try {
+            val recentTxs = _transactions.value.take(40)
+            val ledgerContext = if (includeLedgerContext && recentTxs.isNotEmpty()) {
+                val sample = recentTxs.joinToString("\n") {
+                    "- [ID: ${it.id}] ${it.date} ${it.time}: ${it.title} (${it.type}) RM ${String.format(Locale.US, "%.2f", it.amount)} [Cat: ${it.category}]"
+                }
+                "\n\nCURRENT RECENT TRANSACTIONS IN USER'S LOCAL LEDGER (use targetId matching the ID when user requests deleting or editing an existing transaction):\n$sample"
+            } else ""
+
+            val systemInstruction = """
+You are RinggitWise AI, an expert Malaysian personal finance assistant.
+Today's date is ${SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())}.
+
+Supported Malaysian expense categories:
+- Mamak & Dining
+- Drinks & Cafe
+- Groceries
+- Fuel & Transport
+- Parking & Tolls
+- Shopping & Online
+- Utilities & Bills
+- Healthcare & Pharmacy
+- Snacks & Desserts
+- Top Up (Credit)
+
+TASK & CAPABILITIES:
+1. When given an image, receipt photo, bank statement screenshot, or PDF document (e.g. Touch 'n Go eWallet, Maybank MAE, CIMB, Bank Islam, RHB, Public Bank, APSpace / student card):
+   - Extract ALL distinct financial transactions found.
+   - For each transaction, create an action with actionType="ADD".
+   - Extract title (clean store/merchant name), amount (positive float e.g. 15.50), type ("debit" for expenses, "credit" for income/refund/transfer in), category (best match from supported categories), date (YYYY-MM-DD), time (HH:mm:ss if present), and payment method (e.g. "DuitNow QR", "TNG eWallet", "Debit Card", etc.).
+2. When given natural language user requests (e.g., "Add RM 12 for chicken rice", "Delete my Spotify payment", "Update yesterday's Grab to RM 18", "How much have I spent on food?"):
+   - For additions: actionType="ADD"
+   - For deletions: actionType="DELETE" and set targetId matching the transaction ID from the ledger context
+   - For updates/corrections: actionType="UPDATE" and set targetId with updated fields
+   - For questions / advice: actionType="MESSAGE" with no modifications
+3. OUTPUT REQUIREMENT:
+You MUST respond ONLY with a valid JSON object matching this exact structure:
+{
+  "summary": "Clear, friendly explanation in Malaysian English of what was detected or actioned",
+  "actions": [
+    {
+      "actionType": "ADD" or "DELETE" or "UPDATE" or "MESSAGE",
+      "title": "Merchant / Description",
+      "amount": 0.0,
+      "type": "debit" or "credit",
+      "category": "Mamak & Dining",
+      "method": "DuitNow QR",
+      "date": "YYYY-MM-DD",
+      "time": "HH:mm:ss",
+      "targetId": "",
+      "note": "",
+      "explanation": "Brief reason"
+    }
+  ]
+}
+$ledgerContext
+""".trimIndent()
+
+            val requestJson = JSONObject()
+            val contentsArray = JSONArray()
+            val contentObj = JSONObject()
+            val partsArray = JSONArray()
+
+            // Text prompt
+            val fullPrompt = "$systemInstruction\n\nUSER REQUEST / INPUT:\n$prompt"
+            val textPart = JSONObject().apply {
+                put("text", fullPrompt)
+            }
+            partsArray.put(textPart)
+
+            // File attachment (PDF or Image)
+            if (fileBytes != null && mimeType != null) {
+                val base64Data = Base64.encodeToString(fileBytes, Base64.NO_WRAP)
+                val inlineDataObj = JSONObject().apply {
+                    put("mime_type", mimeType)
+                    put("data", base64Data)
+                }
+                val filePart = JSONObject().apply {
+                    put("inline_data", inlineDataObj)
+                }
+                partsArray.put(filePart)
+            }
+
+            contentObj.put("parts", partsArray)
+            contentsArray.put(contentObj)
+            requestJson.put("contents", contentsArray)
+
+            val genConfig = JSONObject().apply {
+                put("temperature", 0.2)
+                put("responseMimeType", "application/json")
+            }
+            requestJson.put("generationConfig", genConfig)
+
+            val url = URL(endpoint)
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 30000
+                readTimeout = 60000
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            }
+
+            val postBytes = requestJson.toString().toByteArray(Charsets.UTF_8)
+            conn.outputStream.use { it.write(postBytes) }
+
+            val responseCode = conn.responseCode
+            val responseBody = if (responseCode in 200..299) {
+                conn.inputStream.bufferedReader().use { it.readText() }
+            } else {
+                val err = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
+                throw Exception("Gemini API Error ($responseCode): $err")
+            }
+
+            val rootObj = JSONObject(responseBody)
+            val candidates = rootObj.optJSONArray("candidates")
+            if (candidates == null || candidates.length() == 0) {
+                return@withContext GeminiExecutionResult(
+                    success = false,
+                    summary = "Gemini returned no response.",
+                    rawResponse = responseBody,
+                    errorMessage = "Empty candidates"
+                )
+            }
+
+            val firstCandidate = candidates.getJSONObject(0)
+            val contentRes = firstCandidate.optJSONObject("content")
+            val partsRes = contentRes?.optJSONArray("parts")
+            val textRes = partsRes?.optJSONObject(0)?.optString("text") ?: ""
+
+            val cleanJson = textRes.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+            val parsedJson = JSONObject(cleanJson)
+
+            val summary = parsedJson.optString("summary", "Processed successfully.")
+            val actionsArray = parsedJson.optJSONArray("actions")
+            val actionsList = mutableListOf<GeminiProposedAction>()
+
+            if (actionsArray != null) {
+                for (i in 0 until actionsArray.length()) {
+                    val act = actionsArray.getJSONObject(i)
+                    val actionType = act.optString("actionType", "ADD").uppercase()
+                    val title = act.optString("title", "Expense")
+                    val amount = act.optDouble("amount", 0.0)
+                    val type = act.optString("type", "debit")
+                    val cat = act.optString("category", "Mamak & Dining")
+                    val method = act.optString("method", "DuitNow QR")
+                    val date = act.optString("date", SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date()))
+                    val time = act.optString("time", SimpleDateFormat("HH:mm:ss", Locale.ENGLISH).format(Date()))
+                    val targetId = act.optString("targetId", "")
+                    val note = act.optString("note", "")
+                    val explanation = act.optString("explanation", "")
+
+                    actionsList.add(
+                        GeminiProposedAction(
+                            actionType = actionType,
+                            title = title,
+                            amount = amount,
+                            type = type,
+                            category = cat,
+                            method = method,
+                            date = date,
+                            time = time,
+                            note = note,
+                            targetId = targetId,
+                            explanation = explanation
+                        )
+                    )
+                }
+            }
+
+            GeminiExecutionResult(
+                success = true,
+                summary = summary,
+                actions = actionsList,
+                rawResponse = textRes
+            )
+        } catch (e: Exception) {
+            GeminiExecutionResult(
+                success = false,
+                summary = "Error contacting Gemini: ${e.message}",
+                errorMessage = e.message ?: "Unknown error",
+                rawResponse = e.stackTraceToString()
+            )
+        }
+    }
+
+    fun executeAction(action: GeminiProposedAction) {
+        when (action.actionType.uppercase()) {
+            "ADD" -> {
+                addTransaction(
+                    Transaction(
+                        date = action.date.ifBlank { SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date()) },
+                        time = action.time.ifBlank { SimpleDateFormat("HH:mm:ss", Locale.ENGLISH).format(Date()) },
+                        title = action.title.ifBlank { "Expense" },
+                        amount = action.amount,
+                        type = action.type.ifBlank { "debit" },
+                        category = action.category.ifBlank { "Mamak & Dining" },
+                        method = action.method.ifBlank { "DuitNow QR" },
+                        note = action.note.ifBlank { "Added via RinggitWise AI" }
+                    )
+                )
+            }
+            "DELETE" -> {
+                if (action.targetId.isNotBlank()) {
+                    deleteTransaction(action.targetId)
+                } else if (action.title.isNotBlank()) {
+                    val match = _transactions.value.find {
+                        it.title.contains(action.title, ignoreCase = true) || action.title.contains(it.title, ignoreCase = true)
+                    }
+                    if (match != null) {
+                        deleteTransaction(match.id)
+                    }
+                }
+            }
+            "UPDATE" -> {
+                val existing = if (action.targetId.isNotBlank()) {
+                    _transactions.value.find { it.id == action.targetId }
+                } else {
+                    _transactions.value.find {
+                        it.title.contains(action.title, ignoreCase = true) || action.title.contains(it.title, ignoreCase = true)
+                    }
+                }
+                if (existing != null) {
+                    val updated = existing.copy(
+                        title = if (action.title.isNotBlank()) action.title else existing.title,
+                        amount = if (action.amount > 0) action.amount else existing.amount,
+                        category = if (action.category.isNotBlank()) action.category else existing.category,
+                        date = if (action.date.isNotBlank()) action.date else existing.date,
+                        time = if (action.time.isNotBlank()) action.time else existing.time,
+                        type = if (action.type.isNotBlank()) action.type else existing.type
+                    )
+                    updateTransaction(updated)
+                }
+            }
+        }
+    }
+
+    fun executeMultipleActions(actions: List<GeminiProposedAction>) {
+        actions.forEach { executeAction(it) }
     }
 
     fun getProfileAvatarFile(): File = File(context.filesDir, "user_avatar.jpg")

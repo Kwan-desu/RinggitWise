@@ -23,6 +23,30 @@ data class Category(
     val colorHex: String
 )
 
+@Serializable
+data class GeminiProposedAction(
+    val actionType: String, // "ADD", "DELETE", "UPDATE", "MESSAGE"
+    val title: String = "",
+    val amount: Double = 0.0,
+    val type: String = "debit", // "debit" or "credit"
+    val category: String = "Mamak & Dining",
+    val method: String = "DuitNow QR",
+    val date: String = "",
+    val time: String = "",
+    val note: String = "",
+    val targetId: String = "", // for delete/update
+    val explanation: String = ""
+)
+
+@Serializable
+data class GeminiExecutionResult(
+    val success: Boolean,
+    val summary: String,
+    val actions: List<GeminiProposedAction> = emptyList(),
+    val rawResponse: String = "",
+    val errorMessage: String? = null
+)
+
 val DEFAULT_CATEGORIES = listOf(
     Category("c1", "Parking & Tolls", Color(0xFFF43F5E), "#F43F5E"),
     Category("c2", "Mamak & Dining", Color(0xFFF59E0B), "#F59E0B"),

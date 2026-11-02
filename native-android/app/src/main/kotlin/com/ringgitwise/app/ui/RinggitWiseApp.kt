@@ -36,6 +36,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -66,9 +68,11 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.ringgitwise.app.data.*
+import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.min
+import kotlinx.coroutines.launch
 
 // Composition locals for dynamic frosted-glass Material You styling
 val LocalIsWallpaperActive = staticCompositionLocalOf { false }
@@ -123,6 +127,8 @@ fun RinggitWiseApp(repository: FinanceRepository) {
 
     val chartMode by repository.chartMode.collectAsState()
     val cardAlpha by repository.cardAlpha.collectAsState()
+    val geminiApiKey by repository.geminiApiKey.collectAsState()
+    val geminiModel by repository.geminiModel.collectAsState()
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var previousTab by remember { mutableIntStateOf(0) }
@@ -439,9 +445,13 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                             onSelectChartMode = { repository.setChartMode(it) }
                         )
                         2 -> ImportTab(
+                            repository = repository,
                             onImportTransactions = { list ->
                                 repository.addMultipleTransactions(list)
                                 selectedTab = 3
+                            },
+                            onNavigateToSettings = {
+                                selectedTab = 4
                             }
                         )
                         3 -> LedgerTab(
@@ -487,6 +497,11 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                             onRemoveBackground = { repository.removeBackgroundImage() },
                             onSetBgDim = { repository.setCustomBgDim(it) },
                             onSetCardAlpha = { repository.setCardAlpha(it) },
+                            geminiApiKey = geminiApiKey,
+                            geminiModel = geminiModel,
+                            onSetGeminiApiKey = { repository.setGeminiApiKey(it) },
+                            onSetGeminiModel = { repository.setGeminiModel(it) },
+                            onTestGeminiKey = { key, model -> repository.testGeminiApiKey(key, model) },
                             monthlyBudget = monthlyBudget,
                             onEditBudget = { showBudgetDialog = true },
                             onClearAllData = { showClearDialog = true }
@@ -1237,76 +1252,198 @@ fun ChartsTab(
 }
 
 // -------------------------------------------------------------
-// TNG / BANK STATEMENT & GOOGLE ML KIT OCR SCANNER TAB
+// HYBRID IMPORT TAB: GOOGLE ML KIT LOCAL OCR + GOOGLE GEMINI AI
 // -------------------------------------------------------------
 @Composable
-fun ImportTab(onImportTransactions: (List<Transaction>) -> Unit) {
+fun ImportTab(
+    repository: FinanceRepository,
+    onImportTransactions: (List<Transaction>) -> Unit,
+    onNavigateToSettings: () -> Unit
+) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val recognizer = remember { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
 
-    var isScanning by remember { mutableStateOf(false) }
-    var scanStatus by remember { mutableStateOf("") }
-    var rawText by remember { mutableStateOf("") }
-    var parsedList by remember { mutableStateOf<List<Transaction>>(emptyList()) }
-    var activeMode by remember { mutableIntStateOf(0) } // 0: AI OCR Scanner, 1: Paste Text
-    var showRawText by remember { mutableStateOf(false) }
+    // Top Engine Switcher: 0 = Local OCR (Offline), 1 = Gemini AI
+    var currentScanEngine by remember { mutableIntStateOf(0) }
 
-    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
+    // State for Local OCR
+    var isLocalScanning by remember { mutableStateOf(false) }
+    var localScanStatus by remember { mutableStateOf("") }
+    var localRawText by remember { mutableStateOf("") }
+    var localParsedList by remember { mutableStateOf<List<Transaction>>(emptyList()) }
+    var localActiveMode by remember { mutableIntStateOf(0) } // 0: AI OCR Scanner, 1: Paste Text
+    var showLocalRawText by remember { mutableStateOf(false) }
+
+    // State for Gemini AI
+    val geminiApiKey by repository.geminiApiKey.collectAsState()
+    val geminiModel by repository.geminiModel.collectAsState()
+    var isGeminiProcessing by remember { mutableStateOf(false) }
+    var geminiStatus by remember { mutableStateOf("") }
+    var geminiResult by remember { mutableStateOf<GeminiExecutionResult?>(null) }
+    var proposedActions by remember { mutableStateOf<List<GeminiProposedAction>>(emptyList()) }
+    var userChatPrompt by remember { mutableStateOf("") }
+
+    // Local ML Kit Pickers (100% Offline)
+    val localGalleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
         if (uri != null) {
             try {
-                isScanning = true
-                scanStatus = "Scanning image with Google ML Kit OCR..."
+                isLocalScanning = true
+                localScanStatus = "Scanning image with Google ML Kit OCR..."
                 val image = InputImage.fromFilePath(context, uri)
                 recognizer.process(image)
                     .addOnSuccessListener { visionText ->
                         val text = visionText.text
-                        rawText = text
+                        localRawText = text
                         val results = StatementParser.parseFinancialText(text)
-                        parsedList = results
-                        isScanning = false
-                        scanStatus = if (results.isEmpty()) {
-                            "OCR finished: No financial transactions detected. You can review the raw text below."
+                        localParsedList = results
+                        isLocalScanning = false
+                        localScanStatus = if (results.isEmpty()) {
+                            "OCR finished: No financial transactions detected. You can review raw text below."
                         } else {
                             "Successfully parsed ${results.size} transaction(s)!"
                         }
                     }
                     .addOnFailureListener { e ->
-                        isScanning = false
-                        scanStatus = "OCR Scan error: ${e.localizedMessage}"
+                        isLocalScanning = false
+                        localScanStatus = "OCR Scan error: ${e.localizedMessage}"
                     }
             } catch (e: Exception) {
-                isScanning = false
-                scanStatus = "Could not open image: ${e.localizedMessage}"
+                isLocalScanning = false
+                localScanStatus = "Could not open image: ${e.localizedMessage}"
             }
         }
     }
 
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap: Bitmap? ->
+    val localCameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap: Bitmap? ->
         if (bitmap != null) {
             try {
-                isScanning = true
-                scanStatus = "Scanning photo with Google ML Kit OCR..."
+                isLocalScanning = true
+                localScanStatus = "Scanning photo with Google ML Kit OCR..."
                 val image = InputImage.fromBitmap(bitmap, 0)
                 recognizer.process(image)
                     .addOnSuccessListener { visionText ->
                         val text = visionText.text
-                        rawText = text
+                        localRawText = text
                         val results = StatementParser.parseFinancialText(text)
-                        parsedList = results
-                        isScanning = false
-                        scanStatus = if (results.isEmpty()) {
-                            "OCR finished: No financial transactions detected. You can review the raw text below."
+                        localParsedList = results
+                        isLocalScanning = false
+                        localScanStatus = if (results.isEmpty()) {
+                            "OCR finished: No financial transactions detected. You can review raw text below."
                         } else {
                             "Successfully parsed ${results.size} transaction(s)!"
                         }
                     }
                     .addOnFailureListener { e ->
-                        isScanning = false
-                        scanStatus = "Camera OCR error: ${e.localizedMessage}"
+                        isLocalScanning = false
+                        localScanStatus = "Camera OCR error: ${e.localizedMessage}"
                     }
             } catch (e: Exception) {
-                isScanning = false
-                scanStatus = "Camera capture error: ${e.localizedMessage}"
+                isLocalScanning = false
+                localScanStatus = "Camera capture error: ${e.localizedMessage}"
+            }
+        }
+    }
+
+    // Gemini AI Launchers (Camera, Gallery, and PDF Document)
+    val geminiCameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap: Bitmap? ->
+        if (bitmap != null) {
+            scope.launch {
+                try {
+                    isGeminiProcessing = true
+                    geminiStatus = "Analyzing photo with $geminiModel..."
+                    val bos = ByteArrayOutputStream()
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, bos)
+                    val bytes = bos.toByteArray()
+                    val result = repository.callGemini(
+                        prompt = "Extract all transactions from this captured receipt or statement document accurately.",
+                        fileBytes = bytes,
+                        mimeType = "image/jpeg"
+                    )
+                    geminiResult = result
+                    proposedActions = result.actions
+                    geminiStatus = if (result.success) "Extracted ${result.actions.size} action(s)!" else (result.errorMessage ?: "Failed")
+                } catch (e: Exception) {
+                    geminiStatus = "Error: ${e.localizedMessage}"
+                } finally {
+                    isGeminiProcessing = false
+                }
+            }
+        }
+    }
+
+    val geminiGalleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                try {
+                    isGeminiProcessing = true
+                    geminiStatus = "Uploading screenshot & analyzing with $geminiModel..."
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    val mime = context.contentResolver.getType(uri) ?: "image/jpeg"
+                    if (bytes != null && bytes.isNotEmpty()) {
+                        val result = repository.callGemini(
+                            prompt = "Extract all transactions from this receipt or financial screenshot accurately.",
+                            fileBytes = bytes,
+                            mimeType = mime
+                        )
+                        geminiResult = result
+                        proposedActions = result.actions
+                        geminiStatus = if (result.success) "Extracted ${result.actions.size} action(s)!" else (result.errorMessage ?: "Failed")
+                    } else {
+                        geminiStatus = "Could not read image file."
+                    }
+                } catch (e: Exception) {
+                    geminiStatus = "Error: ${e.localizedMessage}"
+                } finally {
+                    isGeminiProcessing = false
+                }
+            }
+        }
+    }
+
+    val geminiPdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                try {
+                    isGeminiProcessing = true
+                    geminiStatus = "Reading PDF document & sending to $geminiModel..."
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    if (bytes != null && bytes.isNotEmpty()) {
+                        val result = repository.callGemini(
+                            prompt = "Parse this entire bank statement / university / eWallet PDF document and extract every transaction accurately.",
+                            fileBytes = bytes,
+                            mimeType = "application/pdf"
+                        )
+                        geminiResult = result
+                        proposedActions = result.actions
+                        geminiStatus = if (result.success) "Extracted ${result.actions.size} action(s) from PDF!" else (result.errorMessage ?: "Failed")
+                    } else {
+                        geminiStatus = "Could not read PDF bytes."
+                    }
+                } catch (e: Exception) {
+                    geminiStatus = "PDF error: ${e.localizedMessage}"
+                } finally {
+                    isGeminiProcessing = false
+                }
+            }
+        }
+    }
+
+    fun submitGeminiPrompt(text: String) {
+        if (text.isBlank()) return
+        scope.launch {
+            try {
+                isGeminiProcessing = true
+                geminiStatus = "Executing command with $geminiModel..."
+                val result = repository.callGemini(prompt = text)
+                geminiResult = result
+                proposedActions = result.actions
+                geminiStatus = if (result.success) "Ready!" else (result.errorMessage ?: "Error")
+                userChatPrompt = ""
+            } catch (e: Exception) {
+                geminiStatus = "Error: ${e.localizedMessage}"
+            } finally {
+                isGeminiProcessing = false
             }
         }
     }
@@ -1318,15 +1455,15 @@ fun ImportTab(onImportTransactions: (List<Transaction>) -> Unit) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Mode Selector Chips
+        // TOP ENGINE SWITCHER: Local OCR vs Gemini AI
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             FilterChip(
-                selected = activeMode == 0,
-                onClick = { activeMode = 0 },
-                label = { Text("📷 AI OCR Scanner", fontWeight = FontWeight.Bold) },
+                selected = currentScanEngine == 0,
+                onClick = { currentScanEngine = 0 },
+                label = { Text("⚡ Local OCR (Offline)", fontWeight = FontWeight.Bold) },
                 shape = CircleShape,
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
@@ -1336,251 +1473,673 @@ fun ImportTab(onImportTransactions: (List<Transaction>) -> Unit) {
                 modifier = Modifier.weight(1f)
             )
             FilterChip(
-                selected = activeMode == 1,
-                onClick = { activeMode = 1 },
-                label = { Text("📝 Paste Statement", fontWeight = FontWeight.Bold) },
+                selected = currentScanEngine == 1,
+                onClick = { currentScanEngine = 1 },
+                label = { Text("✨ Gemini AI (PDF & Chat)", fontWeight = FontWeight.Bold) },
                 shape = CircleShape,
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
                     selectedContainerColor = if (LocalIsWallpaperActive.current) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.primaryContainer
                 ),
                 border = glassCardBorder(),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1.15f)
             )
         }
 
-        if (activeMode == 0) {
-            // AI OCR Scanner Card
-            Card(
+        // ==========================================
+        // OPTION 1: LOCAL GOOGLE ML KIT OCR (OFFLINE)
+        // ==========================================
+        if (currentScanEngine == 0) {
+            // Mode Selector Chips within Local OCR
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
-                colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
-                border = glassCardBorder()
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.DocumentScanner, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text("AI Receipt & Statement OCR", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text("Fast on-device Google ML Kit scanner", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-
-                    Text(
-                        "Scan physical paper receipts, DuitNow QR slips, Touch 'n Go eWallet screenshots, or bills. The app recognizes amounts, dates, and merchants automatically.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    // Action buttons: Camera & Gallery
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Button(
-                            onClick = { cameraLauncher.launch(null) },
-                            modifier = Modifier.weight(1f).height(50.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            enabled = !isScanning
-                        ) {
-                            Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Camera", fontWeight = FontWeight.Bold)
-                        }
-
-                        FilledTonalButton(
-                            onClick = {
-                                galleryLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
-                            },
-                            modifier = Modifier.weight(1f).height(50.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            enabled = !isScanning
-                        ) {
-                            Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Gallery", fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    // Scanning State
-                    if (isScanning) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(12.dp))
-                                .padding(12.dp)
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(scanStatus, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-                        }
-                    } else if (scanStatus.isNotEmpty()) {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainer,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = scanStatus,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(12.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        } else {
-            // Text Paste Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
-                colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
-                border = glassCardBorder()
-            ) {
-                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.ContentPaste, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Touch 'n Go & Bank Statement Text", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    }
-
-                    Text(
-                        "Paste raw report lines from TNG eWallet, APCard/APSpace, or online banking reports:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    OutlinedTextField(
-                        value = rawText,
-                        onValueChange = {
-                            rawText = it
-                            parsedList = StatementParser.parseFinancialText(it)
-                        },
-                        modifier = Modifier.fillMaxWidth().height(150.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        placeholder = {
-                            Text(
-                                "e.g.\n15/10/2026 14:23:10 Successful Payment Restoran Ali Food Court -15.50 120.40\n16/10/2026 08:30:15 Successful RFID PLUS TOLL SUBANG -2.50 117.90\n18 2026-10-16 12:48:04 Parking Fee 3.94",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    )
-
-                    Button(
-                        onClick = { parsedList = StatementParser.parseFinancialText(rawText) },
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        shape = CircleShape
-                    ) {
-                        Text("Parse Statement Text", fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-
-        // Detected Transactions Section
-        if (parsedList.isNotEmpty()) {
-            val totalBatch = parsedList.sumOf { it.amount }
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text("Detected Transactions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        Text("${parsedList.size} item(s) • Total: ${formatRM(totalBatch)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    }
-
-                    Button(
-                        onClick = {
-                            onImportTransactions(parsedList)
-                            rawText = ""
-                            parsedList = emptyList()
-                            scanStatus = "Imported successfully into Ledger!"
-                        },
-                        shape = CircleShape,
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Text("Import All", fontWeight = FontWeight.Bold)
-                    }
-                }
+                FilterChip(
+                    selected = localActiveMode == 0,
+                    onClick = { localActiveMode = 0 },
+                    label = { Text("📷 OCR Camera & Gallery", fontWeight = FontWeight.Bold) },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainerLow),
+                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+                FilterChip(
+                    selected = localActiveMode == 1,
+                    onClick = { localActiveMode = 1 },
+                    label = { Text("📝 Paste Text", fontWeight = FontWeight.Bold) },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainerLow),
+                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
             }
 
-            parsedList.forEach { tx ->
+            if (localActiveMode == 0) {
+                // AI OCR Scanner Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainer),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
                     border = glassCardBorder()
                 ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp).fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(tx.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                "${tx.date} • ${tx.category} • ${tx.method}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.DocumentScanner, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Local Receipt & Statement OCR", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text("100% on-device Google ML Kit • No internet needed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            }
                         }
-                        Text(
-                            formatRM(tx.amount),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-        }
 
-        // Collapsible Raw Text Inspector
-        if (rawText.isNotEmpty()) {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showRawText = !showRawText }
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Raw OCR / Statement Text", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                        Text(if (showRawText) "Hide ▲" else "View ▼", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                    }
-                    if (showRawText) {
-                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = rawText,
+                            "Scan physical paper receipts, DuitNow QR slips, Touch 'n Go eWallet screenshots, or bills. The app recognizes amounts, dates, and merchants automatically.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+
+                        // Action buttons: Camera & Gallery
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Button(
+                                onClick = { localCameraLauncher.launch(null) },
+                                modifier = Modifier.weight(1f).height(50.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                enabled = !isLocalScanning
+                            ) {
+                                Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Camera", fontWeight = FontWeight.Bold)
+                            }
+
+                            FilledTonalButton(
+                                onClick = {
+                                    localGalleryLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                },
+                                modifier = Modifier.weight(1f).height(50.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                enabled = !isLocalScanning
+                            ) {
+                                Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Gallery", fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        // Scanning State
+                        if (isLocalScanning) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(12.dp))
+                                    .padding(12.dp)
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(localScanStatus, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                            }
+                        } else if (localScanStatus.isNotEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = localScanStatus,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(12.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Text Paste Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    border = glassCardBorder()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.ContentPaste, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Touch 'n Go & Bank Statement Text", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+
+                        Text(
+                            "Paste raw report lines from TNG eWallet, APCard/APSpace, or online banking reports:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        OutlinedTextField(
+                            value = localRawText,
+                            onValueChange = {
+                                localRawText = it
+                                localParsedList = StatementParser.parseFinancialText(it)
+                            },
+                            modifier = Modifier.fillMaxWidth().height(150.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            placeholder = {
+                                Text(
+                                    "e.g.\n15/10/2026 14:23:10 Successful Payment Restoran Ali Food Court -15.50 120.40\n16/10/2026 08:30:15 Successful RFID PLUS TOLL SUBANG -2.50 117.90\n18 2026-10-16 12:48:04 Parking Fee 3.94",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        )
+
+                        Button(
+                            onClick = { localParsedList = StatementParser.parseFinancialText(localRawText) },
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = CircleShape
+                        ) {
+                            Text("Parse Statement Text", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            // Prompt to switch to Gemini AI if 0 transactions found
+            if (!isLocalScanning && localRawText.isNotEmpty() && localParsedList.isEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.9f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Text("Need deeper document analysis?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        }
+                        Text(
+                            "Local regex didn't recognize this format. ✨ Gemini AI can read complex tables, PDF statements, and handwritten notes.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Button(
+                            onClick = { currentScanEngine = 1 },
+                            shape = CircleShape,
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Text("Switch to Gemini AI", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            // Detected Transactions Section
+            if (localParsedList.isNotEmpty()) {
+                val totalBatch = localParsedList.sumOf { it.amount }
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Detected Transactions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text("${localParsedList.size} item(s) • Total: ${formatRM(totalBatch)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+
+                        Button(
+                            onClick = {
+                                onImportTransactions(localParsedList)
+                                localRawText = ""
+                                localParsedList = emptyList()
+                                localScanStatus = "Imported successfully into Ledger!"
+                            },
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text("Import All", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                localParsedList.forEach { tx ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainer),
+                        border = glassCardBorder()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp).fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(tx.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    "${tx.date} • ${tx.category} • ${tx.method}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Text(
+                                formatRM(tx.amount),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Collapsible Raw Text Inspector
+            if (localRawText.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showLocalRawText = !showLocalRawText }
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Raw OCR / Statement Text", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            Text(if (showLocalRawText) "Hide ▲" else "View ▼", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        }
+                        if (showLocalRawText) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = localRawText,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // OPTION 2: GOOGLE GEMINI AI (PDF, IMAGE & CHAT)
+        // ==========================================
+        if (currentScanEngine == 1) {
+            if (geminiApiKey.isBlank()) {
+                // API Key Setup Prompt Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    border = glassCardBorder()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.size(44.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                            Column {
+                                Text("Google Gemini AI Assistant", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text("PDF Bank Statements & Smart Tools", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+
+                        Text(
+                            "Scan multi-page PDF bank statements (Maybank, CIMB, TNG eWallet, etc.), receipts in any language, or talk to AI to add, edit and delete finances.\n\nRequires your free personal API key from Google AI Studio.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Button(
+                            onClick = onNavigateToSettings,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                        ) {
+                            Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Enter Free API Key in Settings", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            } else {
+                // Multimodal Input Hub Card (PDF, Camera, Gallery)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    border = glassCardBorder()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text("Multimodal Document Scan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            }
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.padding(horizontal = 4.dp)
+                            ) {
+                                Text(
+                                    geminiModel,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+
+                        Text(
+                            "Select any financial document to auto-extract transactions. Gemini natively reads PDF bank statements and receipt images.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        // 3 Primary Buttons: Camera, Image, PDF
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = { geminiCameraLauncher.launch(null) },
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                shape = RoundedCornerShape(14.dp),
+                                enabled = !isGeminiProcessing
+                            ) {
+                                Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Camera", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            FilledTonalButton(
+                                onClick = {
+                                    geminiGalleryLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                },
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                shape = RoundedCornerShape(14.dp),
+                                enabled = !isGeminiProcessing
+                            ) {
+                                Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Image", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            FilledTonalButton(
+                                onClick = { geminiPdfLauncher.launch(arrayOf("application/pdf")) },
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                shape = RoundedCornerShape(14.dp),
+                                enabled = !isGeminiProcessing
+                            ) {
+                                Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("PDF", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                // Natural Language Assistant Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    border = glassCardBorder()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Text("Smart Financial Commands", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+
+                        Text(
+                            "Type commands to log, modify, delete transactions, or ask questions about your budget:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        // Quick Chips
+                        val quickPrompts = listOf(
+                            "➕ Lunch at Mamak RM 14.50",
+                            "➕ Touch 'n Go Toll RM 3.50",
+                            "🗑️ Delete my latest expense",
+                            "📊 How much did I spend this month?"
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            quickPrompts.forEach { p ->
+                                SuggestionChip(
+                                    onClick = {
+                                        userChatPrompt = p.removePrefix("➕ ").removePrefix("🗑️ ").removePrefix("📊 ")
+                                        submitGeminiPrompt(userChatPrompt)
+                                    },
+                                    label = { Text(p, fontSize = 11.sp) },
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                            }
+                        }
+
+                        // Text input + Send button
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = userChatPrompt,
+                                onValueChange = { userChatPrompt = it },
+                                placeholder = { Text("e.g. Add RM 25 for Pelita dinner today") },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(16.dp),
+                                singleLine = true
+                            )
+
+                            IconButton(
+                                onClick = { submitGeminiPrompt(userChatPrompt) },
+                                enabled = !isGeminiProcessing && userChatPrompt.isNotBlank(),
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(
+                                        if (userChatPrompt.isNotBlank() && !isGeminiProcessing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainer,
+                                        CircleShape
+                                    )
+                            ) {
+                                Icon(
+                                    Icons.Default.Send,
+                                    contentDescription = "Send",
+                                    tint = if (userChatPrompt.isNotBlank() && !isGeminiProcessing) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Processing Spinner State
+                if (isGeminiProcessing) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.5.dp, color = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Text(geminiStatus, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
+                }
+
+                // AI Result Summary
+                if (geminiResult != null && !isGeminiProcessing) {
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainerHigh),
+                        border = glassCardBorder(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                                Text("RinggitWise AI Summary", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            }
+                            Text(
+                                geminiResult!!.summary,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+
+                // Proposed Actions Preview & Confirmation Card
+                if (proposedActions.isNotEmpty() && !isGeminiProcessing) {
+                    val addActions = proposedActions.filter { it.actionType == "ADD" }
+                    val totalAdd = addActions.sumOf { it.amount }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    ) {
+                        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text("Action Preview", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                    Text(
+                                        "${proposedActions.size} action(s)" + if (addActions.isNotEmpty()) " • Total: ${formatRM(totalAdd)}" else "",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+
+                                Button(
+                                    onClick = {
+                                        repository.executeMultipleActions(proposedActions)
+                                        val count = proposedActions.size
+                                        proposedActions = emptyList()
+                                        geminiStatus = "Successfully executed $count action(s) in your ledger!"
+                                        onImportTransactions(emptyList())
+                                    },
+                                    shape = CircleShape,
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                ) {
+                                    Text("Apply All", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+
+                    // Individual Action Items
+                    proposedActions.forEach { act ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainer),
+                            border = glassCardBorder()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp).fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = when (act.actionType) {
+                                                "ADD" -> MaterialTheme.colorScheme.primaryContainer
+                                                "DELETE" -> MaterialTheme.colorScheme.errorContainer
+                                                "UPDATE" -> MaterialTheme.colorScheme.secondaryContainer
+                                                else -> MaterialTheme.colorScheme.surfaceVariant
+                                            }
+                                        ) {
+                                            Text(
+                                                act.actionType,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Black,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                color = when (act.actionType) {
+                                                    "ADD" -> MaterialTheme.colorScheme.primary
+                                                    "DELETE" -> MaterialTheme.colorScheme.error
+                                                    "UPDATE" -> MaterialTheme.colorScheme.secondary
+                                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                                }
+                                            )
+                                        }
+                                        Text(act.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Text(
+                                        "${act.date} • ${act.category} • ${act.method}" + if (act.explanation.isNotBlank()) " (${act.explanation})" else "",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    if (act.amount > 0) {
+                                        Text(
+                                            formatRM(act.amount),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Black,
+                                            color = if (act.actionType == "DELETE") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+
+                                    IconButton(
+                                        onClick = { proposedActions = proposedActions.filter { it != act } },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(Icons.Default.Close, contentDescription = "Dismiss", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -2429,6 +2988,11 @@ fun SettingsPage(
     onRemoveBackground: () -> Unit,
     onSetBgDim: (Float) -> Unit,
     onSetCardAlpha: (Float) -> Unit,
+    geminiApiKey: String,
+    geminiModel: String,
+    onSetGeminiApiKey: (String) -> Unit,
+    onSetGeminiModel: (String) -> Unit,
+    onTestGeminiKey: suspend (String, String) -> Result<String>,
     monthlyBudget: Double,
     onEditBudget: () -> Unit,
     onClearAllData: () -> Unit
@@ -2742,7 +3306,166 @@ fun SettingsPage(
             }
         }
 
-        // Section 3: Budget Ceiling Card
+        // Section 3: Google Gemini AI Configuration
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+            border = glassCardBorder()
+        ) {
+            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text("Google Gemini AI Assistant", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+
+                Text(
+                    "Intelligent statement & receipt vision parser (PDF & images) and natural language financial tools. Uses Google's free API key.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                var localKey by remember(geminiApiKey) { mutableStateOf(geminiApiKey) }
+                var showPassword by remember { mutableStateOf(false) }
+                var localModel by remember(geminiModel) { mutableStateOf(geminiModel) }
+                val scope = rememberCoroutineScope()
+                var isTesting by remember { mutableStateOf(false) }
+                var testResult by remember { mutableStateOf<String?>(null) }
+                var isTestSuccess by remember { mutableStateOf(false) }
+
+                OutlinedTextField(
+                    value = localKey,
+                    onValueChange = {
+                        localKey = it
+                        onSetGeminiApiKey(it)
+                        testResult = null
+                    },
+                    label = { Text("Gemini API Key") },
+                    placeholder = { Text("Paste AIzaSy... key") },
+                    visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { showPassword = !showPassword }) {
+                            Icon(
+                                if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = "Toggle Visibility"
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    singleLine = true
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
+                    border = glassCardBorder(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                        Text(
+                            "Get your 100% free API key from aistudio.google.com (zero credit card required).",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Text("Model:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                val availableModels = listOf("gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-1.5-flash")
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    availableModels.forEach { m ->
+                        val isSelected = localModel == m
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = {
+                                localModel = m
+                                onSetGeminiModel(m)
+                                testResult = null
+                            },
+                            label = { Text(m, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                isTesting = true
+                                testResult = null
+                                val res = onTestGeminiKey(localKey, localModel)
+                                isTesting = false
+                                res.onSuccess {
+                                    isTestSuccess = true
+                                    testResult = it
+                                }.onFailure { err ->
+                                    isTestSuccess = false
+                                    testResult = err.message ?: "Connection test failed"
+                                }
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp),
+                        enabled = !isTesting && localKey.isNotBlank()
+                    ) {
+                        if (isTesting) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Testing...")
+                        } else {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Test Key")
+                        }
+                    }
+                }
+
+                if (testResult != null) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isTestSuccess) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                if (isTestSuccess) Icons.Default.CheckCircle else Icons.Default.Cancel,
+                                contentDescription = null,
+                                tint = if (isTestSuccess) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                testResult!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isTestSuccess) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Section 4: Budget Ceiling Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
