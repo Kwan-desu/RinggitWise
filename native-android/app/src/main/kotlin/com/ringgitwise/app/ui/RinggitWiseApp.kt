@@ -52,9 +52,13 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import kotlin.math.roundToInt
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -400,16 +404,18 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                 }
                 cropperSourceBitmap = null
                 cropperRawBitmap = null
+                showSettingsDialog = true
             },
             onDismiss = {
                 cropperSourceBitmap = null
                 cropperRawBitmap = null
+                showSettingsDialog = true
             }
         )
     }
 
     // Settings & Personalization Dialog
-    if (showSettingsDialog) {
+    if (showSettingsDialog && cropperSourceBitmap == null) {
         SettingsDialog(
             userProfileEmoji = userProfileEmoji,
             hasCustomProfileImage = hasCustomProfileImage,
@@ -421,6 +427,7 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                     cropperSourceBitmap = loaded
                     cropperIsCircle = true
                     cropperTitle = "Framing: Profile Avatar"
+                    showSettingsDialog = false
                 }
             },
             onAdjustProfileFraming = {
@@ -430,6 +437,7 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                     cropperSourceBitmap = raw
                     cropperIsCircle = true
                     cropperTitle = "Framing: Profile Avatar"
+                    showSettingsDialog = false
                 }
             },
             onResetProfile = {
@@ -446,6 +454,7 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                     cropperSourceBitmap = loaded
                     cropperIsCircle = false
                     cropperTitle = "Framing: App Wallpaper"
+                    showSettingsDialog = false
                 }
             },
             onAdjustBackgroundFraming = {
@@ -455,6 +464,7 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                     cropperSourceBitmap = raw
                     cropperIsCircle = false
                     cropperTitle = "Framing: App Wallpaper"
+                    showSettingsDialog = false
                 }
             },
             onRemoveBackground = { repository.removeBackgroundImage() },
@@ -2020,129 +2030,126 @@ fun InteractiveImageCropperDialog(
                 .fillMaxSize()
                 .background(Color.Black)
         ) {
-            val viewportWidthPx = constraints.maxWidth.toFloat()
-            val viewportHeightPx = constraints.maxHeight.toFloat()
+            val canvasWidth = constraints.maxWidth.toFloat()
+            val canvasHeight = constraints.maxHeight.toFloat()
 
-            // Calculate framing window / cutout bounds
-            val cutoutRect = remember(viewportWidthPx, viewportHeightPx, isCircle) {
+            // Calculate framing window / cutout bounds in exact canvas pixels
+            val cutoutRect = remember(canvasWidth, canvasHeight, isCircle) {
                 if (isCircle) {
-                    val size = minOf(viewportWidthPx, viewportHeightPx) * 0.72f
-                    val left = (viewportWidthPx - size) / 2f
-                    val top = (viewportHeightPx - size) / 2f
+                    val size = minOf(canvasWidth, canvasHeight) * 0.72f
+                    val left = (canvasWidth - size) / 2f
+                    val top = (canvasHeight - size) / 2f
                     Rect(left, top, left + size, top + size)
                 } else {
-                    val screenAspect = viewportWidthPx / viewportHeightPx
-                    var cutH = viewportHeightPx * 0.70f
+                    val screenAspect = canvasWidth / canvasHeight
+                    var cutH = canvasHeight * 0.70f
                     var cutW = cutH * screenAspect
-                    if (cutW > viewportWidthPx * 0.85f) {
-                        cutW = viewportWidthPx * 0.85f
+                    if (cutW > canvasWidth * 0.85f) {
+                        cutW = canvasWidth * 0.85f
                         cutH = cutW / screenAspect
                     }
-                    val left = (viewportWidthPx - cutW) / 2f
-                    val top = (viewportHeightPx - cutH) / 2f
+                    val left = (canvasWidth - cutW) / 2f
+                    val top = (canvasHeight - cutH) / 2f
                     Rect(left, top, left + cutW, top + cutH)
                 }
             }
 
-            // Cover scale so the source image initially covers the crop frame
-            val coverScale = remember(sourceBitmap, cutoutRect) {
+            // Base scale so the source image initially covers the entire crop frame
+            val baseScale = remember(sourceBitmap, cutoutRect) {
                 maxOf(
                     cutoutRect.width / sourceBitmap.width.toFloat(),
                     cutoutRect.height / sourceBitmap.height.toFloat()
                 )
             }
 
-            // Interactive viewport with 1-finger drag and 2-finger pinch
-            Box(
+            // Exact layout geometry in canvas pixels
+            val totalScale = baseScale * scale
+            val imgW = sourceBitmap.width * totalScale
+            val imgH = sourceBitmap.height * totalScale
+            val imgLeft = cutoutRect.center.x - (imgW / 2f) + offset.x
+            val imgTop = cutoutRect.center.y - (imgH / 2f) + offset.y
+
+            // Single unified Canvas: direct drawing prevents any ContentScale/graphicsLayer offset bugs!
+            Canvas(
                 modifier = Modifier
                     .fillMaxSize()
                     .pointerInput(Unit) {
                         detectTransformGestures { _, pan, zoom, _ ->
-                            scale = (scale * zoom).coerceIn(0.8f, 5.0f)
+                            scale = (scale * zoom).coerceIn(0.5f, 5.0f)
                             offset = Offset(offset.x + pan.x, offset.y + pan.y)
                         }
                     }
             ) {
-                // Scaled & panned source image
-                Image(
-                    bitmap = sourceBitmap.asImageBitmap(),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            scaleX = coverScale * scale
-                            scaleY = coverScale * scale
-                            translationX = offset.x
-                            translationY = offset.y
-                        }
+                // 1. Draw source image at exact pixel coordinates
+                drawImage(
+                    image = sourceBitmap.asImageBitmap(),
+                    dstOffset = IntOffset(imgLeft.roundToInt(), imgTop.roundToInt()),
+                    dstSize = IntSize(imgW.roundToInt(), imgH.roundToInt()),
+                    filterQuality = FilterQuality.Low
                 )
 
-                // Cutout mask overlay with difference path
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val outerPath = Path().apply {
-                        addRect(Rect(0f, 0f, size.width, size.height))
-                    }
-                    val cutoutPath = Path().apply {
-                        if (isCircle) {
-                            addOval(cutoutRect)
-                        } else {
-                            addRoundRect(RoundRect(cutoutRect, CornerRadius(24f, 24f)))
-                        }
-                    }
-                    val scrimPath = Path().apply {
-                        op(outerPath, cutoutPath, PathOperation.Difference)
-                    }
-                    // Dimmed backdrop outside cutout
-                    drawPath(scrimPath, color = Color.Black.copy(alpha = 0.72f))
-
-                    // Border outline
+                // 2. Draw scrim & cutout
+                val outerPath = Path().apply {
+                    addRect(Rect(0f, 0f, size.width, size.height))
+                }
+                val cutoutPath = Path().apply {
                     if (isCircle) {
-                        drawCircle(
-                            color = Color.White.copy(alpha = 0.9f),
-                            radius = cutoutRect.width / 2f,
-                            center = cutoutRect.center,
-                            style = Stroke(width = 2.5.dp.toPx())
-                        )
-                        // Rule-of-thirds alignment crosshairs
-                        val r = cutoutRect.width / 2f
-                        val c = cutoutRect.center
-                        drawLine(
-                            color = Color.White.copy(alpha = 0.25f),
-                            start = Offset(c.x - r * 0.45f, c.y),
-                            end = Offset(c.x + r * 0.45f, c.y),
-                            strokeWidth = 1.dp.toPx()
-                        )
-                        drawLine(
-                            color = Color.White.copy(alpha = 0.25f),
-                            start = Offset(c.x, c.y - r * 0.45f),
-                            end = Offset(c.x, c.y + r * 0.45f),
-                            strokeWidth = 1.dp.toPx()
-                        )
+                        addOval(cutoutRect)
                     } else {
-                        drawRoundRect(
-                            color = Color.White.copy(alpha = 0.9f),
-                            topLeft = cutoutRect.topLeft,
-                            size = cutoutRect.size,
-                            cornerRadius = CornerRadius(24f, 24f),
-                            style = Stroke(width = 2.5.dp.toPx())
+                        addRoundRect(RoundRect(cutoutRect, CornerRadius(24f, 24f)))
+                    }
+                }
+                val scrimPath = Path().apply {
+                    op(outerPath, cutoutPath, PathOperation.Difference)
+                }
+                // Dimmed backdrop outside cutout
+                drawPath(scrimPath, color = Color.Black.copy(alpha = 0.72f))
+
+                // 3. Draw border outline & alignment guides
+                if (isCircle) {
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.9f),
+                        radius = cutoutRect.width / 2f,
+                        center = cutoutRect.center,
+                        style = Stroke(width = 2.5.dp.toPx())
+                    )
+                    val r = cutoutRect.width / 2f
+                    val c = cutoutRect.center
+                    drawLine(
+                        color = Color.White.copy(alpha = 0.25f),
+                        start = Offset(c.x - r * 0.45f, c.y),
+                        end = Offset(c.x + r * 0.45f, c.y),
+                        strokeWidth = 1.dp.toPx()
+                    )
+                    drawLine(
+                        color = Color.White.copy(alpha = 0.25f),
+                        start = Offset(c.x, c.y - r * 0.45f),
+                        end = Offset(c.x, c.y + r * 0.45f),
+                        strokeWidth = 1.dp.toPx()
+                    )
+                } else {
+                    drawRoundRect(
+                        color = Color.White.copy(alpha = 0.9f),
+                        topLeft = cutoutRect.topLeft,
+                        size = cutoutRect.size,
+                        cornerRadius = CornerRadius(24f, 24f),
+                        style = Stroke(width = 2.5.dp.toPx())
+                    )
+                    val stepX = cutoutRect.width / 3f
+                    val stepY = cutoutRect.height / 3f
+                    for (i in 1..2) {
+                        drawLine(
+                            color = Color.White.copy(alpha = 0.22f),
+                            start = Offset(cutoutRect.left + stepX * i, cutoutRect.top),
+                            end = Offset(cutoutRect.left + stepX * i, cutoutRect.bottom),
+                            strokeWidth = 1.dp.toPx()
                         )
-                        // 1/3 and 2/3 subtle alignment grid
-                        val stepX = cutoutRect.width / 3f
-                        val stepY = cutoutRect.height / 3f
-                        for (i in 1..2) {
-                            drawLine(
-                                color = Color.White.copy(alpha = 0.22f),
-                                start = Offset(cutoutRect.left + stepX * i, cutoutRect.top),
-                                end = Offset(cutoutRect.left + stepX * i, cutoutRect.bottom),
-                                strokeWidth = 1.dp.toPx()
-                            )
-                            drawLine(
-                                color = Color.White.copy(alpha = 0.22f),
-                                start = Offset(cutoutRect.left, cutoutRect.top + stepY * i),
-                                end = Offset(cutoutRect.right, cutoutRect.top + stepY * i),
-                                strokeWidth = 1.dp.toPx()
-                            )
-                        }
+                        drawLine(
+                            color = Color.White.copy(alpha = 0.22f),
+                            start = Offset(cutoutRect.left, cutoutRect.top + stepY * i),
+                            end = Offset(cutoutRect.right, cutoutRect.top + stepY * i),
+                            strokeWidth = 1.dp.toPx()
+                        )
                     }
                 }
             }
@@ -2251,15 +2258,18 @@ fun InteractiveImageCropperDialog(
                                     targetH = (1080f * (cutoutRect.height / cutoutRect.width)).toInt().coerceIn(1080, 2400)
                                 }
 
+                                // 100% exact pixel correspondence between Canvas dstOffset and crop matrix!
+                                val srcLeft = (cutoutRect.left - imgLeft) / totalScale
+                                val srcTop = (cutoutRect.top - imgTop) / totalScale
+                                val srcWidth = cutoutRect.width / totalScale
+                                val srcHeight = cutoutRect.height / totalScale
+
                                 try {
                                     val cropped = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888)
                                     val canvas = AndroidCanvas(cropped)
                                     val matrix = AndroidMatrix().apply {
-                                        postTranslate(-sourceBitmap.width / 2f, -sourceBitmap.height / 2f)
-                                        postScale(coverScale * scale, coverScale * scale)
-                                        postTranslate(viewportWidthPx / 2f + offset.x, viewportHeightPx / 2f + offset.y)
-                                        postTranslate(-cutoutRect.left, -cutoutRect.top)
-                                        postScale(targetW.toFloat() / cutoutRect.width, targetH.toFloat() / cutoutRect.height)
+                                        postTranslate(-srcLeft, -srcTop)
+                                        postScale(targetW.toFloat() / srcWidth, targetH.toFloat() / srcHeight)
                                     }
                                     val paint = AndroidPaint(AndroidPaint.FILTER_BITMAP_FLAG or AndroidPaint.ANTI_ALIAS_FLAG)
                                     canvas.drawBitmap(sourceBitmap, matrix, paint)
