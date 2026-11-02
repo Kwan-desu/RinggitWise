@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark mode Material You palette -->
+    <color name="m3_primary">#69DBAF</color>
+    <color name="m3_on_primary">#003828</color>
+    <color name="m3_primary_container">#00513C</color>
+    <color name="m3_on_primary_container">#85F8CE</color>
+    <color name="m3_secondary">#B3CCBF</color>
+    <color name="m3_on_secondary">#1E352C</color>
+    <color name="m3_secondary_container">#354B42</color>
+    <color name="m3_tertiary">#A0CDD9</color>
+    <color name="m3_surface">#0C1510</color>
+    <color name="m3_surface_variant">#3C4944</color>
+    <color name="m3_on_surface">#DCE5DF</color>
+    <color name="colorPrimary">#69DBAF</color>
+    <color name="colorPrimaryDark">#0C1510</color>
+    <color name="colorAccent">#85F8CE</color>
+</resources>

@@ -38,20 +38,29 @@ export default function PastSpendingModal({
   const avgMonthlySpend = monthlyGroups.length > 0 ? (totalLifetimeSpent / monthlyGroups.length) : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-2xl max-h-[88vh] flex flex-col shadow-xl overflow-hidden transition-colors">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div 
+        className="rounded-[28px] w-full max-w-2xl max-h-[88vh] flex flex-col shadow-2xl overflow-hidden transition-all"
+        style={{
+          backgroundColor: 'var(--md-sys-color-surface-container-high)',
+          color: 'var(--md-sys-color-on-surface)'
+        }}
+      >
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 dark:border-zinc-800">
-          <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200">
-              <Calendar className="w-4 h-4 text-zinc-600 dark:text-zinc-300" />
+        <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--md-sys-color-outline-variant)' }}>
+          <div className="flex items-center space-x-3">
+            <div className="p-2.5 rounded-full" style={{
+              backgroundColor: 'var(--md-sys-color-primary-container)',
+              color: 'var(--md-sys-color-on-primary-container)'
+            }}>
+              <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              <h3 className="text-base font-bold" style={{ color: 'var(--md-sys-color-on-surface)' }}>
                 {isBM ? 'Sejarah Perbelanjaan Mengikut Bulan' : 'Past Spending by Month'}
               </h3>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
                 {isBM ? 'Lihat dan bandingkan rekod perbelanjaan bulan-bulan lepas' : 'Review and compare historical monthly spending'}
               </p>
             </div>
@@ -59,37 +68,44 @@ export default function PastSpendingModal({
 
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
+            className="p-1.5 rounded-full hover:opacity-80 transition-colors"
+            style={{
+              backgroundColor: 'var(--md-sys-color-surface-container)',
+              color: 'var(--md-sys-color-on-surface-variant)'
+            }}
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Lifetime Summary KPI Banner */}
-        <div className="grid grid-cols-3 gap-2 px-6 py-3.5 bg-zinc-50/60 dark:bg-zinc-950/40 border-b border-zinc-100 dark:border-zinc-800/80 text-xs">
+        <div className="grid grid-cols-3 gap-2 px-6 py-3.5 border-b text-xs" style={{
+          backgroundColor: 'var(--md-sys-color-surface-container)',
+          borderColor: 'var(--md-sys-color-outline-variant)'
+        }}>
           <div>
-            <span className="text-[10px] uppercase font-semibold text-zinc-400 block tracking-wider">
+            <span className="text-[10px] uppercase font-bold block tracking-wider" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
               {isBM ? 'JUMLAH KESELURUHAN' : 'LIFETIME SPENT'}
             </span>
-            <span className="text-base font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
+            <span className="text-base font-extrabold tabular-nums" style={{ color: 'var(--md-sys-color-primary)' }}>
               {formatRM(totalLifetimeSpent)}
             </span>
           </div>
 
           <div>
-            <span className="text-[10px] uppercase font-semibold text-zinc-400 block tracking-wider">
+            <span className="text-[10px] uppercase font-bold block tracking-wider" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
               {isBM ? 'PURATA BULANAN' : 'MONTHLY AVERAGE'}
             </span>
-            <span className="text-base font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
+            <span className="text-base font-extrabold tabular-nums">
               {formatRM(avgMonthlySpend)}
             </span>
           </div>
 
           <div>
-            <span className="text-[10px] uppercase font-semibold text-zinc-400 block tracking-wider">
+            <span className="text-[10px] uppercase font-bold block tracking-wider" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
               {isBM ? 'BULAN DIREKOD' : 'RECORDED MONTHS'}
             </span>
-            <span className="text-base font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
+            <span className="text-base font-extrabold tabular-nums">
               {monthlyGroups.length} {isBM ? 'Bulan' : 'Months'}
             </span>
           </div>
@@ -122,37 +138,42 @@ export default function PastSpendingModal({
               return (
                 <div
                   key={group.month}
-                  className={`border rounded-xl p-4 transition-all ${
-                    isCurrentSelected 
-                      ? 'border-zinc-900 dark:border-zinc-100 bg-zinc-50/80 dark:bg-zinc-800/50 shadow-xs' 
-                      : 'border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 hover:border-zinc-400 dark:hover:border-zinc-600'
-                  }`}
+                  className="rounded-2xl p-4 transition-all"
+                  style={{
+                    backgroundColor: isCurrentSelected ? 'var(--md-sys-color-surface-container-highest)' : 'var(--md-sys-color-surface)',
+                    border: isCurrentSelected ? '2px solid var(--md-sys-color-primary)' : '1px solid var(--md-sys-color-outline-variant)'
+                  }}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     
                     {/* Left: Month title & spend */}
                     <div>
                       <div className="flex items-center space-x-2">
-                        <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                        <span className="text-base font-bold" style={{ color: 'var(--md-sys-color-on-surface)' }}>
                           {formatMonthYear(group.month, isBM)}
                         </span>
                         {isCurrentSelected && (
-                          <span className="text-[10px] bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 px-2 py-0.5 rounded-full font-semibold">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{
+                            backgroundColor: 'var(--md-sys-color-primary)',
+                            color: 'var(--md-sys-color-on-primary)'
+                          }}>
                             {isBM ? 'Aktif' : 'Viewing Now'}
                           </span>
                         )}
                       </div>
 
                       <div className="flex items-center space-x-3 mt-1 text-xs">
-                        <span className="text-lg font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
+                        <span className="text-lg font-black tabular-nums" style={{ color: 'var(--md-sys-color-primary)' }}>
                           {formatRM(group.totalSpent)}
                         </span>
-                        <span className="text-zinc-400">·</span>
-                        <span className="text-zinc-500 dark:text-zinc-400 font-medium">
+                        <span style={{ color: 'var(--md-sys-color-outline)' }}>•</span>
+                        <span className="font-medium" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
                           {group.count} {isBM ? 'transaksi' : 'expenses'}
                         </span>
-                        <span className="text-zinc-400">·</span>
-                        <span className={`font-semibold tabular-nums ${isOver ? 'text-rose-500' : 'text-zinc-600 dark:text-zinc-400'}`}>
+                        <span style={{ color: 'var(--md-sys-color-outline)' }}>•</span>
+                        <span className="font-bold tabular-nums" style={{
+                          color: isOver ? 'var(--md-sys-color-error)' : 'var(--md-sys-color-on-surface-variant)'
+                        }}>
                           {percentUsed}% {isBM ? 'bajet' : 'of budget'}
                         </span>
                       </div>
@@ -165,11 +186,11 @@ export default function PastSpendingModal({
                           onSelectMonth(group.month);
                           onClose();
                         }}
-                        className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                          isCurrentSelected
-                            ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 cursor-default'
-                            : 'bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 shadow-xs'
-                        }`}
+                        className="flex items-center space-x-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all shadow-xs active:scale-95"
+                        style={{
+                          backgroundColor: isCurrentSelected ? 'var(--md-sys-color-surface-container)' : 'var(--md-sys-color-primary)',
+                          color: isCurrentSelected ? 'var(--md-sys-color-on-surface-variant)' : 'var(--md-sys-color-on-primary)'
+                        }}
                       >
                         <span>{isCurrentSelected ? (isBM ? 'Sedang Dipaparkan' : 'Active View') : (isBM ? 'Papar Bulan Ini' : 'View This Month')}</span>
                         {!isCurrentSelected && <ChevronRight className="w-3.5 h-3.5" />}
@@ -180,8 +201,8 @@ export default function PastSpendingModal({
 
                   {/* Top Spending Categories breakdown bar */}
                   {sortedCats.length > 0 && (
-                    <div className="mt-3 pt-2.5 border-t border-zinc-100 dark:border-zinc-800/60 flex flex-wrap items-center gap-2 text-[11px]">
-                      <span className="text-zinc-400 font-medium">
+                    <div className="mt-3 pt-2.5 border-t flex flex-wrap items-center gap-1.5 text-[11px]" style={{ borderColor: 'var(--md-sys-color-outline-variant)' }}>
+                      <span className="font-medium" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
                         {isBM ? 'Perbelanjaan Utama:' : 'Top Categories:'}
                       </span>
                       {sortedCats.map(([cat, amt]) => {
@@ -189,11 +210,15 @@ export default function PastSpendingModal({
                         return (
                           <span
                             key={cat}
-                            className="bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 px-2 py-0.5 rounded-md text-[10.5px] font-medium flex items-center space-x-1"
+                            className="px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold flex items-center space-x-1"
+                            style={{
+                              backgroundColor: 'var(--md-sys-color-surface-container)',
+                              color: 'var(--md-sys-color-on-surface)'
+                            }}
                           >
                             <span>{cat}:</span>
-                            <span className="font-semibold tabular-nums">{formatRM(amt)}</span>
-                            <span className="text-zinc-400">({pct}%)</span>
+                            <span className="font-bold tabular-nums">{formatRM(amt)}</span>
+                            <span style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>({pct}%)</span>
                           </span>
                         );
                       })}

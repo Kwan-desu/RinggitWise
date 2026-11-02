@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { LayoutDashboard, PieChart, QrCode, History, Plus, Wallet } from 'lucide-react';
 import Navbar from './components/Navbar';
 import HalfCircleSpendingChart from './components/HalfCircleSpendingChart';
 import BudgetSummaryCards from './components/BudgetSummaryCards';
@@ -252,7 +253,13 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50/50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 pb-20 selection:bg-zinc-900 selection:text-white dark:selection:bg-zinc-100 dark:selection:text-zinc-900 transition-colors duration-200">
+    <div 
+      className="min-h-screen pb-24 sm:pb-16 transition-colors duration-200"
+      style={{
+        backgroundColor: 'var(--md-sys-color-surface)',
+        color: 'var(--md-sys-color-on-surface)'
+      }}
+    >
       
       {/* Precision Header */}
       <Navbar
@@ -276,20 +283,22 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7 space-y-6">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-7 space-y-6">
         
         {/* Executive Summary Metrics */}
-        <BudgetSummaryCards
-          monthlyBudget={monthlyBudget}
-          onUpdateBudget={handleUpdateBudget}
-          totalSpent={activeMonthSpent}
-          transactionCount={activeMonthExpenses.length}
-          selectedMonth={selectedMonth}
-          language={language}
-        />
+        <section id="sec-overview">
+          <BudgetSummaryCards
+            monthlyBudget={monthlyBudget}
+            onUpdateBudget={handleUpdateBudget}
+            totalSpent={activeMonthSpent}
+            transactionCount={activeMonthExpenses.length}
+            selectedMonth={selectedMonth}
+            language={language}
+          />
+        </section>
 
-        {/* Asymmetrical Bento Grid: Half-Circle Chart (Image 1) & DuitNow Quick Scanner */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Asymmetrical Bento Grid: Half-Circle Chart & DuitNow Quick Scanner */}
+        <div id="sec-chart" className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
           {/* Main Half-Circle Arch Chart (7 columns) */}
           <div className="lg:col-span-7">
@@ -304,7 +313,7 @@ export default function App() {
           </div>
 
           {/* DuitNow Hub & Receipt OCR (5 columns) */}
-          <div className="lg:col-span-5">
+          <div id="sec-duitnow" className="lg:col-span-5">
             <DuitNowHub
               onAddTransaction={handleAddTransaction}
               onAddMultipleTransactions={handleAddMultipleTransactions}
@@ -318,7 +327,7 @@ export default function App() {
         </div>
 
         {/* High-Precision Transaction Ledger */}
-        <section>
+        <section id="sec-ledger">
           <TransactionLedger
             transactions={expenseTransactions}
             categories={categories}
@@ -333,6 +342,90 @@ export default function App() {
         </section>
 
       </main>
+
+      {/* Material You Floating Action Button (FAB) for Mobile */}
+      <button
+        onClick={() => setIsAddModalOpen(true)}
+        className="sm:hidden fixed bottom-20 right-4 z-40 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg active:scale-95 transition-all"
+        style={{
+          backgroundColor: 'var(--md-sys-color-primary)',
+          color: 'var(--md-sys-color-on-primary)'
+        }}
+        title={language === 'bm' ? 'Tambah Perbelanjaan' : 'Add Expense'}
+        aria-label="Add Expense"
+      >
+        <Plus className="w-7 h-7" />
+      </button>
+
+      {/* Material You Bottom Navigation Bar for Mobile */}
+      <nav 
+        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 h-16 border-t flex items-center justify-around px-2 backdrop-blur-md transition-colors"
+        style={{
+          backgroundColor: 'color-mix(in srgb, var(--md-sys-color-surface-container) 95%, transparent)',
+          borderColor: 'var(--md-sys-color-outline-variant)'
+        }}
+      >
+        <button
+          onClick={() => {
+            document.getElementById('sec-overview')?.scrollIntoView({ behavior: 'smooth' });
+          }}
+          className="flex flex-col items-center justify-center flex-1 py-1"
+          style={{ color: 'var(--md-sys-color-on-surface)' }}
+        >
+          <div className="w-12 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--md-sys-color-secondary-container)' }}>
+            <LayoutDashboard className="w-4 h-4" style={{ color: 'var(--md-sys-color-on-secondary-container)' }} />
+          </div>
+          <span className="text-[10px] font-bold mt-0.5">{language === 'bm' ? 'Utama' : 'Overview'}</span>
+        </button>
+
+        <button
+          onClick={() => {
+            document.getElementById('sec-chart')?.scrollIntoView({ behavior: 'smooth' });
+          }}
+          className="flex flex-col items-center justify-center flex-1 py-1"
+          style={{ color: 'var(--md-sys-color-on-surface-variant)' }}
+        >
+          <div className="w-12 h-7 rounded-full flex items-center justify-center hover:opacity-80">
+            <PieChart className="w-4 h-4" />
+          </div>
+          <span className="text-[10px] font-semibold mt-0.5">{language === 'bm' ? 'Carta' : 'Charts'}</span>
+        </button>
+
+        <button
+          onClick={() => setIsDuitNowOpen(true)}
+          className="flex flex-col items-center justify-center flex-1 py-1"
+          style={{ color: 'var(--md-sys-color-on-surface-variant)' }}
+        >
+          <div className="w-12 h-7 rounded-full flex items-center justify-center hover:opacity-80">
+            <QrCode className="w-4 h-4" />
+          </div>
+          <span className="text-[10px] font-semibold mt-0.5">DuitNow</span>
+        </button>
+
+        <button
+          onClick={() => {
+            document.getElementById('sec-ledger')?.scrollIntoView({ behavior: 'smooth' });
+          }}
+          className="flex flex-col items-center justify-center flex-1 py-1"
+          style={{ color: 'var(--md-sys-color-on-surface-variant)' }}
+        >
+          <div className="w-12 h-7 rounded-full flex items-center justify-center hover:opacity-80">
+            <History className="w-4 h-4" />
+          </div>
+          <span className="text-[10px] font-semibold mt-0.5">{language === 'bm' ? 'Sejarah' : 'History'}</span>
+        </button>
+
+        <button
+          onClick={() => setIsBudgetModalOpen(true)}
+          className="flex flex-col items-center justify-center flex-1 py-1"
+          style={{ color: 'var(--md-sys-color-on-surface-variant)' }}
+        >
+          <div className="w-12 h-7 rounded-full flex items-center justify-center hover:opacity-80">
+            <Wallet className="w-4 h-4" />
+          </div>
+          <span className="text-[10px] font-semibold mt-0.5">{language === 'bm' ? 'Bajet' : 'Budget'}</span>
+        </button>
+      </nav>
 
       {/* Modals */}
       <AddTransactionModal

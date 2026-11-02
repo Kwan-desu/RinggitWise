@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material You Green Finance Palette -->
+    <color name="m3_primary">#006C51</color>
+    <color name="m3_on_primary">#FFFFFF</color>
+    <color name="m3_primary_container">#85F8CE</color>
+    <color name="m3_on_primary_container">#002116</color>
+    <color name="m3_secondary">#4C6358</color>
+    <color name="m3_on_secondary">#FFFFFF</color>
+    <color name="m3_secondary_container">#CFE9DD</color>
+    <color name="m3_tertiary">#3E6374</color>
+    <color name="m3_surface">#F4FBF7</color>
+    <color name="m3_surface_variant">#DBE5DF</color>
+    <color name="m3_on_surface">#171D1A</color>
+    <!-- Legacy compat -->
+    <color name="colorPrimary">#006C51</color>
+    <color name="colorPrimaryDark">#004D39</color>
+    <color name="colorAccent">#85F8CE</color>
+</resources>

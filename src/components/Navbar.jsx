@@ -36,32 +36,46 @@ export default function Navbar({
   const isDark = theme === 'dark';
 
   return (
-    <header className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14">
+    <header className="sticky top-0 z-40 transition-colors backdrop-blur-md" style={{
+      backgroundColor: 'color-mix(in srgb, var(--md-sys-color-surface) 92%, transparent)',
+      borderBottom: '1px solid var(--md-sys-color-outline-variant)'
+    }}>
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
           
-          {/* Left: Minimalist Brand Identity */}
+          {/* Left: Material You Brand Identity */}
           <div className="flex items-center space-x-2 sm:space-x-3">
-            <div className="flex items-center space-x-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
-                RinggitWise
-              </span>
+            <div className="flex items-center space-x-2.5">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-xs" style={{
+                backgroundColor: 'var(--md-sys-color-primary-container)',
+                color: 'var(--md-sys-color-on-primary-container)'
+              }}>
+                RM
+              </div>
+              <div>
+                <span className="text-base font-bold tracking-tight block leading-tight" style={{ color: 'var(--md-sys-color-on-surface)' }}>
+                  RinggitWise
+                </span>
+                <span className="text-[10px] font-medium hidden sm:block" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
+                  Personal Finance • Malaysia
+                </span>
+              </div>
             </div>
-            <span className="hidden sm:inline-block text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800/60">
-              MYR (RM)
-            </span>
           </div>
 
-          {/* Middle: Interactive Month Navigator & Past Spending Switcher */}
-          <div className="flex items-center space-x-1.5 sm:space-x-3">
+          {/* Middle: M3 Chip Month Navigator */}
+          <div className="flex items-center space-x-1 sm:space-x-2">
             
-            {/* Month & Year Stepper */}
-            <div className="flex items-center space-x-0.5 text-xs bg-zinc-100/80 dark:bg-zinc-900/80 px-1 sm:px-1.5 py-1 rounded-full border border-zinc-200/60 dark:border-zinc-800/60 shadow-2xs">
+            {/* Month & Year Stepper Chip */}
+            <div className="flex items-center space-x-0.5 text-xs px-2 py-1.5 rounded-full transition-all" style={{
+              backgroundColor: 'var(--md-sys-color-surface-container-high)',
+              border: '1px solid var(--md-sys-color-outline-variant)'
+            }}>
               <button
                 type="button"
                 onClick={onPrevMonth}
-                className="p-1 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
+                className="p-1 rounded-full transition-colors hover:opacity-80 active:scale-95"
+                style={{ color: 'var(--md-sys-color-on-surface-variant)' }}
                 title={isBM ? "Bulan / Tahun Sebelumnya" : "Previous Month / Year"}
                 aria-label="Previous Month"
               >
@@ -69,22 +83,23 @@ export default function Navbar({
               </button>
 
               <div className="flex items-center space-x-1 px-1">
-                <Calendar className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                <Calendar className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--md-sys-color-primary)' }} />
                 <select
                   value={selectedMonth}
                   onChange={(e) => onSelectMonth && onSelectMonth(e.target.value)}
-                  className="bg-transparent border-none text-xs font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer focus:outline-none max-w-[125px] sm:max-w-[180px] truncate"
+                  className="bg-transparent border-none text-xs font-semibold cursor-pointer focus:outline-none max-w-[120px] sm:max-w-[180px] truncate"
+                  style={{ color: 'var(--md-sys-color-on-surface)' }}
                 >
-                  <option value="all" className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-bold">
+                  <option value="all" className="font-bold" style={{ backgroundColor: 'var(--md-sys-color-surface-container)' }}>
                     {isBM ? '🕒 Semua Masa (All Time)' : '🕒 All Time'}
                   </option>
                   {yearGroups.map(({ year, months }) => (
-                    <optgroup key={year} label={isBM ? `── Tahun ${year} ──` : `── Year ${year} ──`} className="bg-white dark:bg-zinc-900 text-zinc-500 font-bold">
-                      <option value={String(year)} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-semibold">
+                    <optgroup key={year} label={isBM ? `── Tahun ${year} ──` : `── Year ${year} ──`} className="font-bold">
+                      <option value={String(year)} className="font-semibold" style={{ backgroundColor: 'var(--md-sys-color-surface-container)' }}>
                         {isBM ? `Sepanjang Tahun ${year}` : `Full Year ${year}`}
                       </option>
                       {months.map((mStr) => (
-                        <option key={mStr} value={mStr} className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200">
+                        <option key={mStr} value={mStr} style={{ backgroundColor: 'var(--md-sys-color-surface-container)' }}>
                           {formatMonthYear(mStr, isBM)}
                         </option>
                       ))}
@@ -96,7 +111,8 @@ export default function Navbar({
               <button
                 type="button"
                 onClick={onNextMonth}
-                className="p-1 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
+                className="p-1 rounded-full transition-colors hover:opacity-80 active:scale-95"
+                style={{ color: 'var(--md-sys-color-on-surface-variant)' }}
                 title={isBM ? "Bulan / Tahun Seterusnya" : "Next Month / Year"}
                 aria-label="Next Month"
               >
@@ -104,74 +120,104 @@ export default function Navbar({
               </button>
             </div>
 
-            {/* Past Spending Overview Button */}
+            {/* Past Spending Overview Button (M3 Assist Chip) */}
             <button
               type="button"
               onClick={onOpenPastSpending}
-              className="hidden sm:flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-medium border border-zinc-200/80 dark:border-zinc-800/80 hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+              className="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all hover:opacity-90 active:scale-95"
+              style={{
+                backgroundColor: 'var(--md-sys-color-surface-container)',
+                color: 'var(--md-sys-color-on-surface-variant)',
+                border: '1px solid var(--md-sys-color-outline-variant)'
+              }}
               title={isBM ? "Lihat Sejarah Perbelanjaan Mengikut Bulan" : "View Historical Spending by Month"}
             >
-              <History className="w-3.5 h-3.5 text-zinc-400" />
-              <span>{isBM ? 'Rekod Lepas' : 'Past Spending'}</span>
+              <History className="w-3.5 h-3.5" style={{ color: 'var(--md-sys-color-primary)' }} />
+              <span>{isBM ? 'Rekod Lepas' : 'History'}</span>
             </button>
 
             {/* Budget status quick link */}
             <button
               onClick={onOpenBudgetModal}
-              className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors pl-1"
+              className="hidden sm:inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
+              style={{
+                backgroundColor: 'var(--md-sys-color-surface-container-low)',
+                color: 'var(--md-sys-color-on-surface)'
+              }}
             >
-              <span>{isBM ? 'Bajet: ' : 'Budget: '}</span>
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">
+              <span style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>{isBM ? 'Bajet: ' : 'Budget: '}</span>
+              <span className="font-bold tabular-nums" style={{ color: 'var(--md-sys-color-primary)' }}>
                 {formatRM(userProfile?.monthlyBudget || 3500)}
               </span>
             </button>
           </div>
 
-          {/* Right: Functional Action Bar */}
-          <div className="flex items-center space-x-2">
+          {/* Right: Functional Action Bar (Material 3 Buttons) */}
+          <div className="flex items-center space-x-1.5 sm:space-x-2">
             
-            {/* Quick DuitNow OCR Scanner Button */}
+            {/* DuitNow OCR Scanner Button */}
             <button
               onClick={onOpenDuitNow}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-rose-200/80 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 hover:bg-rose-100/60 dark:hover:bg-rose-950/40 transition-colors active:scale-95"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all active:scale-95 shadow-2xs"
+              style={{
+                backgroundColor: 'var(--md-sys-color-secondary-container)',
+                color: 'var(--md-sys-color-on-secondary-container)'
+              }}
             >
               <QrCode className="w-3.5 h-3.5" />
-              <span>DuitNow OCR</span>
+              <span className="hidden sm:inline">DuitNow OCR</span>
+              <span className="sm:hidden">OCR</span>
             </button>
 
             {/* Category Manager */}
             <button
               onClick={onOpenCategoryManager}
-              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors flex items-center space-x-1"
+              className="p-2 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium transition-colors flex items-center space-x-1"
+              style={{
+                backgroundColor: 'var(--md-sys-color-surface-container)',
+                color: 'var(--md-sys-color-on-surface)'
+              }}
               title="Categories"
             >
               <Folder className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{isBM ? 'Kategori' : 'Categories'}</span>
+              <span className="hidden md:inline">{isBM ? 'Kategori' : 'Categories'}</span>
             </button>
 
-            {/* Add Expense (High-contrast Primary Button) */}
+            {/* Add Expense (Primary Filled Button) */}
             <button
               onClick={onOpenAddModal}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-950 transition-all shadow-xs active:scale-95"
+              className="hidden sm:flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all shadow-xs active:scale-95"
+              style={{
+                backgroundColor: 'var(--md-sys-color-primary)',
+                color: 'var(--md-sys-color-on-primary)'
+              }}
             >
               <Plus className="w-3.5 h-3.5" />
               <span>{isBM ? 'Rekod RM' : 'Add Expense'}</span>
             </button>
 
-            {/* Theme Toggle */}
+            {/* Theme Toggle (Icon Button) */}
             <button
               onClick={onToggleTheme}
-              className="p-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
+              className="p-2 rounded-full transition-colors hover:opacity-80 active:scale-95"
+              style={{
+                backgroundColor: 'var(--md-sys-color-surface-container)',
+                color: 'var(--md-sys-color-on-surface)'
+              }}
               title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
               aria-label="Toggle theme"
             >
-              {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-zinc-700" />}
+              {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-500" />}
             </button>
 
             {/* Language Switcher */}
             <button
               onClick={() => setLanguage(language === 'en' ? 'bm' : 'en')}
-              className="px-2 py-1 rounded-md text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+              className="px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors"
+              style={{
+                backgroundColor: 'var(--md-sys-color-surface-container-high)',
+                color: 'var(--md-sys-color-on-surface)'
+              }}
             >
               {language === 'en' ? 'BM' : 'EN'}
             </button>
@@ -179,7 +225,8 @@ export default function Navbar({
             {/* Clear All Data */}
             <button
               onClick={onClearAllData}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-500 transition-colors"
+              className="p-2 rounded-full transition-colors hover:opacity-80 active:scale-95 text-rose-500"
+              style={{ backgroundColor: 'var(--md-sys-color-surface-container)' }}
               title={isBM ? 'Kosongkan Data' : 'Clear Data'}
             >
               <Trash2 className="w-3.5 h-3.5" />

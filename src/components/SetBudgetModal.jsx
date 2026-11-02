@@ -33,16 +33,26 @@ export default function SetBudgetModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl shadow-xl p-5 relative transition-colors">
+      <div 
+        className="w-full max-w-sm rounded-[28px] shadow-2xl p-6 relative transition-all"
+        style={{
+          backgroundColor: 'var(--md-sys-color-surface-container-high)',
+          color: 'var(--md-sys-color-on-surface)'
+        }}
+      >
         
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-3 mb-4">
-          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+        <div className="flex items-center justify-between border-b pb-3.5 mb-4" style={{ borderColor: 'var(--md-sys-color-outline-variant)' }}>
+          <h3 className="text-base font-bold" style={{ color: 'var(--md-sys-color-on-surface)' }}>
             {isBM ? 'Tetapkan Had Bajet' : 'Set Monthly Budget'}
           </h3>
           <button
             onClick={onClose}
-            className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 p-1"
+            className="p-1.5 rounded-full hover:opacity-80 transition-colors"
+            style={{
+              backgroundColor: 'var(--md-sys-color-surface-container)',
+              color: 'var(--md-sys-color-on-surface-variant)'
+            }}
           >
             <X className="w-4 h-4" />
           </button>
@@ -50,11 +60,11 @@ export default function SetBudgetModal({
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           <div>
-            <label className="text-[11px] font-medium text-zinc-500 block mb-1 uppercase tracking-wider">
+            <label className="text-[11px] font-bold block mb-1 uppercase tracking-wider" style={{ color: 'var(--md-sys-color-primary)' }}>
               {isBM ? 'Had Bajet Bulanan (RM)' : 'Monthly Budget (RM)'}
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-2.5 text-zinc-400 font-semibold">RM</span>
+              <span className="absolute left-3.5 top-2.5 font-black text-lg" style={{ color: 'var(--md-sys-color-primary)' }}>RM</span>
               <input
                 type="number"
                 step="50"
@@ -62,7 +72,12 @@ export default function SetBudgetModal({
                 placeholder="3500"
                 value={budget}
                 onChange={(e) => setBudget(e.target.value)}
-                className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg pl-10 pr-3 py-2 text-zinc-900 dark:text-zinc-100 font-semibold text-base tabular-nums focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-100"
+                className="w-full rounded-2xl pl-12 pr-4 py-2.5 font-black text-2xl tabular-nums focus:outline-none transition-all"
+                style={{
+                  backgroundColor: 'var(--md-sys-color-surface)',
+                  border: '2px solid var(--md-sys-color-primary)',
+                  color: 'var(--md-sys-color-on-surface)'
+                }}
                 autoFocus
               />
             </div>
@@ -70,7 +85,11 @@ export default function SetBudgetModal({
 
           <button
             type="submit"
-            className="w-full bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 font-semibold py-2 rounded-lg transition-colors"
+            className="w-full font-bold py-3 rounded-full transition-all active:scale-[0.98] shadow-md text-sm mt-2"
+            style={{
+              backgroundColor: 'var(--md-sys-color-primary)',
+              color: 'var(--md-sys-color-on-primary)'
+            }}
           >
             {isBM ? 'Simpan Bajet' : 'Save Budget'}
           </button>

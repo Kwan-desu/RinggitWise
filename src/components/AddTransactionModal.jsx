@@ -69,31 +69,48 @@ export default function AddTransactionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl shadow-xl p-5 relative transition-colors">
-        
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div 
+        className="w-full sm:max-w-md p-6 relative transition-all rounded-t-[28px] sm:rounded-[28px] shadow-2xl max-h-[92vh] overflow-y-auto"
+        style={{
+          backgroundColor: 'var(--md-sys-color-surface-container-high)',
+          color: 'var(--md-sys-color-on-surface)'
+        }}
+      >
+        {/* Drag handle for mobile bottom sheet */}
+        <div className="w-10 h-1.5 rounded-full mx-auto mb-4 sm:hidden" style={{ backgroundColor: 'var(--md-sys-color-outline-variant)' }} />
+
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-3 mb-4">
-          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            {isBM ? 'Rekod Perbelanjaan' : 'Record Expense'}
-          </h3>
+        <div className="flex items-center justify-between border-b pb-3.5 mb-4" style={{ borderColor: 'var(--md-sys-color-outline-variant)' }}>
+          <div>
+            <h3 className="text-base font-bold" style={{ color: 'var(--md-sys-color-on-surface)' }}>
+              {isBM ? 'Rekod Perbelanjaan' : 'Record Expense'}
+            </h3>
+            <p className="text-xs" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
+              {isBM ? 'Masukkan jumlah perbelanjaan Ringgit' : 'Log Malaysian Ringgit expenditure'}
+            </p>
+          </div>
           <button
             onClick={onClose}
-            className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 p-1"
+            className="p-1.5 rounded-full hover:opacity-80 transition-colors"
+            style={{
+              backgroundColor: 'var(--md-sys-color-surface-container)',
+              color: 'var(--md-sys-color-on-surface-variant)'
+            }}
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           
-          {/* Amount in RM */}
+          {/* Amount in RM (Large M3 Outlined Field) */}
           <div>
-            <label className="text-[11px] font-medium text-zinc-500 block mb-1 uppercase tracking-wider">
-              {isBM ? 'Jumlah (RM)' : 'Amount'}
+            <label className="text-[11px] font-bold block mb-1 uppercase tracking-wider" style={{ color: 'var(--md-sys-color-primary)' }}>
+              {isBM ? 'Jumlah (RM)' : 'Amount (RM)'}
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-2 text-zinc-400 font-semibold">RM</span>
+              <span className="absolute left-3.5 top-2.5 font-black text-lg" style={{ color: 'var(--md-sys-color-primary)' }}>RM</span>
               <input
                 type="number"
                 step="0.05"
@@ -101,7 +118,12 @@ export default function AddTransactionModal({
                 placeholder="0.00"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg pl-10 pr-3 py-2 text-zinc-900 dark:text-zinc-100 font-semibold text-base tabular-nums focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-100"
+                className="w-full rounded-2xl pl-12 pr-4 py-2.5 font-black text-2xl tabular-nums focus:outline-none transition-all"
+                style={{
+                  backgroundColor: 'var(--md-sys-color-surface)',
+                  border: '2px solid var(--md-sys-color-primary)',
+                  color: 'var(--md-sys-color-on-surface)'
+                }}
                 autoFocus
               />
             </div>
@@ -109,7 +131,7 @@ export default function AddTransactionModal({
 
           {/* Title / Description (Optional) */}
           <div>
-            <label className="text-[11px] font-medium text-zinc-500 block mb-1 uppercase tracking-wider">
+            <label className="text-[11px] font-semibold block mb-1 uppercase tracking-wider" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
               {isBM ? 'Penerima / Keterangan (Pilihan)' : 'Description (Optional)'}
             </label>
             <input
@@ -117,20 +139,26 @@ export default function AddTransactionModal({
               placeholder={isBM ? `Pilihan (cth. ${category})` : `Optional (e.g. ${category})`}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-100 focus:outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
+              className="w-full rounded-2xl px-3.5 py-2.5 text-xs focus:outline-none transition-colors"
+              style={{
+                backgroundColor: 'var(--md-sys-color-surface)',
+                border: '1px solid var(--md-sys-color-outline-variant)',
+                color: 'var(--md-sys-color-on-surface)'
+              }}
             />
           </div>
 
           {/* Category Picker with Inline + Button */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
+              <label className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
                 {isBM ? 'Kategori' : 'Category'}
               </label>
               <button
                 type="button"
                 onClick={() => setIsCreatingCat(!isCreatingCat)}
-                className="text-[10px] text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 font-medium"
+                className="text-[11px] font-bold"
+                style={{ color: 'var(--md-sys-color-primary)' }}
               >
                 + Quick Category
               </button>
@@ -139,10 +167,15 @@ export default function AddTransactionModal({
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-none"
+              className="w-full rounded-2xl px-3.5 py-2.5 text-xs font-semibold focus:outline-none cursor-pointer"
+              style={{
+                backgroundColor: 'var(--md-sys-color-surface)',
+                border: '1px solid var(--md-sys-color-outline-variant)',
+                color: 'var(--md-sys-color-on-surface)'
+              }}
             >
               {categories.map((c) => (
-                <option key={c.id || c.name} value={c.name}>
+                <option key={c.id || c.name} value={c.name} style={{ backgroundColor: 'var(--md-sys-color-surface-container)' }}>
                   {c.name}
                 </option>
               ))}
@@ -151,19 +184,31 @@ export default function AddTransactionModal({
 
           {/* Quick Inline Category Creator */}
           {isCreatingCat && (
-            <div className="p-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg space-y-2">
+            <div className="p-3 rounded-2xl space-y-2" style={{
+              backgroundColor: 'var(--md-sys-color-surface-container)',
+              border: '1px solid var(--md-sys-color-outline-variant)'
+            }}>
               <div className="flex items-center space-x-2">
                 <input
                   type="text"
                   placeholder="New category name..."
                   value={newCatName}
                   onChange={(e) => setNewCatName(e.target.value)}
-                  className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md px-2 py-1 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none"
+                  className="w-full rounded-xl px-3 py-1.5 text-xs focus:outline-none"
+                  style={{
+                    backgroundColor: 'var(--md-sys-color-surface)',
+                    border: '1px solid var(--md-sys-color-outline-variant)',
+                    color: 'var(--md-sys-color-on-surface)'
+                  }}
                 />
                 <button
                   type="button"
                   onClick={handleCreateCategoryInline}
-                  className="px-2.5 py-1 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-semibold rounded-md text-[11px]"
+                  className="px-3 py-1.5 rounded-xl font-bold text-xs"
+                  style={{
+                    backgroundColor: 'var(--md-sys-color-primary)',
+                    color: 'var(--md-sys-color-on-primary)'
+                  }}
                 >
                   Save
                 </button>
@@ -172,15 +217,20 @@ export default function AddTransactionModal({
           )}
 
           {/* Method & Date */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2.5">
             <div>
-              <label className="text-[11px] font-medium text-zinc-500 block mb-1 uppercase tracking-wider">
+              <label className="text-[11px] font-semibold block mb-1 uppercase tracking-wider" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
                 {isBM ? 'Kaedah' : 'Method'}
               </label>
               <select
                 value={method}
                 onChange={(e) => setMethod(e.target.value)}
-                className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-none"
+                className="w-full rounded-2xl px-3 py-2 text-xs font-semibold focus:outline-none cursor-pointer"
+                style={{
+                  backgroundColor: 'var(--md-sys-color-surface)',
+                  border: '1px solid var(--md-sys-color-outline-variant)',
+                  color: 'var(--md-sys-color-on-surface)'
+                }}
               >
                 <option value="DuitNow QR">DuitNow QR</option>
                 <option value="Touch 'n Go eWallet">TNG eWallet</option>
@@ -193,21 +243,26 @@ export default function AddTransactionModal({
             </div>
 
             <div>
-              <label className="text-[11px] font-medium text-zinc-500 block mb-1 uppercase tracking-wider">
+              <label className="text-[11px] font-semibold block mb-1 uppercase tracking-wider" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
                 {isBM ? 'Tarikh' : 'Date'}
               </label>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-none"
+                className="w-full rounded-2xl px-3 py-2 text-xs font-semibold focus:outline-none"
+                style={{
+                  backgroundColor: 'var(--md-sys-color-surface)',
+                  border: '1px solid var(--md-sys-color-outline-variant)',
+                  color: 'var(--md-sys-color-on-surface)'
+                }}
               />
             </div>
           </div>
 
           {/* Note */}
           <div>
-            <label className="text-[11px] font-medium text-zinc-500 block mb-1 uppercase tracking-wider">
+            <label className="text-[11px] font-semibold block mb-1 uppercase tracking-wider" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
               {isBM ? 'Nota' : 'Note (Optional)'}
             </label>
             <input
@@ -215,14 +270,23 @@ export default function AddTransactionModal({
               placeholder="e.g. Lunch with team"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-none"
+              className="w-full rounded-2xl px-3.5 py-2 text-xs focus:outline-none"
+              style={{
+                backgroundColor: 'var(--md-sys-color-surface)',
+                border: '1px solid var(--md-sys-color-outline-variant)',
+                color: 'var(--md-sys-color-on-surface)'
+              }}
             />
           </div>
 
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 font-semibold py-2 rounded-lg transition-colors"
+              className="w-full font-bold py-3 rounded-full transition-all active:scale-[0.98] shadow-md text-sm"
+              style={{
+                backgroundColor: 'var(--md-sys-color-primary)',
+                color: 'var(--md-sys-color-on-primary)'
+              }}
             >
               {isBM ? 'Simpan Rekod RM' : 'Save Expense (RM)'}
             </button>

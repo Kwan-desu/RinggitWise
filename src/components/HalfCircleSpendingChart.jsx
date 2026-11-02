@@ -186,40 +186,46 @@ export default function HalfCircleSpendingChart({
   }, [slices, gapDeg, cx, cy, outerR, innerR]);
 
   return (
-    <div className="bg-white dark:bg-zinc-900/70 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl p-5 sm:p-7 shadow-2xs transition-colors">
+    <div className="p-5 sm:p-7 rounded-3xl transition-all" style={{
+      backgroundColor: 'var(--md-sys-color-surface-container-high)',
+      color: 'var(--md-sys-color-on-surface)'
+    }}>
       
       {/* Top Header */}
-      <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-4 mb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b pb-4 mb-3" style={{ borderColor: 'var(--md-sys-color-outline-variant)' }}>
         <div>
-          <h2 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+          <h2 className="text-base font-bold tracking-tight" style={{ color: 'var(--md-sys-color-on-surface)' }}>
             {isBM ? 'Pecahan Perbelanjaan Mengikut Kategori' : 'Spending Distribution by Category'}
           </h2>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+          <p className="text-xs mt-0.5" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
             {isBM 
               ? 'Carta separuh bulatan 180° memaparkan nisbah perbelanjaan sebenar.' 
               : 'Semi-circular arch breakdown of expenses in Ringgit (RM).'}
           </p>
         </div>
 
-        {/* Period Selector Tabs */}
-        <div className="flex items-center space-x-1 bg-zinc-100 dark:bg-zinc-800/60 p-0.5 rounded-lg text-xs">
+        {/* M3 Segmented Button Group */}
+        <div className="inline-flex rounded-full p-1" style={{
+          backgroundColor: 'var(--md-sys-color-surface-container)',
+          border: '1px solid var(--md-sys-color-outline-variant)'
+        }}>
           <button
             onClick={() => setPeriod('month')}
-            className={`px-2.5 py-1 rounded-md font-medium transition-all ${
-              period === 'month'
-                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-2xs'
-                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-            }`}
+            className="px-3 py-1 rounded-full text-xs font-semibold transition-all"
+            style={{
+              backgroundColor: period === 'month' ? 'var(--md-sys-color-primary)' : 'transparent',
+              color: period === 'month' ? 'var(--md-sys-color-on-primary)' : 'var(--md-sys-color-on-surface-variant)'
+            }}
           >
             {selectedMonth === 'all' ? (isBM ? 'Semua Masa' : 'All Time') : formatMonthYear(selectedMonth, isBM)}
           </button>
           <button
             onClick={() => setPeriod('all')}
-            className={`px-2.5 py-1 rounded-md font-medium transition-all ${
-              period === 'all'
-                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-2xs'
-                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-            }`}
+            className="px-3 py-1 rounded-full text-xs font-semibold transition-all"
+            style={{
+              backgroundColor: period === 'all' ? 'var(--md-sys-color-primary)' : 'transparent',
+              color: period === 'all' ? 'var(--md-sys-color-on-primary)' : 'var(--md-sys-color-on-surface-variant)'
+            }}
           >
             {isBM ? 'Semua Masa' : 'All Time'}
           </button>
@@ -415,9 +421,9 @@ export default function HalfCircleSpendingChart({
             </svg>
           </div>
 
-          {/* Bottom Legend (Matching Image 1: rounded square swatches + name + percentage) */}
-          <div className="w-full mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800/80">
-            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs">
+          {/* Bottom Legend (M3 Assist Chips) */}
+          <div className="w-full mt-4 pt-4 border-t" style={{ borderColor: 'var(--md-sys-color-outline-variant)' }}>
+            <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
               {arcSegments.map((seg) => {
                 const isHovered = hoveredIndex === seg.index;
                 return (
@@ -426,28 +432,31 @@ export default function HalfCircleSpendingChart({
                     onClick={() => setHoveredIndex(isHovered ? null : seg.index)}
                     onMouseEnter={() => setHoveredIndex(seg.index)}
                     onMouseLeave={() => setHoveredIndex(null)}
-                    className={`flex items-center space-x-2 py-1 px-1.5 rounded-md transition-colors ${
-                      isHovered ? 'bg-zinc-100 dark:bg-zinc-800' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
-                    }`}
+                    className="flex items-center space-x-2 py-1 px-3 rounded-full transition-all"
+                    style={{
+                      backgroundColor: isHovered ? 'var(--md-sys-color-secondary-container)' : 'var(--md-sys-color-surface-container)',
+                      color: 'var(--md-sys-color-on-surface)',
+                      border: '1px solid var(--md-sys-color-outline-variant)'
+                    }}
                   >
-                    {/* Swatch (Image 1 rounded square) */}
+                    {/* Swatch (rounded dot) */}
                     <span
-                      className="w-3.5 h-3.5 rounded-[3px] shrink-0"
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
                       style={{ backgroundColor: seg.color }}
                     />
 
                     {/* Category Name */}
-                    <span className="font-normal text-zinc-700 dark:text-zinc-300">
+                    <span className="font-medium">
                       {seg.name}
                     </span>
 
                     {/* Percentage */}
-                    <span className="font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">
+                    <span className="font-bold tabular-nums" style={{ color: 'var(--md-sys-color-primary)' }}>
                       {seg.percentage.toFixed(1)}%
                     </span>
 
                     {/* RM Amount (Subtle) */}
-                    <span className="text-[11px] text-zinc-400 dark:text-zinc-500 tabular-nums">
+                    <span className="text-[11px] tabular-nums" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
                       ({formatRM(seg.amount)})
                     </span>
                   </button>

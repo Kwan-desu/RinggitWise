@@ -65,33 +65,46 @@ export default function CategoryManagerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[85vh] transition-colors">
+      <div 
+        className="w-full max-w-md rounded-[28px] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] transition-all"
+        style={{
+          backgroundColor: 'var(--md-sys-color-surface-container-high)',
+          color: 'var(--md-sys-color-on-surface)'
+        }}
+      >
         
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800/80">
+        <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--md-sys-color-outline-variant)' }}>
           <div>
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            <h3 className="text-base font-bold" style={{ color: 'var(--md-sys-color-on-surface)' }}>
               {isBM ? 'Pengurus Kategori' : 'Manage Categories'}
             </h3>
-            <p className="text-[11px] text-zinc-500">
+            <p className="text-xs" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
               {categories.length} {isBM ? 'kategori aktif' : 'active spending categories'}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 p-1"
+            className="p-1.5 rounded-full hover:opacity-80 transition-colors"
+            style={{
+              backgroundColor: 'var(--md-sys-color-surface-container)',
+              color: 'var(--md-sys-color-on-surface-variant)'
+            }}
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-5 overflow-y-auto space-y-5">
+        <div className="p-6 overflow-y-auto space-y-4">
           
           {/* Quick Add Form */}
-          <form onSubmit={handleAddCategory} className="bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl p-3.5 space-y-3">
+          <form onSubmit={handleAddCategory} className="rounded-2xl p-4 space-y-3" style={{
+            backgroundColor: 'var(--md-sys-color-surface)',
+            border: '1px solid var(--md-sys-color-outline-variant)'
+          }}>
             <div>
-              <label className="block text-[11px] font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              <label className="block text-[11px] font-bold mb-1 uppercase tracking-wider" style={{ color: 'var(--md-sys-color-primary)' }}>
                 {isBM ? 'Nama Kategori Baharu' : 'New Category Name'}
               </label>
               <input
@@ -100,13 +113,18 @@ export default function CategoryManagerModal({
                 placeholder={isBM ? 'cth. Servis Kereta, Gym' : 'e.g. Gym, Car Maintenance'}
                 value={newCatName}
                 onChange={(e) => setNewCatName(e.target.value)}
-                className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none"
+                className="w-full rounded-xl px-3 py-2 text-xs focus:outline-none"
+                style={{
+                  backgroundColor: 'var(--md-sys-color-surface-container)',
+                  border: '1px solid var(--md-sys-color-outline-variant)',
+                  color: 'var(--md-sys-color-on-surface)'
+                }}
               />
             </div>
 
             {/* Color Swatch Picker */}
             <div>
-              <label className="block text-[11px] font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+              <label className="block text-[11px] font-semibold mb-1.5" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
                 {isBM ? 'Warna Carta' : 'Arc Chart Color'}
               </label>
               <div className="flex flex-wrap gap-2 items-center">
@@ -115,8 +133,8 @@ export default function CategoryManagerModal({
                     key={color}
                     type="button"
                     onClick={() => setNewCatColor(color)}
-                    className={`w-5 h-5 rounded-md transition-transform ${
-                      newCatColor === color ? 'scale-125 ring-2 ring-zinc-900 dark:ring-zinc-100' : 'hover:scale-110'
+                    className={`w-6 h-6 rounded-full transition-transform ${
+                      newCatColor === color ? 'scale-125 ring-2 ring-emerald-500' : 'hover:scale-110'
                     }`}
                     style={{ backgroundColor: color }}
                   />
@@ -126,7 +144,11 @@ export default function CategoryManagerModal({
 
             <button
               type="submit"
-              className="w-full bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-950 font-semibold py-1.5 rounded-lg text-xs transition-colors flex items-center justify-center space-x-1"
+              className="w-full font-bold py-2 rounded-full text-xs transition-all shadow-xs flex items-center justify-center space-x-1"
+              style={{
+                backgroundColor: 'var(--md-sys-color-primary)',
+                color: 'var(--md-sys-color-on-primary)'
+              }}
             >
               <Plus className="w-3.5 h-3.5" />
               <span>{isBM ? 'Simpan Kategori' : 'Add Category'}</span>
@@ -138,21 +160,25 @@ export default function CategoryManagerModal({
             {categories.map((cat) => (
               <div
                 key={cat.id}
-                className="flex items-center justify-between p-2 rounded-lg border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/60"
+                className="flex items-center justify-between p-2.5 rounded-xl transition-colors"
+                style={{
+                  backgroundColor: 'var(--md-sys-color-surface)',
+                  border: '1px solid var(--md-sys-color-outline-variant)'
+                }}
               >
                 <div className="flex items-center space-x-2.5">
                   <span
-                    className="w-3 h-3 rounded-[3px] shrink-0"
+                    className="w-3.5 h-3.5 rounded-full shrink-0"
                     style={{ backgroundColor: cat.color }}
                   />
-                  <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200">
+                  <span className="text-xs font-semibold" style={{ color: 'var(--md-sys-color-on-surface)' }}>
                     {cat.name}
                   </span>
                 </div>
 
                 <button
                   onClick={() => handleDeleteCategory(cat.id)}
-                  className="text-zinc-400 hover:text-rose-500 p-1 transition-colors"
+                  className="p-1 rounded-full text-zinc-400 hover:text-rose-500 transition-colors"
                   title="Delete Category"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -164,10 +190,14 @@ export default function CategoryManagerModal({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 bg-zinc-50/80 dark:bg-zinc-950/80 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
+        <div className="px-6 py-3.5 border-t flex items-center justify-between" style={{
+          backgroundColor: 'var(--md-sys-color-surface-container)',
+          borderColor: 'var(--md-sys-color-outline-variant)'
+        }}>
           <button
             onClick={handleResetDefaults}
-            className="flex items-center space-x-1 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 text-xs transition-colors"
+            className="flex items-center space-x-1.5 text-xs font-semibold hover:opacity-80 transition-colors"
+            style={{ color: 'var(--md-sys-color-on-surface-variant)' }}
           >
             <RotateCcw className="w-3 h-3" />
             <span>{isBM ? 'Pulihkan Asal' : 'Reset Defaults'}</span>
@@ -175,9 +205,13 @@ export default function CategoryManagerModal({
 
           <button
             onClick={onClose}
-            className="px-3 py-1 rounded-md bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-semibold"
+            className="px-4 py-1.5 rounded-full text-xs font-bold shadow-xs"
+            style={{
+              backgroundColor: 'var(--md-sys-color-primary)',
+              color: 'var(--md-sys-color-on-primary)'
+            }}
           >
-            {isBM ? 'Tutup' : 'Done'}
+            {isBM ? 'Selesai' : 'Done'}
           </button>
         </div>
 
