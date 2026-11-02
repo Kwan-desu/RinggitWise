@@ -3330,7 +3330,11 @@ fun SettingsPage(
 
                 var localKey by remember(geminiApiKey) { mutableStateOf(geminiApiKey) }
                 var showPassword by remember { mutableStateOf(false) }
-                var localModel by remember(geminiModel) { mutableStateOf(geminiModel) }
+                var localModel by remember(geminiModel) {
+                    val initial = if (geminiModel.isBlank() || geminiModel == "gemini-2.5-flash-lite") "gemini-3.5-flash-lite" else geminiModel
+                    if (initial != geminiModel) onSetGeminiModel(initial)
+                    mutableStateOf(initial)
+                }
                 val scope = rememberCoroutineScope()
                 var isTesting by remember { mutableStateOf(false) }
                 var testResult by remember { mutableStateOf<String?>(null) }
@@ -3379,8 +3383,22 @@ fun SettingsPage(
                     }
                 }
 
-                Text("Model:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                val availableModels = listOf("gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-1.5-flash")
+                OutlinedTextField(
+                    value = localModel,
+                    onValueChange = {
+                        localModel = it
+                        onSetGeminiModel(it)
+                        testResult = null
+                    },
+                    label = { Text("Gemini Model") },
+                    placeholder = { Text("gemini-3.5-flash-lite") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    singleLine = true
+                )
+
+                Text("Quick Select Model:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                val availableModels = listOf("gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.5-flash", "gemini-2.0-flash")
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)

@@ -82,7 +82,11 @@ class FinanceRepository(private val context: Context) {
     private val _geminiApiKey = MutableStateFlow(prefs.getString("gemini_api_key", "") ?: "")
     val geminiApiKey: StateFlow<String> = _geminiApiKey.asStateFlow()
 
-    private val _geminiModel = MutableStateFlow(prefs.getString("gemini_model", "gemini-2.5-flash-lite") ?: "gemini-2.5-flash-lite")
+    private val _geminiModel: MutableStateFlow<String> = run {
+        val raw = prefs.getString("gemini_model", "gemini-3.5-flash-lite") ?: "gemini-3.5-flash-lite"
+        val actual = if (raw == "gemini-2.5-flash-lite") "gemini-3.5-flash-lite" else raw
+        MutableStateFlow(actual)
+    }
     val geminiModel: StateFlow<String> = _geminiModel.asStateFlow()
 
     // Chart Display Mode ("half_pie", "donut", "bar", "timeline")
@@ -181,15 +185,15 @@ class FinanceRepository(private val context: Context) {
     suspend fun testGeminiApiKey(key: String, model: String): Result<String> = withContext(Dispatchers.IO) {
         val apiKey = key.trim()
         if (apiKey.isEmpty()) return@withContext Result.failure(Exception("API Key cannot be blank"))
-        val selectedModel = model.trim().ifBlank { "gemini-2.5-flash-lite" }
+        val selectedModel = model.trim().ifBlank { "gemini-3.5-flash-lite" }
         val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$selectedModel:generateContent?key=$apiKey"
 
         try {
             val url = URL(endpoint)
             val conn = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
-                connectTimeout = 15000
-                readTimeout = 15000
+                connectTimeout = 30000
+                readTimeout = 30000
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
             }
@@ -222,7 +226,7 @@ class FinanceRepository(private val context: Context) {
             )
         }
 
-        val model = _geminiModel.value.trim().ifBlank { "gemini-2.5-flash-lite" }
+        val model = _geminiModel.value.trim().ifBlank { "gemini-3.5-flash-lite" }
         val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
 
         try {
