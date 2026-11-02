@@ -56,6 +56,8 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import kotlin.math.roundToInt
@@ -66,6 +68,35 @@ import com.ringgitwise.app.data.*
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.min
+
+// Composition locals for dynamic frosted-glass Material You styling
+val LocalIsWallpaperActive = staticCompositionLocalOf { false }
+val LocalCardAlpha = staticCompositionLocalOf { 0.55f }
+
+@Composable
+fun glassCardColors(
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh
+): CardColors {
+    val isWp = LocalIsWallpaperActive.current
+    val alpha = LocalCardAlpha.current
+    val effectiveColor = if (isWp) containerColor.copy(alpha = alpha) else containerColor
+    return CardDefaults.cardColors(containerColor = effectiveColor)
+}
+
+@Composable
+fun glassCardBorder(): BorderStroke? {
+    val isWp = LocalIsWallpaperActive.current
+    return if (isWp) BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)) else null
+}
+
+@Composable
+fun glassSurfaceColor(
+    baseColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh
+): Color {
+    val isWp = LocalIsWallpaperActive.current
+    val alpha = LocalCardAlpha.current
+    return if (isWp) baseColor.copy(alpha = alpha) else baseColor
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,13 +121,14 @@ fun RinggitWiseApp(repository: FinanceRepository) {
     val customBgOffsetY by repository.customBgOffsetY.collectAsState()
 
     val chartMode by repository.chartMode.collectAsState()
+    val cardAlpha by repository.cardAlpha.collectAsState()
 
     var selectedTab by remember { mutableIntStateOf(0) }
+    var previousTab by remember { mutableIntStateOf(0) }
     var showAddSheet by remember { mutableStateOf(false) }
     var showBudgetDialog by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
     var showMonthPicker by remember { mutableStateOf(false) }
-    var showSettingsDialog by remember { mutableStateOf(false) }
 
     // Safe downsampled bitmap decoding to prevent Canvas memory crashes
     val avatarBitmap = remember(hasCustomProfileImage, avatarTrigger) {
@@ -142,6 +174,34 @@ fun RinggitWiseApp(repository: FinanceRepository) {
     var cropperIsCircle by remember { mutableStateOf(true) }
     var cropperTitle by remember { mutableStateOf("Framing: Profile Avatar") }
 
+    val profilePhotoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            val loaded = repository.loadSafeBitmapFromUri(uri, maxDim = 2048)
+            if (loaded != null) {
+                cropperRawBitmap = loaded
+                cropperSourceBitmap = loaded
+                cropperIsCircle = true
+                cropperTitle = "Framing: Profile Avatar"
+            }
+        }
+    }
+
+    val bgPhotoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            val loaded = repository.loadSafeBitmapFromUri(uri, maxDim = 2048)
+            if (loaded != null) {
+                cropperRawBitmap = loaded
+                cropperSourceBitmap = loaded
+                cropperIsCircle = false
+                cropperTitle = "Framing: App Wallpaper"
+            }
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         // Custom Wallpaper Layer
         if (bgBitmap != null) {
@@ -159,196 +219,278 @@ fun RinggitWiseApp(repository: FinanceRepository) {
             )
         }
 
-        Scaffold(
-            containerColor = if (bgBitmap != null) Color.Transparent else MaterialTheme.colorScheme.surface,
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .clickable { showSettingsDialog = true }
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    if (avatarBitmap != null) {
-                                        Image(
-                                            bitmap = avatarBitmap.asImageBitmap(),
-                                            contentDescription = "Profile Avatar",
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                    } else if (userProfileEmoji.isNotEmpty() && userProfileEmoji != "RM") {
-                                        Text(userProfileEmoji, fontSize = 18.sp)
-                                    } else {
-                                        Text("RM", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+        CompositionLocalProvider(
+            LocalIsWallpaperActive provides (bgBitmap != null),
+            LocalCardAlpha provides cardAlpha
+        ) {
+            Scaffold(
+                containerColor = if (bgBitmap != null) Color.Transparent else MaterialTheme.colorScheme.surface,
+                topBar = {
+                    TopAppBar(
+                        navigationIcon = {
+                            if (selectedTab == 4) {
+                                IconButton(onClick = { selectedTab = previousTab }) {
+                                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
+                                }
+                            }
+                        },
+                        title = {
+                            if (selectedTab == 4) {
+                                Text("Settings & Personalization", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            } else {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .clickable {
+                                                previousTab = selectedTab
+                                                selectedTab = 4
+                                            }
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            if (avatarBitmap != null) {
+                                                Image(
+                                                    bitmap = avatarBitmap.asImageBitmap(),
+                                                    contentDescription = "Profile Avatar",
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            } else if (userProfileEmoji.isNotEmpty() && userProfileEmoji != "RM") {
+                                                Text(userProfileEmoji, fontSize = 18.sp)
+                                            } else {
+                                                Text("RM", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "RinggitWise",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.clickable {
+                                            previousTab = selectedTab
+                                            selectedTab = 4
+                                        }
+                                    )
+                                }
+                            }
+                        },
+                        actions = {
+                            if (selectedTab != 4) {
+                                // Month Stepper with Left/Right chevrons and interactive calendar picker
+                                Surface(
+                                    shape = CircleShape,
+                                    color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainerHigh),
+                                    border = glassCardBorder(),
+                                    modifier = Modifier.padding(end = 4.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 2.dp, vertical = 2.dp)
+                                    ) {
+                                        IconButton(
+                                            onClick = { repository.selectMonth(getPreviousMonth(selectedMonth)) },
+                                            modifier = Modifier.size(28.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.ChevronLeft,
+                                                contentDescription = "Previous Month",
+                                                modifier = Modifier.size(16.dp),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .clickable { showMonthPicker = true }
+                                                .padding(horizontal = 6.dp, vertical = 4.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.CalendarMonth,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(14.dp),
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = formatDisplayMonth(selectedMonth),
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+
+                                        IconButton(
+                                            onClick = { repository.selectMonth(getNextMonth(selectedMonth)) },
+                                            modifier = Modifier.size(28.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.ChevronRight,
+                                                contentDescription = "Next Month",
+                                                modifier = Modifier.size(16.dp),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                     }
                                 }
+
+                                IconButton(onClick = {
+                                    previousTab = selectedTab
+                                    selectedTab = 4
+                                }) {
+                                    Icon(Icons.Outlined.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "RinggitWise",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.clickable { showSettingsDialog = true }
-                            )
-                        }
-                    },
-                    actions = {
-                        // Month Stepper with Left/Right chevrons and interactive calendar picker
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            modifier = Modifier.padding(end = 4.dp)
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = if (bgBitmap != null) Color.Black.copy(alpha = 0.45f) else MaterialTheme.colorScheme.surface
+                        )
+                    )
+                },
+                bottomBar = {
+                    NavigationBar(
+                        containerColor = if (bgBitmap != null) Color.Black.copy(alpha = 0.65f) else MaterialTheme.colorScheme.surfaceContainer
+                    ) {
+                        NavigationBarItem(
+                            selected = selectedTab == 0,
+                            onClick = { selectedTab = 0 },
+                            icon = { Icon(Icons.Default.Dashboard, contentDescription = "Overview") },
+                            label = { Text("Overview") }
+                        )
+                        NavigationBarItem(
+                            selected = selectedTab == 1,
+                            onClick = { selectedTab = 1 },
+                            icon = { Icon(Icons.Default.PieChart, contentDescription = "Charts") },
+                            label = { Text("Charts") }
+                        )
+                        NavigationBarItem(
+                            selected = selectedTab == 2,
+                            onClick = { selectedTab = 2 },
+                            icon = { Icon(Icons.Default.DocumentScanner, contentDescription = "AI OCR Scan") },
+                            label = { Text("AI Scan") }
+                        )
+                        NavigationBarItem(
+                            selected = selectedTab == 3,
+                            onClick = { selectedTab = 3 },
+                            icon = { Icon(Icons.Default.History, contentDescription = "Ledger") },
+                            label = { Text("Ledger") }
+                        )
+                        NavigationBarItem(
+                            selected = selectedTab == 4,
+                            onClick = {
+                                previousTab = selectedTab
+                                selectedTab = 4
+                            },
+                            icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
+                            label = { Text("Settings") }
+                        )
+                    }
+                },
+                floatingActionButton = {
+                    if (selectedTab in listOf(0, 1, 3)) {
+                        FloatingActionButton(
+                            onClick = { showAddSheet = true },
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            shape = RoundedCornerShape(18.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 2.dp, vertical = 2.dp)
-                            ) {
-                                IconButton(
-                                    onClick = { repository.selectMonth(getPreviousMonth(selectedMonth)) },
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.ChevronLeft,
-                                        contentDescription = "Previous Month",
-                                        modifier = Modifier.size(16.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .clickable { showMonthPicker = true }
-                                        .padding(horizontal = 6.dp, vertical = 4.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.CalendarMonth,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = formatDisplayMonth(selectedMonth),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-
-                                IconButton(
-                                    onClick = { repository.selectMonth(getNextMonth(selectedMonth)) },
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.ChevronRight,
-                                        contentDescription = "Next Month",
-                                        modifier = Modifier.size(16.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+                            Row(modifier = Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Add, contentDescription = "Add Expense")
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Add RM", fontWeight = FontWeight.Bold)
                             }
                         }
-
-                        IconButton(onClick = { showSettingsDialog = true }) {
-                            Icon(Icons.Outlined.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = if (bgBitmap != null) Color.Black.copy(alpha = 0.45f) else MaterialTheme.colorScheme.surface
-                    )
-                )
-            },
-            bottomBar = {
-                NavigationBar(
-                    containerColor = if (bgBitmap != null) Color.Black.copy(alpha = 0.65f) else MaterialTheme.colorScheme.surfaceContainer
-                ) {
-                    NavigationBarItem(
-                        selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
-                        icon = { Icon(Icons.Default.Dashboard, contentDescription = "Overview") },
-                        label = { Text("Overview") }
-                    )
-                    NavigationBarItem(
-                        selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
-                        icon = { Icon(Icons.Default.PieChart, contentDescription = "Charts") },
-                        label = { Text("Charts") }
-                    )
-                    NavigationBarItem(
-                        selected = selectedTab == 2,
-                        onClick = { selectedTab = 2 },
-                        icon = { Icon(Icons.Default.DocumentScanner, contentDescription = "AI OCR Scan") },
-                        label = { Text("AI Scan") }
-                    )
-                    NavigationBarItem(
-                        selected = selectedTab == 3,
-                        onClick = { selectedTab = 3 },
-                        icon = { Icon(Icons.Default.History, contentDescription = "Ledger") },
-                        label = { Text("Ledger") }
-                    )
-                }
-            },
-            floatingActionButton = {
-                FloatingActionButton(
-                    onClick = { showAddSheet = true },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shape = RoundedCornerShape(18.dp)
-                ) {
-                    Row(modifier = Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Add, contentDescription = "Add Expense")
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Add RM", fontWeight = FontWeight.Bold)
                     }
                 }
-            }
-        ) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .background(if (bgBitmap != null) Color.Transparent else MaterialTheme.colorScheme.surface)
-            ) {
-                when (selectedTab) {
-                    0 -> OverviewTab(
-                        totalSpent = totalSpent,
-                        monthlyBudget = monthlyBudget,
-                        remaining = remaining,
-                        dailySafeSpend = dailySafeSpend,
-                        percentUsed = percentUsed,
-                        isOverBudget = isOverBudget,
-                        daysRemaining = daysRemaining,
-                        selectedMonth = selectedMonth,
-                        recentTransactions = activeMonthExpenses.take(5),
-                        onEditBudget = { showBudgetDialog = true },
-                        onNavigateToHistory = { selectedTab = 3 },
-                        onDeleteTransaction = { repository.deleteTransaction(it) }
-                    )
-                    1 -> ChartsTab(
-                        expenses = activeMonthExpenses,
-                        totalSpent = totalSpent,
-                        monthlyBudget = monthlyBudget,
-                        selectedMonth = selectedMonth,
-                        chartMode = chartMode,
-                        onSelectChartMode = { repository.setChartMode(it) }
-                    )
-                    2 -> ImportTab(
-                        onImportTransactions = { list ->
-                            repository.addMultipleTransactions(list)
-                            selectedTab = 3
-                        }
-                    )
-                    3 -> LedgerTab(
-                        transactions = activeMonthExpenses,
-                        onDelete = { repository.deleteTransaction(it) }
-                    )
+            ) { innerPadding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .background(if (bgBitmap != null) Color.Transparent else MaterialTheme.colorScheme.surface)
+                ) {
+                    when (selectedTab) {
+                        0 -> OverviewTab(
+                            totalSpent = totalSpent,
+                            monthlyBudget = monthlyBudget,
+                            remaining = remaining,
+                            dailySafeSpend = dailySafeSpend,
+                            percentUsed = percentUsed,
+                            isOverBudget = isOverBudget,
+                            daysRemaining = daysRemaining,
+                            selectedMonth = selectedMonth,
+                            recentTransactions = activeMonthExpenses.take(5),
+                            onEditBudget = { showBudgetDialog = true },
+                            onNavigateToHistory = { selectedTab = 3 },
+                            onDeleteTransaction = { repository.deleteTransaction(it) }
+                        )
+                        1 -> ChartsTab(
+                            expenses = activeMonthExpenses,
+                            totalSpent = totalSpent,
+                            monthlyBudget = monthlyBudget,
+                            selectedMonth = selectedMonth,
+                            chartMode = chartMode,
+                            onSelectChartMode = { repository.setChartMode(it) }
+                        )
+                        2 -> ImportTab(
+                            onImportTransactions = { list ->
+                                repository.addMultipleTransactions(list)
+                                selectedTab = 3
+                            }
+                        )
+                        3 -> LedgerTab(
+                            transactions = activeMonthExpenses,
+                            onDelete = { repository.deleteTransaction(it) }
+                        )
+                        4 -> SettingsPage(
+                            userProfileEmoji = userProfileEmoji,
+                            hasCustomProfileImage = hasCustomProfileImage,
+                            avatarBitmap = avatarBitmap,
+                            onPickProfileImage = {
+                                profilePhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            },
+                            onAdjustProfileFraming = {
+                                val raw = repository.getRawAvatarBitmap()
+                                if (raw != null) {
+                                    cropperRawBitmap = raw
+                                    cropperSourceBitmap = raw
+                                    cropperIsCircle = true
+                                    cropperTitle = "Framing: Profile Avatar"
+                                }
+                            },
+                            onResetProfile = {
+                                repository.removeProfileImage()
+                                repository.setProfileEmoji("RM")
+                            },
+                            onSetEmoji = { repository.setProfileEmoji(it) },
+                            hasCustomBackground = hasCustomBackground,
+                            customBgDim = customBgDim,
+                            cardAlpha = cardAlpha,
+                            onPickBackgroundImage = {
+                                bgPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            },
+                            onAdjustBackgroundFraming = {
+                                val raw = repository.getRawBackgroundBitmap()
+                                if (raw != null) {
+                                    cropperRawBitmap = raw
+                                    cropperSourceBitmap = raw
+                                    cropperIsCircle = false
+                                    cropperTitle = "Framing: App Wallpaper"
+                                }
+                            },
+                            onRemoveBackground = { repository.removeBackgroundImage() },
+                            onSetBgDim = { repository.setCustomBgDim(it) },
+                            onSetCardAlpha = { repository.setCardAlpha(it) },
+                            monthlyBudget = monthlyBudget,
+                            onEditBudget = { showBudgetDialog = true },
+                            onClearAllData = { showClearDialog = true }
+                        )
+                    }
                 }
             }
         }
@@ -404,81 +546,11 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                 }
                 cropperSourceBitmap = null
                 cropperRawBitmap = null
-                showSettingsDialog = true
             },
             onDismiss = {
                 cropperSourceBitmap = null
                 cropperRawBitmap = null
-                showSettingsDialog = true
             }
-        )
-    }
-
-    // Settings & Personalization Dialog
-    if (showSettingsDialog && cropperSourceBitmap == null) {
-        SettingsDialog(
-            userProfileEmoji = userProfileEmoji,
-            hasCustomProfileImage = hasCustomProfileImage,
-            avatarBitmap = avatarBitmap,
-            onPickProfileImage = { uri ->
-                val loaded = repository.loadSafeBitmapFromUri(uri, maxDim = 2048)
-                if (loaded != null) {
-                    cropperRawBitmap = loaded
-                    cropperSourceBitmap = loaded
-                    cropperIsCircle = true
-                    cropperTitle = "Framing: Profile Avatar"
-                    showSettingsDialog = false
-                }
-            },
-            onAdjustProfileFraming = {
-                val raw = repository.getRawAvatarBitmap()
-                if (raw != null) {
-                    cropperRawBitmap = raw
-                    cropperSourceBitmap = raw
-                    cropperIsCircle = true
-                    cropperTitle = "Framing: Profile Avatar"
-                    showSettingsDialog = false
-                }
-            },
-            onResetProfile = {
-                repository.removeProfileImage()
-                repository.setProfileEmoji("RM")
-            },
-            onSetEmoji = { repository.setProfileEmoji(it) },
-            hasCustomBackground = hasCustomBackground,
-            customBgDim = customBgDim,
-            onPickBackgroundImage = { uri ->
-                val loaded = repository.loadSafeBitmapFromUri(uri, maxDim = 2048)
-                if (loaded != null) {
-                    cropperRawBitmap = loaded
-                    cropperSourceBitmap = loaded
-                    cropperIsCircle = false
-                    cropperTitle = "Framing: App Wallpaper"
-                    showSettingsDialog = false
-                }
-            },
-            onAdjustBackgroundFraming = {
-                val raw = repository.getRawBackgroundBitmap()
-                if (raw != null) {
-                    cropperRawBitmap = raw
-                    cropperSourceBitmap = raw
-                    cropperIsCircle = false
-                    cropperTitle = "Framing: App Wallpaper"
-                    showSettingsDialog = false
-                }
-            },
-            onRemoveBackground = { repository.removeBackgroundImage() },
-            onSetBgDim = { repository.setCustomBgDim(it) },
-            monthlyBudget = monthlyBudget,
-            onEditBudget = {
-                showSettingsDialog = false
-                showBudgetDialog = true
-            },
-            onClearAllData = {
-                showSettingsDialog = false
-                showClearDialog = true
-            },
-            onDismiss = { showSettingsDialog = false }
         )
     }
 
@@ -540,7 +612,8 @@ fun OverviewTab(
             Card(
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+                border = glassCardBorder()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("TOTAL SPENT", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -562,7 +635,8 @@ fun OverviewTab(
             Card(
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+                border = glassCardBorder()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -584,7 +658,8 @@ fun OverviewTab(
             Card(
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+                border = glassCardBorder()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -618,7 +693,8 @@ fun OverviewTab(
             Card(
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+                border = glassCardBorder()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("DAILY SAFE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -634,7 +710,8 @@ fun OverviewTab(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+            colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+            border = glassCardBorder()
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
                 Row(
@@ -720,25 +797,45 @@ fun ChartsTab(
                 selected = chartMode == "half_pie",
                 onClick = { onSelectChartMode("half_pie") },
                 label = { Text("⌒ 180° Half Pie", fontWeight = FontWeight.Bold) },
-                shape = CircleShape
+                shape = CircleShape,
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
+                    selectedContainerColor = if (LocalIsWallpaperActive.current) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.primaryContainer
+                ),
+                border = glassCardBorder()
             )
             FilterChip(
                 selected = chartMode == "donut",
                 onClick = { onSelectChartMode("donut") },
                 label = { Text("◯ 360° Donut", fontWeight = FontWeight.Bold) },
-                shape = CircleShape
+                shape = CircleShape,
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
+                    selectedContainerColor = if (LocalIsWallpaperActive.current) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.primaryContainer
+                ),
+                border = glassCardBorder()
             )
             FilterChip(
                 selected = chartMode == "bar",
                 onClick = { onSelectChartMode("bar") },
                 label = { Text("📊 Ranked Bars", fontWeight = FontWeight.Bold) },
-                shape = CircleShape
+                shape = CircleShape,
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
+                    selectedContainerColor = if (LocalIsWallpaperActive.current) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.primaryContainer
+                ),
+                border = glassCardBorder()
             )
             FilterChip(
                 selected = chartMode == "timeline",
                 onClick = { onSelectChartMode("timeline") },
                 label = { Text("📅 Daily Timeline", fontWeight = FontWeight.Bold) },
-                shape = CircleShape
+                shape = CircleShape,
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
+                    selectedContainerColor = if (LocalIsWallpaperActive.current) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.primaryContainer
+                ),
+                border = glassCardBorder()
             )
         }
 
@@ -748,7 +845,8 @@ fun ChartsTab(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(28.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                    colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    border = glassCardBorder()
                 ) {
                     Column(
                         modifier = Modifier.padding(20.dp),
@@ -861,7 +959,8 @@ fun ChartsTab(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(28.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                    colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    border = glassCardBorder()
                 ) {
                     Column(
                         modifier = Modifier.padding(20.dp),
@@ -971,7 +1070,8 @@ fun ChartsTab(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(28.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                    colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    border = glassCardBorder()
                 ) {
                     Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         Row(
@@ -998,7 +1098,8 @@ fun ChartsTab(
 
                                 Surface(
                                     shape = RoundedCornerShape(16.dp),
-                                    color = MaterialTheme.colorScheme.surfaceContainer,
+                                    color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
+                                    border = glassCardBorder(),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Column(modifier = Modifier.padding(14.dp)) {
@@ -1058,7 +1159,8 @@ fun ChartsTab(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(28.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                    colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    border = glassCardBorder()
                 ) {
                     Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         Column {
@@ -1225,6 +1327,11 @@ fun ImportTab(onImportTransactions: (List<Transaction>) -> Unit) {
                 onClick = { activeMode = 0 },
                 label = { Text("📷 AI OCR Scanner", fontWeight = FontWeight.Bold) },
                 shape = CircleShape,
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
+                    selectedContainerColor = if (LocalIsWallpaperActive.current) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.primaryContainer
+                ),
+                border = glassCardBorder(),
                 modifier = Modifier.weight(1f)
             )
             FilterChip(
@@ -1232,6 +1339,11 @@ fun ImportTab(onImportTransactions: (List<Transaction>) -> Unit) {
                 onClick = { activeMode = 1 },
                 label = { Text("📝 Paste Statement", fontWeight = FontWeight.Bold) },
                 shape = CircleShape,
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
+                    selectedContainerColor = if (LocalIsWallpaperActive.current) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.primaryContainer
+                ),
+                border = glassCardBorder(),
                 modifier = Modifier.weight(1f)
             )
         }
@@ -1241,7 +1353,8 @@ fun ImportTab(onImportTransactions: (List<Transaction>) -> Unit) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+                border = glassCardBorder()
             ) {
                 Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1333,7 +1446,8 @@ fun ImportTab(onImportTransactions: (List<Transaction>) -> Unit) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+                border = glassCardBorder()
             ) {
                 Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1413,7 +1527,8 @@ fun ImportTab(onImportTransactions: (List<Transaction>) -> Unit) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                    colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainer),
+                    border = glassCardBorder()
                 ) {
                     Row(
                         modifier = Modifier.padding(14.dp).fillMaxWidth(),
@@ -1559,7 +1674,8 @@ fun TransactionCardItem(tx: Transaction, onDelete: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+        colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+        border = glassCardBorder()
     ) {
         Row(
             modifier = Modifier.padding(14.dp).fillMaxWidth(),
@@ -2293,314 +2409,410 @@ fun InteractiveImageCropperDialog(
 }
 
 // -------------------------------------------------------------
-// SETTINGS & PERSONALIZATION DIALOG
+// SETTINGS & PERSONALIZATION PAGE (FULL SCREEN DESTINATION)
 // -------------------------------------------------------------
 @Composable
-fun SettingsDialog(
+fun SettingsPage(
     userProfileEmoji: String,
     hasCustomProfileImage: Boolean,
     avatarBitmap: Bitmap?,
-    onPickProfileImage: (Uri) -> Unit,
+    onPickProfileImage: () -> Unit,
     onAdjustProfileFraming: () -> Unit,
     onResetProfile: () -> Unit,
     onSetEmoji: (String) -> Unit,
     hasCustomBackground: Boolean,
     customBgDim: Float,
-    onPickBackgroundImage: (Uri) -> Unit,
+    cardAlpha: Float,
+    onPickBackgroundImage: () -> Unit,
     onAdjustBackgroundFraming: () -> Unit,
     onRemoveBackground: () -> Unit,
     onSetBgDim: (Float) -> Unit,
+    onSetCardAlpha: (Float) -> Unit,
     monthlyBudget: Double,
     onEditBudget: () -> Unit,
-    onClearAllData: () -> Unit,
-    onDismiss: () -> Unit
+    onClearAllData: () -> Unit
 ) {
-    val profilePhotoPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
-    ) { uri ->
-        if (uri != null) onPickProfileImage(uri)
-    }
-
-    val bgPhotoPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
-    ) { uri ->
-        if (uri != null) onPickBackgroundImage(uri)
-    }
-
     val quickEmojis = listOf("💰", "🦁", "🇲🇾", "🚀", "💳", "📈", "🍔", "☕", "🚗", "🏠", "🐱", "✨", "RM")
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Tune, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Settings & Personalization", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            }
-        },
-        text = {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Section 1: Profile Avatar & Identity Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+            border = glassCardBorder()
+        ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Section 1: App Profile Logo / Image / Emoji
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.AccountCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text("Profile Avatar & App Logo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Profile Avatar & Logo", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-
-                        // Current Avatar Preview
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                modifier = Modifier
-                                    .size(60.dp)
-                                    .clip(CircleShape)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    if (avatarBitmap != null) {
-                                        Image(
-                                            bitmap = avatarBitmap.asImageBitmap(),
-                                            contentDescription = "Avatar Preview",
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                    } else if (userProfileEmoji.isNotEmpty() && userProfileEmoji != "RM") {
-                                        Text(userProfileEmoji, fontSize = 28.sp)
-                                    } else {
-                                        Text("RM", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(14.dp))
-                            Column {
-                                Text(
-                                    text = if (avatarBitmap != null) "Custom Photo Avatar" else if (userProfileEmoji != "RM") "Emoji: $userProfileEmoji" else "Default RM Logo",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        border = BorderStroke(2.5.dp, MaterialTheme.colorScheme.primary),
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(CircleShape)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            if (avatarBitmap != null) {
+                                Image(
+                                    bitmap = avatarBitmap.asImageBitmap(),
+                                    contentDescription = "Avatar Preview",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
                                 )
-                                Text("Displayed on the app top bar", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-
-                        // Avatar Action Buttons
-                        if (hasCustomProfileImage && avatarBitmap != null) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
-                                    onClick = onAdjustProfileFraming,
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(Icons.Default.Crop, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Adjust Framing", fontSize = 12.sp)
-                                }
-
-                                OutlinedButton(
-                                    onClick = {
-                                        profilePhotoPicker.launch(
-                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                        )
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Text("Change Photo", fontSize = 12.sp)
-                                }
-                            }
-
-                            TextButton(
-                                onClick = onResetProfile,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("Reset to Default RM Logo", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
-                            }
-                        } else {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
-                                    onClick = {
-                                        profilePhotoPicker.launch(
-                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                        )
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Pick Photo", fontSize = 12.sp)
-                                }
-
-                                FilledTonalButton(
-                                    onClick = onResetProfile,
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Text("Reset Logo", fontSize = 12.sp)
-                                }
-                            }
-                        }
-
-                        // Quick Emojis
-                        Text("Or choose an emoji:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Row(
-                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            quickEmojis.forEach { em ->
-                                val isSelected = avatarBitmap == null && userProfileEmoji == em
-                                Surface(
-                                    shape = CircleShape,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .clickable { onSetEmoji(em) }
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        if (em == "RM") {
-                                            Text("RM", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                                        } else {
-                                            Text(em, fontSize = 20.sp)
-                                        }
-                                    }
-                                }
+                            } else if (userProfileEmoji.isNotEmpty() && userProfileEmoji != "RM") {
+                                Text(userProfileEmoji, fontSize = 34.sp)
+                            } else {
+                                Text("RM", fontWeight = FontWeight.Bold, fontSize = 22.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
                             }
                         }
                     }
-                }
 
-                // Section 2: Custom Wallpaper Background
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Custom App Wallpaper", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Choose any photo or art from your gallery to use as the background across the whole app.",
+                            text = if (avatarBitmap != null) "Custom Photo Avatar" else if (userProfileEmoji != "RM") "Emoji: $userProfileEmoji" else "Default RinggitWise Logo",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Displayed on the top bar and personal ledger",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                }
 
-                        if (hasCustomBackground) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
-                                    onClick = onAdjustBackgroundFraming,
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(Icons.Default.Crop, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Adjust Framing", fontSize = 12.sp)
-                                }
+                // Avatar Actions
+                if (hasCustomProfileImage && avatarBitmap != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = onAdjustProfileFraming,
+                            modifier = Modifier.weight(1.2f),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(Icons.Default.Crop, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Adjust Framing")
+                        }
 
-                                OutlinedButton(
-                                    onClick = {
-                                        bgPhotoPicker.launch(
-                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                        )
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Text("Change Photo", fontSize = 12.sp)
-                                }
-                            }
+                        OutlinedButton(
+                            onClick = onPickProfileImage,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text("Change Photo")
+                        }
+                    }
 
-                            FilledTonalButton(
-                                onClick = onRemoveBackground,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-                            ) {
-                                Text("Remove Wallpaper", fontSize = 12.sp, color = MaterialTheme.colorScheme.onErrorContainer)
-                            }
+                    TextButton(
+                        onClick = onResetProfile,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Reset to Default RM Logo", color = MaterialTheme.colorScheme.error)
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = onPickProfileImage,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Upload Photo")
+                        }
 
-                            // Dim / Contrast Slider
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.surfaceContainer,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text("Wallpaper Dim / Contrast", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Text("${(customBgDim * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                    }
-                                    Slider(
-                                        value = customBgDim,
-                                        onValueChange = onSetBgDim,
-                                        valueRange = 0.40f..0.92f
-                                    )
-                                }
-                            }
-                        } else {
-                            Button(
-                                onClick = {
-                                    bgPhotoPicker.launch(
-                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                    )
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Icon(Icons.Default.Wallpaper, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Set Custom Wallpaper", fontSize = 12.sp)
-                            }
+                        FilledTonalButton(
+                            onClick = onResetProfile,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text("Reset Logo")
                         }
                     }
                 }
 
-                // Section 3: Monthly Budget Quick Link
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+
+                Text("Or select a quick emoji emblem:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onEditBudget() }
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp).fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text("Monthly Budget Ceiling", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                            Text("Current: ${formatRM(monthlyBudget)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    quickEmojis.forEach { em ->
+                        val isSelected = avatarBitmap == null && userProfileEmoji == em
+                        Surface(
+                            shape = CircleShape,
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
+                            border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else glassCardBorder(),
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .clickable { onSetEmoji(em) }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                if (em == "RM") {
+                                    Text("RM", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
+                                } else {
+                                    Text(em, fontSize = 22.sp)
+                                }
+                            }
                         }
-                        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
+            }
+        }
 
-                // Section 4: Data Reset
+        // Section 2: Custom Wallpaper & Glassmorphism Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+            border = glassCardBorder()
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Wallpaper, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text("App Wallpaper & Material You Glass", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+
+                Text(
+                    "Set any photo or art from your gallery as the full app background, and fine-tune card translucency.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                if (hasCustomBackground) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = onAdjustBackgroundFraming,
+                            modifier = Modifier.weight(1.2f),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(Icons.Default.Crop, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Adjust Framing")
+                        }
+
+                        OutlinedButton(
+                            onClick = onPickBackgroundImage,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text("Change Image")
+                        }
+                    }
+
+                    FilledTonalButton(
+                        onClick = onRemoveBackground,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                    ) {
+                        Text("Remove Wallpaper", color = MaterialTheme.colorScheme.onErrorContainer)
+                    }
+
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+
+                    // Material You Elements Transparency Slider
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
+                        border = glassCardBorder(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.BlurOn, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Card & UI Translucency", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                }
+                                Text(
+                                    "${((1f - cardAlpha) * 100).toInt()}% Glass",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Text(
+                                "Makes Material You cards translucent so your wallpaper shines through beautifully.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Slider(
+                                value = cardAlpha,
+                                onValueChange = onSetCardAlpha,
+                                valueRange = 0.15f..0.95f
+                            )
+                        }
+                    }
+
+                    // Background Darkness / Contrast Scrim Slider
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
+                        border = glassCardBorder(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.BrightnessMedium, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Wallpaper Darkness / Dim", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                }
+                                Text(
+                                    "${(customBgDim * 100).toInt()}% Dim",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Text(
+                                "Darkens the wallpaper behind cards to ensure white text remains sharp and readable.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Slider(
+                                value = customBgDim,
+                                onValueChange = onSetBgDim,
+                                valueRange = 0.35f..0.92f
+                            )
+                        }
+                    }
+                } else {
+                    Button(
+                        onClick = onPickBackgroundImage,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(Icons.Default.Wallpaper, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Set Custom Wallpaper")
+                    }
+                }
+            }
+        }
+
+        // Section 3: Budget Ceiling Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+            border = glassCardBorder()
+        ) {
+            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Savings, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text("Monthly Spending Ceiling", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Current Budget Limit", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(formatRM(monthlyBudget), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
+
+                    FilledTonalButton(
+                        onClick = onEditBudget,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Edit Limit")
+                    }
+                }
+            }
+        }
+
+        // Section 4: Data Management & Reset
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+            border = glassCardBorder()
+        ) {
+            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Storage, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                    Text("Data Management", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+
                 OutlinedButton(
                     onClick = onClearAllData,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Icon(Icons.Outlined.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Outlined.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Clear All Recorded Expenses")
                 }
             }
-        },
-        confirmButton = {
-            Button(onClick = onDismiss, shape = CircleShape) {
-                Text("Done")
-            }
         }
-    )
+
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "RinggitWise Native v1.0 • Material You • Made for Malaysia",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+    }
 }

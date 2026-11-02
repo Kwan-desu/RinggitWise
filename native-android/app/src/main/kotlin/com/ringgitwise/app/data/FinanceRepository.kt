@@ -67,6 +67,10 @@ class FinanceRepository(private val context: Context) {
     private val _customBgOffsetY = MutableStateFlow(prefs.getFloat("custom_bg_offset_y", 0f))
     val customBgOffsetY: StateFlow<Float> = _customBgOffsetY.asStateFlow()
 
+    // Glassmorphism Card Opacity when Wallpaper is active
+    private val _cardAlpha = MutableStateFlow(prefs.getFloat("card_alpha", 0.55f))
+    val cardAlpha: StateFlow<Float> = _cardAlpha.asStateFlow()
+
     // Chart Display Mode ("half_pie", "donut", "bar", "timeline")
     private val _chartMode = MutableStateFlow(prefs.getString("chart_mode", "half_pie") ?: "half_pie")
     val chartMode: StateFlow<String> = _chartMode.asStateFlow()
@@ -327,6 +331,11 @@ class FinanceRepository(private val context: Context) {
     fun setCustomBgDim(dim: Float) {
         _customBgDim.value = dim
         prefs.edit().putFloat("custom_bg_dim", dim).apply()
+    }
+
+    fun setCardAlpha(alpha: Float) {
+        _cardAlpha.value = alpha
+        prefs.edit().putFloat("card_alpha", alpha).apply()
     }
 
     fun loadSafeBitmap(file: File, maxDim: Int): Bitmap? {
