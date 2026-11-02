@@ -40,6 +40,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import com.google.mlkit.vision.common.InputImage
@@ -61,9 +62,17 @@ fun RinggitWiseApp(repository: FinanceRepository) {
     val userProfileEmoji by repository.userProfileEmoji.collectAsState()
     val hasCustomProfileImage by repository.hasCustomProfileImage.collectAsState()
     val avatarTrigger by repository.avatarUpdateTrigger.collectAsState()
+    val profileScale by repository.profileScale.collectAsState()
+    val profileOffsetX by repository.profileOffsetX.collectAsState()
+    val profileOffsetY by repository.profileOffsetY.collectAsState()
+
     val hasCustomBackground by repository.hasCustomBackground.collectAsState()
     val bgTrigger by repository.bgUpdateTrigger.collectAsState()
     val customBgDim by repository.customBgDim.collectAsState()
+    val customBgScale by repository.customBgScale.collectAsState()
+    val customBgOffsetX by repository.customBgOffsetX.collectAsState()
+    val customBgOffsetY by repository.customBgOffsetY.collectAsState()
+
     val chartMode by repository.chartMode.collectAsState()
 
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -73,17 +82,16 @@ fun RinggitWiseApp(repository: FinanceRepository) {
     var showMonthPicker by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
 
+    // Safe downsampled bitmap decoding to prevent Canvas memory crashes
     val avatarBitmap = remember(hasCustomProfileImage, avatarTrigger) {
         if (hasCustomProfileImage) {
-            val file = repository.getProfileAvatarFile()
-            if (file.exists()) BitmapFactory.decodeFile(file.absolutePath) else null
+            repository.loadSafeBitmap(repository.getProfileAvatarFile(), maxDim = 512)
         } else null
     }
 
     val bgBitmap = remember(hasCustomBackground, bgTrigger) {
         if (hasCustomBackground) {
-            val file = repository.getBackgroundFile()
-            if (file.exists()) BitmapFactory.decodeFile(file.absolutePath) else null
+            repository.loadSafeBitmap(repository.getBackgroundFile(), maxDim = 1600)
         } else null
     }
 
@@ -114,13 +122,20 @@ fun RinggitWiseApp(repository: FinanceRepository) {
     val dailySafeSpend = if (remaining > 0) remaining / daysRemaining else 0.0
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Custom Wallpaper Layer
+        // Custom Wallpaper Layer with Zoom & Position offset
         if (bgBitmap != null) {
             Image(
                 bitmap = bgBitmap.asImageBitmap(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = customBgScale
+                        scaleY = customBgScale
+                        translationX = customBgOffsetX * density
+                        translationY = customBgOffsetY * density
+                    }
             )
             // Contrast Scrim Overlay
             Box(
@@ -150,7 +165,14 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                                             bitmap = avatarBitmap.asImageBitmap(),
                                             contentDescription = "Profile Avatar",
                                             contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .graphicsLayer {
+                                                    scaleX = profileScale
+                                                    scaleY = profileScale
+                                                    translationX = profileOffsetX * density
+                                                    translationY = profileOffsetY * density
+                                                }
                                         )
                                     } else if (userProfileEmoji.isNotEmpty() && userProfileEmoji != "RM") {
                                         Text(userProfileEmoji, fontSize = 18.sp)
@@ -367,8 +389,16 @@ fun RinggitWiseApp(repository: FinanceRepository) {
             userProfileEmoji = userProfileEmoji,
             hasCustomProfileImage = hasCustomProfileImage,
             avatarBitmap = avatarBitmap,
+            profileScale = profileScale,
+            profileOffsetX = profileOffsetX,
+            profileOffsetY = profileOffsetY,
+            onSetProfilePosition = { s, x, y -> repository.setProfilePosition(s, x, y) },
             hasCustomBackground = hasCustomBackground,
             customBgDim = customBgDim,
+            customBgScale = customBgScale,
+            customBgOffsetX = customBgOffsetX,
+            customBgOffsetY = customBgOffsetY,
+            onSetBgPosition = { s, x, y -> repository.setBackgroundPosition(s, x, y) },
             monthlyBudget = monthlyBudget,
             onSetEmoji = { repository.setProfileEmoji(it) },
             onPickProfileImage = { uri -> repository.saveProfileImage(uri) },
@@ -1921,8 +1951,16 @@ fun SettingsDialog(
     userProfileEmoji: String,
     hasCustomProfileImage: Boolean,
     avatarBitmap: Bitmap?,
+    profileScale: Float,
+    profileOffsetX: Float,
+    profileOffsetY: Float,
+    onSetProfilePosition: (Float, Float, Float) -> Unit,
     hasCustomBackground: Boolean,
     customBgDim: Float,
+    customBgScale: Float,
+    customBgOffsetX: Float,
+    customBgOffsetY: Float,
+    onSetBgPosition: (Float, Float, Float) -> Unit,
     monthlyBudget: Double,
     onSetEmoji: (String) -> Unit,
     onPickProfileImage: (Uri) -> Unit,
@@ -1973,12 +2011,14 @@ fun SettingsDialog(
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Profile Avatar & Logo", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
 
-                        // Current Avatar Preview
+                        // Current Avatar Preview with live framing
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
                                 shape = CircleShape,
                                 color = MaterialTheme.colorScheme.primaryContainer,
-                                modifier = Modifier.size(54.dp).clip(CircleShape)
+                                modifier = Modifier
+                                    .size(60.dp)
+                                    .clip(CircleShape)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     if (avatarBitmap != null) {
@@ -1986,7 +2026,14 @@ fun SettingsDialog(
                                             bitmap = avatarBitmap.asImageBitmap(),
                                             contentDescription = "Avatar Preview",
                                             contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .graphicsLayer {
+                                                    scaleX = profileScale
+                                                    scaleY = profileScale
+                                                    translationX = profileOffsetX * density
+                                                    translationY = profileOffsetY * density
+                                                }
                                         )
                                     } else if (userProfileEmoji.isNotEmpty() && userProfileEmoji != "RM") {
                                         Text(userProfileEmoji, fontSize = 28.sp)
@@ -2028,6 +2075,70 @@ fun SettingsDialog(
                                 shape = RoundedCornerShape(12.dp)
                             ) {
                                 Text("Reset Logo", fontSize = 12.sp)
+                            }
+                        }
+
+                        // Profile Photo Position & Zoom Adjuster
+                        if (avatarBitmap != null) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("📐 Adjust Photo Framing", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                        TextButton(onClick = { onSetProfilePosition(1.0f, 0f, 0f) }) {
+                                            Text("Reset", fontSize = 11.sp)
+                                        }
+                                    }
+
+                                    // Zoom Slider
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("Zoom", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("${(profileScale * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    }
+                                    Slider(
+                                        value = profileScale,
+                                        onValueChange = { onSetProfilePosition(it, profileOffsetX, profileOffsetY) },
+                                        valueRange = 1.0f..2.5f
+                                    )
+
+                                    // Pan Horizontal
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("Pan Horizontal (X)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("${profileOffsetX.toInt()} dp", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    }
+                                    Slider(
+                                        value = profileOffsetX,
+                                        onValueChange = { onSetProfilePosition(profileScale, it, profileOffsetY) },
+                                        valueRange = -50f..50f
+                                    )
+
+                                    // Pan Vertical
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("Pan Vertical (Y)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("${profileOffsetY.toInt()} dp", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    }
+                                    Slider(
+                                        value = profileOffsetY,
+                                        onValueChange = { onSetProfilePosition(profileScale, profileOffsetX, it) },
+                                        valueRange = -50f..50f
+                                    )
+                                }
                             }
                         }
 
@@ -2102,20 +2213,82 @@ fun SettingsDialog(
                         }
 
                         if (hasCustomBackground) {
-                            Column {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text("Dim / Contrast Overlay", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text("${(customBgDim * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("📐 Wallpaper Position & Contrast", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                        TextButton(onClick = {
+                                            onSetBgPosition(1.0f, 0f, 0f)
+                                            onSetBgDim(0.78f)
+                                        }) {
+                                            Text("Reset", fontSize = 11.sp)
+                                        }
+                                    }
+
+                                    // Zoom
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("Zoom", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("${(customBgScale * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    }
+                                    Slider(
+                                        value = customBgScale,
+                                        onValueChange = { onSetBgPosition(it, customBgOffsetX, customBgOffsetY) },
+                                        valueRange = 1.0f..2.5f
+                                    )
+
+                                    // Pan Vertical (Y)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("Pan Vertical (Up / Down)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("${customBgOffsetY.toInt()} dp", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    }
+                                    Slider(
+                                        value = customBgOffsetY,
+                                        onValueChange = { onSetBgPosition(customBgScale, customBgOffsetX, it) },
+                                        valueRange = -150f..150f
+                                    )
+
+                                    // Pan Horizontal (X)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("Pan Horizontal (Left / Right)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("${customBgOffsetX.toInt()} dp", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    }
+                                    Slider(
+                                        value = customBgOffsetX,
+                                        onValueChange = { onSetBgPosition(customBgScale, it, customBgOffsetY) },
+                                        valueRange = -150f..150f
+                                    )
+
+                                    // Dim Slider
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("Dim / Contrast Overlay", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("${(customBgDim * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    }
+                                    Slider(
+                                        value = customBgDim,
+                                        onValueChange = onSetBgDim,
+                                        valueRange = 0.40f..0.92f
+                                    )
                                 }
-                                Slider(
-                                    value = customBgDim,
-                                    onValueChange = onSetBgDim,
-                                    valueRange = 0.40f..0.92f
-                                )
                             }
                         }
                     }

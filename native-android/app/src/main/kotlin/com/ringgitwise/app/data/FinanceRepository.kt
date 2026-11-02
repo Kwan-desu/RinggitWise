@@ -1,6 +1,8 @@
 package com.ringgitwise.app.data
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +39,15 @@ class FinanceRepository(private val context: Context) {
     private val _hasCustomProfileImage = MutableStateFlow(File(context.filesDir, "user_avatar.jpg").exists())
     val hasCustomProfileImage: StateFlow<Boolean> = _hasCustomProfileImage.asStateFlow()
 
+    private val _profileScale = MutableStateFlow(prefs.getFloat("profile_scale", 1.0f))
+    val profileScale: StateFlow<Float> = _profileScale.asStateFlow()
+
+    private val _profileOffsetX = MutableStateFlow(prefs.getFloat("profile_offset_x", 0f))
+    val profileOffsetX: StateFlow<Float> = _profileOffsetX.asStateFlow()
+
+    private val _profileOffsetY = MutableStateFlow(prefs.getFloat("profile_offset_y", 0f))
+    val profileOffsetY: StateFlow<Float> = _profileOffsetY.asStateFlow()
+
     // Custom Background Image
     private val _hasCustomBackground = MutableStateFlow(File(context.filesDir, "user_bg.jpg").exists())
     val hasCustomBackground: StateFlow<Boolean> = _hasCustomBackground.asStateFlow()
@@ -46,6 +57,15 @@ class FinanceRepository(private val context: Context) {
 
     private val _customBgDim = MutableStateFlow(prefs.getFloat("custom_bg_dim", 0.78f))
     val customBgDim: StateFlow<Float> = _customBgDim.asStateFlow()
+
+    private val _customBgScale = MutableStateFlow(prefs.getFloat("custom_bg_scale", 1.0f))
+    val customBgScale: StateFlow<Float> = _customBgScale.asStateFlow()
+
+    private val _customBgOffsetX = MutableStateFlow(prefs.getFloat("custom_bg_offset_x", 0f))
+    val customBgOffsetX: StateFlow<Float> = _customBgOffsetX.asStateFlow()
+
+    private val _customBgOffsetY = MutableStateFlow(prefs.getFloat("custom_bg_offset_y", 0f))
+    val customBgOffsetY: StateFlow<Float> = _customBgOffsetY.asStateFlow()
 
     // Chart Display Mode ("half_pie", "donut", "bar", "timeline")
     private val _chartMode = MutableStateFlow(prefs.getString("chart_mode", "half_pie") ?: "half_pie")
@@ -117,7 +137,6 @@ class FinanceRepository(private val context: Context) {
     fun setProfileEmoji(emoji: String) {
         _userProfileEmoji.value = emoji
         prefs.edit().putString("profile_emoji", emoji).apply()
-        // If an emoji is selected, remove the custom photo so emoji displays
         removeProfileImage()
     }
 
@@ -125,17 +144,51 @@ class FinanceRepository(private val context: Context) {
 
     fun getBackgroundFile(): File = File(context.filesDir, "user_bg.jpg")
 
-    fun saveProfileImage(uri: Uri) {
+    private fun saveScaledImage(uri: Uri, destFile: File, maxDim: Int, quality: Int) {
         try {
-            val destFile = getProfileAvatarFile()
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(destFile).use { output ->
-                    input.copyTo(output)
-                }
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, options)
             }
-            _hasCustomProfileImage.value = true
-            _avatarUpdateTrigger.value = System.currentTimeMillis()
+
+            var sampleSize = 1
+            var w = options.outWidth
+            var h = options.outHeight
+            while (w / 2 >= maxDim || h / 2 >= maxDim) {
+                w /= 2
+                h /= 2
+                sampleSize *= 2
+            }
+
+            val decodeOptions = BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+            val bitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, decodeOptions)
+            } ?: return
+
+            val curW = bitmap.width
+            val curH = bitmap.height
+            val finalBitmap = if (curW > maxDim || curH > maxDim) {
+                val factor = maxDim.toFloat() / maxOf(curW, curH)
+                val targetW = (curW * factor).toInt().coerceAtLeast(1)
+                val targetH = (curH * factor).toInt().coerceAtLeast(1)
+                Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
+            } else {
+                bitmap
+            }
+
+            FileOutputStream(destFile).use { out ->
+                finalBitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)
+            }
         } catch (_: Exception) {}
+    }
+
+    fun saveProfileImage(uri: Uri) {
+        saveScaledImage(uri, getProfileAvatarFile(), maxDim = 512, quality = 90)
+        _hasCustomProfileImage.value = true
+        _avatarUpdateTrigger.value = System.currentTimeMillis()
     }
 
     fun removeProfileImage() {
@@ -145,17 +198,21 @@ class FinanceRepository(private val context: Context) {
         _avatarUpdateTrigger.value = System.currentTimeMillis()
     }
 
+    fun setProfilePosition(scale: Float, offsetX: Float, offsetY: Float) {
+        _profileScale.value = scale
+        _profileOffsetX.value = offsetX
+        _profileOffsetY.value = offsetY
+        prefs.edit()
+            .putFloat("profile_scale", scale)
+            .putFloat("profile_offset_x", offsetX)
+            .putFloat("profile_offset_y", offsetY)
+            .apply()
+    }
+
     fun saveBackgroundImage(uri: Uri) {
-        try {
-            val destFile = getBackgroundFile()
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(destFile).use { output ->
-                    input.copyTo(output)
-                }
-            }
-            _hasCustomBackground.value = true
-            _bgUpdateTrigger.value = System.currentTimeMillis()
-        } catch (_: Exception) {}
+        saveScaledImage(uri, getBackgroundFile(), maxDim = 1600, quality = 85)
+        _hasCustomBackground.value = true
+        _bgUpdateTrigger.value = System.currentTimeMillis()
     }
 
     fun removeBackgroundImage() {
@@ -165,9 +222,43 @@ class FinanceRepository(private val context: Context) {
         _bgUpdateTrigger.value = System.currentTimeMillis()
     }
 
+    fun setBackgroundPosition(scale: Float, offsetX: Float, offsetY: Float) {
+        _customBgScale.value = scale
+        _customBgOffsetX.value = offsetX
+        _customBgOffsetY.value = offsetY
+        prefs.edit()
+            .putFloat("custom_bg_scale", scale)
+            .putFloat("custom_bg_offset_x", offsetX)
+            .putFloat("custom_bg_offset_y", offsetY)
+            .apply()
+    }
+
     fun setCustomBgDim(dim: Float) {
         _customBgDim.value = dim
         prefs.edit().putFloat("custom_bg_dim", dim).apply()
+    }
+
+    fun loadSafeBitmap(file: File, maxDim: Int): Bitmap? {
+        if (!file.exists()) return null
+        return try {
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, options)
+            var sampleSize = 1
+            var w = options.outWidth
+            var h = options.outHeight
+            while (w / 2 >= maxDim || h / 2 >= maxDim) {
+                w /= 2
+                h /= 2
+                sampleSize *= 2
+            }
+            val decodeOptions = BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+            BitmapFactory.decodeFile(file.absolutePath, decodeOptions)
+        } catch (_: Throwable) {
+            null
+        }
     }
 
     fun clearAllData() {
