@@ -141,8 +141,95 @@ class FinanceRepository(private val context: Context) {
     }
 
     fun getProfileAvatarFile(): File = File(context.filesDir, "user_avatar.jpg")
+    fun getRawAvatarFile(): File = File(context.filesDir, "raw_avatar.jpg")
 
     fun getBackgroundFile(): File = File(context.filesDir, "user_bg.jpg")
+    fun getRawBackgroundFile(): File = File(context.filesDir, "raw_bg.jpg")
+
+    fun loadSafeBitmapFromUri(uri: Uri, maxDim: Int = 2048): Bitmap? {
+        return try {
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, options)
+            }
+
+            var sampleSize = 1
+            var w = options.outWidth
+            var h = options.outHeight
+            while (w / 2 >= maxDim || h / 2 >= maxDim) {
+                w /= 2
+                h /= 2
+                sampleSize *= 2
+            }
+
+            val decodeOptions = BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+            val bitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, decodeOptions)
+            } ?: return null
+
+            val curW = bitmap.width
+            val curH = bitmap.height
+            if (curW > maxDim || curH > maxDim) {
+                val factor = maxDim.toFloat() / maxOf(curW, curH)
+                val targetW = (curW * factor).toInt().coerceAtLeast(1)
+                val targetH = (curH * factor).toInt().coerceAtLeast(1)
+                Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
+            } else {
+                bitmap
+            }
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    fun saveCroppedAvatar(bitmap: Bitmap, rawSource: Bitmap? = null) {
+        try {
+            FileOutputStream(getProfileAvatarFile()).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
+            }
+            rawSource?.let { raw ->
+                FileOutputStream(getRawAvatarFile()).use { out ->
+                    raw.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                }
+            }
+            _hasCustomProfileImage.value = true
+            _avatarUpdateTrigger.value = System.currentTimeMillis()
+        } catch (_: Exception) {}
+    }
+
+    fun saveCroppedBackground(bitmap: Bitmap, rawSource: Bitmap? = null) {
+        try {
+            FileOutputStream(getBackgroundFile()).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 88, out)
+            }
+            rawSource?.let { raw ->
+                FileOutputStream(getRawBackgroundFile()).use { out ->
+                    raw.compress(Bitmap.CompressFormat.JPEG, 85, out)
+                }
+            }
+            _hasCustomBackground.value = true
+            _bgUpdateTrigger.value = System.currentTimeMillis()
+        } catch (_: Exception) {}
+    }
+
+    fun getRawAvatarBitmap(): Bitmap? {
+        val raw = getRawAvatarFile()
+        if (raw.exists()) return loadSafeBitmap(raw, maxDim = 2048)
+        val cropped = getProfileAvatarFile()
+        if (cropped.exists()) return loadSafeBitmap(cropped, maxDim = 2048)
+        return null
+    }
+
+    fun getRawBackgroundBitmap(): Bitmap? {
+        val raw = getRawBackgroundFile()
+        if (raw.exists()) return loadSafeBitmap(raw, maxDim = 2048)
+        val cropped = getBackgroundFile()
+        if (cropped.exists()) return loadSafeBitmap(cropped, maxDim = 2048)
+        return null
+    }
 
     private fun saveScaledImage(uri: Uri, destFile: File, maxDim: Int, quality: Int) {
         try {
@@ -194,6 +281,8 @@ class FinanceRepository(private val context: Context) {
     fun removeProfileImage() {
         val file = getProfileAvatarFile()
         if (file.exists()) file.delete()
+        val raw = getRawAvatarFile()
+        if (raw.exists()) raw.delete()
         _hasCustomProfileImage.value = false
         _avatarUpdateTrigger.value = System.currentTimeMillis()
     }
@@ -218,6 +307,8 @@ class FinanceRepository(private val context: Context) {
     fun removeBackgroundImage() {
         val file = getBackgroundFile()
         if (file.exists()) file.delete()
+        val raw = getRawBackgroundFile()
+        if (raw.exists()) raw.delete()
         _hasCustomBackground.value = false
         _bgUpdateTrigger.value = System.currentTimeMillis()
     }

@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,19 +22,30 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas as AndroidCanvas
+import android.graphics.Paint as AndroidPaint
+import android.graphics.Matrix as AndroidMatrix
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -121,21 +133,19 @@ fun RinggitWiseApp(repository: FinanceRepository) {
     val daysRemaining = (daysInMonth - currentDay).coerceAtLeast(1)
     val dailySafeSpend = if (remaining > 0) remaining / daysRemaining else 0.0
 
+    var cropperSourceBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var cropperRawBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var cropperIsCircle by remember { mutableStateOf(true) }
+    var cropperTitle by remember { mutableStateOf("Framing: Profile Avatar") }
+
     Box(modifier = Modifier.fillMaxSize()) {
-        // Custom Wallpaper Layer with Zoom & Position offset
+        // Custom Wallpaper Layer
         if (bgBitmap != null) {
             Image(
                 bitmap = bgBitmap.asImageBitmap(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = customBgScale
-                        scaleY = customBgScale
-                        translationX = customBgOffsetX * density
-                        translationY = customBgOffsetY * density
-                    }
+                modifier = Modifier.fillMaxSize()
             )
             // Contrast Scrim Overlay
             Box(
@@ -165,14 +175,7 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                                             bitmap = avatarBitmap.asImageBitmap(),
                                             contentDescription = "Profile Avatar",
                                             contentScale = ContentScale.Crop,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .graphicsLayer {
-                                                    scaleX = profileScale
-                                                    scaleY = profileScale
-                                                    translationX = profileOffsetX * density
-                                                    translationY = profileOffsetY * density
-                                                }
+                                            modifier = Modifier.fillMaxSize()
                                         )
                                     } else if (userProfileEmoji.isNotEmpty() && userProfileEmoji != "RM") {
                                         Text(userProfileEmoji, fontSize = 18.sp)
@@ -383,32 +386,80 @@ fun RinggitWiseApp(repository: FinanceRepository) {
         )
     }
 
+    // Interactive Gesture Cropper Dialog (Avatar or Wallpaper)
+    if (cropperSourceBitmap != null) {
+        InteractiveImageCropperDialog(
+            sourceBitmap = cropperSourceBitmap!!,
+            isCircle = cropperIsCircle,
+            title = cropperTitle,
+            onConfirm = { croppedBmp ->
+                if (cropperIsCircle) {
+                    repository.saveCroppedAvatar(croppedBmp, cropperRawBitmap)
+                } else {
+                    repository.saveCroppedBackground(croppedBmp, cropperRawBitmap)
+                }
+                cropperSourceBitmap = null
+                cropperRawBitmap = null
+            },
+            onDismiss = {
+                cropperSourceBitmap = null
+                cropperRawBitmap = null
+            }
+        )
+    }
+
     // Settings & Personalization Dialog
     if (showSettingsDialog) {
         SettingsDialog(
             userProfileEmoji = userProfileEmoji,
             hasCustomProfileImage = hasCustomProfileImage,
             avatarBitmap = avatarBitmap,
-            profileScale = profileScale,
-            profileOffsetX = profileOffsetX,
-            profileOffsetY = profileOffsetY,
-            onSetProfilePosition = { s, x, y -> repository.setProfilePosition(s, x, y) },
-            hasCustomBackground = hasCustomBackground,
-            customBgDim = customBgDim,
-            customBgScale = customBgScale,
-            customBgOffsetX = customBgOffsetX,
-            customBgOffsetY = customBgOffsetY,
-            onSetBgPosition = { s, x, y -> repository.setBackgroundPosition(s, x, y) },
-            monthlyBudget = monthlyBudget,
-            onSetEmoji = { repository.setProfileEmoji(it) },
-            onPickProfileImage = { uri -> repository.saveProfileImage(uri) },
+            onPickProfileImage = { uri ->
+                val loaded = repository.loadSafeBitmapFromUri(uri, maxDim = 2048)
+                if (loaded != null) {
+                    cropperRawBitmap = loaded
+                    cropperSourceBitmap = loaded
+                    cropperIsCircle = true
+                    cropperTitle = "Framing: Profile Avatar"
+                }
+            },
+            onAdjustProfileFraming = {
+                val raw = repository.getRawAvatarBitmap()
+                if (raw != null) {
+                    cropperRawBitmap = raw
+                    cropperSourceBitmap = raw
+                    cropperIsCircle = true
+                    cropperTitle = "Framing: Profile Avatar"
+                }
+            },
             onResetProfile = {
                 repository.removeProfileImage()
                 repository.setProfileEmoji("RM")
             },
-            onPickBackgroundImage = { uri -> repository.saveBackgroundImage(uri) },
+            onSetEmoji = { repository.setProfileEmoji(it) },
+            hasCustomBackground = hasCustomBackground,
+            customBgDim = customBgDim,
+            onPickBackgroundImage = { uri ->
+                val loaded = repository.loadSafeBitmapFromUri(uri, maxDim = 2048)
+                if (loaded != null) {
+                    cropperRawBitmap = loaded
+                    cropperSourceBitmap = loaded
+                    cropperIsCircle = false
+                    cropperTitle = "Framing: App Wallpaper"
+                }
+            },
+            onAdjustBackgroundFraming = {
+                val raw = repository.getRawBackgroundBitmap()
+                if (raw != null) {
+                    cropperRawBitmap = raw
+                    cropperSourceBitmap = raw
+                    cropperIsCircle = false
+                    cropperTitle = "Framing: App Wallpaper"
+                }
+            },
             onRemoveBackground = { repository.removeBackgroundImage() },
             onSetBgDim = { repository.setCustomBgDim(it) },
+            monthlyBudget = monthlyBudget,
             onEditBudget = {
                 showSettingsDialog = false
                 showBudgetDialog = true
@@ -1944,6 +1995,294 @@ fun MonthPickerDialog(
 }
 
 // -------------------------------------------------------------
+// INTERACTIVE GESTURE-BASED IMAGE CROPPER DIALOG (MODERN VIEWPORT)
+// -------------------------------------------------------------
+@Composable
+fun InteractiveImageCropperDialog(
+    sourceBitmap: Bitmap,
+    isCircle: Boolean,
+    title: String,
+    onConfirm: (Bitmap) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var scale by remember { mutableFloatStateOf(1.0f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = true
+        )
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+        ) {
+            val viewportWidthPx = constraints.maxWidth.toFloat()
+            val viewportHeightPx = constraints.maxHeight.toFloat()
+
+            // Calculate framing window / cutout bounds
+            val cutoutRect = remember(viewportWidthPx, viewportHeightPx, isCircle) {
+                if (isCircle) {
+                    val size = minOf(viewportWidthPx, viewportHeightPx) * 0.72f
+                    val left = (viewportWidthPx - size) / 2f
+                    val top = (viewportHeightPx - size) / 2f
+                    Rect(left, top, left + size, top + size)
+                } else {
+                    val screenAspect = viewportWidthPx / viewportHeightPx
+                    var cutH = viewportHeightPx * 0.70f
+                    var cutW = cutH * screenAspect
+                    if (cutW > viewportWidthPx * 0.85f) {
+                        cutW = viewportWidthPx * 0.85f
+                        cutH = cutW / screenAspect
+                    }
+                    val left = (viewportWidthPx - cutW) / 2f
+                    val top = (viewportHeightPx - cutH) / 2f
+                    Rect(left, top, left + cutW, top + cutH)
+                }
+            }
+
+            // Cover scale so the source image initially covers the crop frame
+            val coverScale = remember(sourceBitmap, cutoutRect) {
+                maxOf(
+                    cutoutRect.width / sourceBitmap.width.toFloat(),
+                    cutoutRect.height / sourceBitmap.height.toFloat()
+                )
+            }
+
+            // Interactive viewport with 1-finger drag and 2-finger pinch
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTransformGestures { _, pan, zoom, _ ->
+                            scale = (scale * zoom).coerceIn(0.8f, 5.0f)
+                            offset = Offset(offset.x + pan.x, offset.y + pan.y)
+                        }
+                    }
+            ) {
+                // Scaled & panned source image
+                Image(
+                    bitmap = sourceBitmap.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            scaleX = coverScale * scale
+                            scaleY = coverScale * scale
+                            translationX = offset.x
+                            translationY = offset.y
+                        }
+                )
+
+                // Cutout mask overlay with difference path
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val outerPath = Path().apply {
+                        addRect(Rect(0f, 0f, size.width, size.height))
+                    }
+                    val cutoutPath = Path().apply {
+                        if (isCircle) {
+                            addOval(cutoutRect)
+                        } else {
+                            addRoundRect(RoundRect(cutoutRect, CornerRadius(24f, 24f)))
+                        }
+                    }
+                    val scrimPath = Path().apply {
+                        op(outerPath, cutoutPath, PathOperation.Difference)
+                    }
+                    // Dimmed backdrop outside cutout
+                    drawPath(scrimPath, color = Color.Black.copy(alpha = 0.72f))
+
+                    // Border outline
+                    if (isCircle) {
+                        drawCircle(
+                            color = Color.White.copy(alpha = 0.9f),
+                            radius = cutoutRect.width / 2f,
+                            center = cutoutRect.center,
+                            style = Stroke(width = 2.5.dp.toPx())
+                        )
+                        // Rule-of-thirds alignment crosshairs
+                        val r = cutoutRect.width / 2f
+                        val c = cutoutRect.center
+                        drawLine(
+                            color = Color.White.copy(alpha = 0.25f),
+                            start = Offset(c.x - r * 0.45f, c.y),
+                            end = Offset(c.x + r * 0.45f, c.y),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                        drawLine(
+                            color = Color.White.copy(alpha = 0.25f),
+                            start = Offset(c.x, c.y - r * 0.45f),
+                            end = Offset(c.x, c.y + r * 0.45f),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                    } else {
+                        drawRoundRect(
+                            color = Color.White.copy(alpha = 0.9f),
+                            topLeft = cutoutRect.topLeft,
+                            size = cutoutRect.size,
+                            cornerRadius = CornerRadius(24f, 24f),
+                            style = Stroke(width = 2.5.dp.toPx())
+                        )
+                        // 1/3 and 2/3 subtle alignment grid
+                        val stepX = cutoutRect.width / 3f
+                        val stepY = cutoutRect.height / 3f
+                        for (i in 1..2) {
+                            drawLine(
+                                color = Color.White.copy(alpha = 0.22f),
+                                start = Offset(cutoutRect.left + stepX * i, cutoutRect.top),
+                                end = Offset(cutoutRect.left + stepX * i, cutoutRect.bottom),
+                                strokeWidth = 1.dp.toPx()
+                            )
+                            drawLine(
+                                color = Color.White.copy(alpha = 0.22f),
+                                start = Offset(cutoutRect.left, cutoutRect.top + stepY * i),
+                                end = Offset(cutoutRect.right, cutoutRect.top + stepY * i),
+                                strokeWidth = 1.dp.toPx()
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Top Bar
+            Surface(
+                color = Color.Black.copy(alpha = 0.65f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Column {
+                            Text(
+                                title,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                "🖐️ Drag to pan • 🤏 Pinch to zoom",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.75f)
+                            )
+                        }
+                    }
+                    TextButton(onClick = {
+                        scale = 1.0f
+                        offset = Offset.Zero
+                    }) {
+                        Text("Reset", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // Bottom Action Bar
+            Surface(
+                color = Color.Black.copy(alpha = 0.75f),
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Zoom Slider for fine thumb adjustments
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.ZoomOut, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                        Slider(
+                            value = scale,
+                            onValueChange = { scale = it },
+                            valueRange = 0.8f..4.0f,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 10.dp),
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color.White,
+                                activeTrackColor = MaterialTheme.colorScheme.primary
+                            )
+                        )
+                        Icon(Icons.Default.ZoomIn, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f),
+                            shape = CircleShape,
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                        ) {
+                            Text("Cancel")
+                        }
+
+                        Button(
+                            onClick = {
+                                val targetW: Int
+                                val targetH: Int
+                                if (isCircle) {
+                                    targetW = 512
+                                    targetH = 512
+                                } else {
+                                    targetW = 1080
+                                    targetH = (1080f * (cutoutRect.height / cutoutRect.width)).toInt().coerceIn(1080, 2400)
+                                }
+
+                                try {
+                                    val cropped = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888)
+                                    val canvas = AndroidCanvas(cropped)
+                                    val matrix = AndroidMatrix().apply {
+                                        postTranslate(-sourceBitmap.width / 2f, -sourceBitmap.height / 2f)
+                                        postScale(coverScale * scale, coverScale * scale)
+                                        postTranslate(viewportWidthPx / 2f + offset.x, viewportHeightPx / 2f + offset.y)
+                                        postTranslate(-cutoutRect.left, -cutoutRect.top)
+                                        postScale(targetW.toFloat() / cutoutRect.width, targetH.toFloat() / cutoutRect.height)
+                                    }
+                                    val paint = AndroidPaint(AndroidPaint.FILTER_BITMAP_FLAG or AndroidPaint.ANTI_ALIAS_FLAG)
+                                    canvas.drawBitmap(sourceBitmap, matrix, paint)
+                                    onConfirm(cropped)
+                                } catch (_: Throwable) {
+                                    onConfirm(sourceBitmap)
+                                }
+                            },
+                            modifier = Modifier.weight(1.3f),
+                            shape = CircleShape
+                        ) {
+                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(if (isCircle) "Set Avatar" else "Set Wallpaper", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// -------------------------------------------------------------
 // SETTINGS & PERSONALIZATION DIALOG
 // -------------------------------------------------------------
 @Composable
@@ -1951,23 +2290,17 @@ fun SettingsDialog(
     userProfileEmoji: String,
     hasCustomProfileImage: Boolean,
     avatarBitmap: Bitmap?,
-    profileScale: Float,
-    profileOffsetX: Float,
-    profileOffsetY: Float,
-    onSetProfilePosition: (Float, Float, Float) -> Unit,
+    onPickProfileImage: (Uri) -> Unit,
+    onAdjustProfileFraming: () -> Unit,
+    onResetProfile: () -> Unit,
+    onSetEmoji: (String) -> Unit,
     hasCustomBackground: Boolean,
     customBgDim: Float,
-    customBgScale: Float,
-    customBgOffsetX: Float,
-    customBgOffsetY: Float,
-    onSetBgPosition: (Float, Float, Float) -> Unit,
-    monthlyBudget: Double,
-    onSetEmoji: (String) -> Unit,
-    onPickProfileImage: (Uri) -> Unit,
-    onResetProfile: () -> Unit,
     onPickBackgroundImage: (Uri) -> Unit,
+    onAdjustBackgroundFraming: () -> Unit,
     onRemoveBackground: () -> Unit,
     onSetBgDim: (Float) -> Unit,
+    monthlyBudget: Double,
     onEditBudget: () -> Unit,
     onClearAllData: () -> Unit,
     onDismiss: () -> Unit
@@ -2011,7 +2344,7 @@ fun SettingsDialog(
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Profile Avatar & Logo", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
 
-                        // Current Avatar Preview with live framing
+                        // Current Avatar Preview
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
                                 shape = CircleShape,
@@ -2026,14 +2359,7 @@ fun SettingsDialog(
                                             bitmap = avatarBitmap.asImageBitmap(),
                                             contentDescription = "Avatar Preview",
                                             contentScale = ContentScale.Crop,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .graphicsLayer {
-                                                    scaleX = profileScale
-                                                    scaleY = profileScale
-                                                    translationX = profileOffsetX * density
-                                                    translationY = profileOffsetY * density
-                                                }
+                                            modifier = Modifier.fillMaxSize()
                                         )
                                     } else if (userProfileEmoji.isNotEmpty() && userProfileEmoji != "RM") {
                                         Text(userProfileEmoji, fontSize = 28.sp)
@@ -2053,91 +2379,60 @@ fun SettingsDialog(
                             }
                         }
 
-                        // Pick photo button
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
-                                onClick = {
-                                    profilePhotoPicker.launch(
-                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                    )
-                                },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Pick Photo", fontSize = 12.sp)
+                        // Avatar Action Buttons
+                        if (hasCustomProfileImage && avatarBitmap != null) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = onAdjustProfileFraming,
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Default.Crop, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Adjust Framing", fontSize = 12.sp)
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        profilePhotoPicker.launch(
+                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Change Photo", fontSize = 12.sp)
+                                }
                             }
 
-                            FilledTonalButton(
+                            TextButton(
                                 onClick = onResetProfile,
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text("Reset Logo", fontSize = 12.sp)
-                            }
-                        }
-
-                        // Profile Photo Position & Zoom Adjuster
-                        if (avatarBitmap != null) {
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.surfaceContainer,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text("📐 Adjust Photo Framing", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                                        TextButton(onClick = { onSetProfilePosition(1.0f, 0f, 0f) }) {
-                                            Text("Reset", fontSize = 11.sp)
-                                        }
-                                    }
+                                Text("Reset to Default RM Logo", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                            }
+                        } else {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = {
+                                        profilePhotoPicker.launch(
+                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Pick Photo", fontSize = 12.sp)
+                                }
 
-                                    // Zoom Slider
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text("Zoom", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Text("${(profileScale * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                    }
-                                    Slider(
-                                        value = profileScale,
-                                        onValueChange = { onSetProfilePosition(it, profileOffsetX, profileOffsetY) },
-                                        valueRange = 1.0f..2.5f
-                                    )
-
-                                    // Pan Horizontal
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text("Pan Horizontal (X)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Text("${profileOffsetX.toInt()} dp", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                    }
-                                    Slider(
-                                        value = profileOffsetX,
-                                        onValueChange = { onSetProfilePosition(profileScale, it, profileOffsetY) },
-                                        valueRange = -50f..50f
-                                    )
-
-                                    // Pan Vertical
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text("Pan Vertical (Y)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Text("${profileOffsetY.toInt()} dp", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                    }
-                                    Slider(
-                                        value = profileOffsetY,
-                                        onValueChange = { onSetProfilePosition(profileScale, profileOffsetX, it) },
-                                        valueRange = -50f..50f
-                                    )
+                                FilledTonalButton(
+                                    onClick = onResetProfile,
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Reset Logo", fontSize = 12.sp)
                                 }
                             }
                         }
@@ -2185,102 +2480,52 @@ fun SettingsDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
-                                onClick = {
-                                    bgPhotoPicker.launch(
-                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                    )
-                                },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Icon(Icons.Default.Wallpaper, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(if (hasCustomBackground) "Change Image" else "Set Wallpaper", fontSize = 12.sp)
-                            }
-
-                            if (hasCustomBackground) {
-                                FilledTonalButton(
-                                    onClick = onRemoveBackground,
+                        if (hasCustomBackground) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = onAdjustBackgroundFraming,
                                     modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                                    shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Text("Remove", fontSize = 12.sp, color = MaterialTheme.colorScheme.onErrorContainer)
+                                    Icon(Icons.Default.Crop, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Adjust Framing", fontSize = 12.sp)
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        bgPhotoPicker.launch(
+                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Change Photo", fontSize = 12.sp)
                                 }
                             }
-                        }
 
-                        if (hasCustomBackground) {
+                            FilledTonalButton(
+                                onClick = onRemoveBackground,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                            ) {
+                                Text("Remove Wallpaper", fontSize = 12.sp, color = MaterialTheme.colorScheme.onErrorContainer)
+                            }
+
+                            // Dim / Contrast Slider
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
                                 color = MaterialTheme.colorScheme.surfaceContainer,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text("📐 Wallpaper Position & Contrast", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                                        TextButton(onClick = {
-                                            onSetBgPosition(1.0f, 0f, 0f)
-                                            onSetBgDim(0.78f)
-                                        }) {
-                                            Text("Reset", fontSize = 11.sp)
-                                        }
-                                    }
-
-                                    // Zoom
+                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text("Zoom", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Text("${(customBgScale * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                    }
-                                    Slider(
-                                        value = customBgScale,
-                                        onValueChange = { onSetBgPosition(it, customBgOffsetX, customBgOffsetY) },
-                                        valueRange = 1.0f..2.5f
-                                    )
-
-                                    // Pan Vertical (Y)
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text("Pan Vertical (Up / Down)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Text("${customBgOffsetY.toInt()} dp", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                    }
-                                    Slider(
-                                        value = customBgOffsetY,
-                                        onValueChange = { onSetBgPosition(customBgScale, customBgOffsetX, it) },
-                                        valueRange = -150f..150f
-                                    )
-
-                                    // Pan Horizontal (X)
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text("Pan Horizontal (Left / Right)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Text("${customBgOffsetX.toInt()} dp", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                    }
-                                    Slider(
-                                        value = customBgOffsetX,
-                                        onValueChange = { onSetBgPosition(customBgScale, it, customBgOffsetY) },
-                                        valueRange = -150f..150f
-                                    )
-
-                                    // Dim Slider
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text("Dim / Contrast Overlay", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("Wallpaper Dim / Contrast", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         Text("${(customBgDim * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                                     }
                                     Slider(
@@ -2289,6 +2534,20 @@ fun SettingsDialog(
                                         valueRange = 0.40f..0.92f
                                     )
                                 }
+                            }
+                        } else {
+                            Button(
+                                onClick = {
+                                    bgPhotoPicker.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.Wallpaper, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Set Custom Wallpaper", fontSize = 12.sp)
                             }
                         }
                     }
