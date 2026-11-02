@@ -32,6 +32,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.graphics.Bitmap
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.ringgitwise.app.data.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -90,11 +99,8 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                                 Text("RM", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
                             }
                         }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text("RinggitWise", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text("Material You • Malaysia", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("RinggitWise", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                 },
                 actions = {
@@ -182,8 +188,8 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                 NavigationBarItem(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
-                    icon = { Icon(Icons.Default.ReceiptLong, contentDescription = "Import") },
-                    label = { Text("TNG Parse") }
+                    icon = { Icon(Icons.Default.DocumentScanner, contentDescription = "AI OCR Scan") },
+                    label = { Text("AI Scan") }
                 )
                 NavigationBarItem(
                     selected = selectedTab == 3,
@@ -511,27 +517,27 @@ fun ChartsTab(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(220.dp),
+                        .height(200.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
-                        val strokeWidth = 38.dp.toPx()
-                        val diameter = min(size.width, size.height * 2) - strokeWidth * 2
+                        val strokeWidth = 34.dp.toPx()
+                        val diameter = min(size.width - 40.dp.toPx(), (size.height - 20.dp.toPx()) * 2)
                         val radius = diameter / 2
                         val centerX = size.width / 2
-                        val centerY = size.height - 20.dp.toPx()
+                        val centerY = size.height - 12.dp.toPx()
                         val topLeft = Offset(centerX - radius, centerY - radius)
                         val arcSize = Size(radius * 2, radius * 2)
 
-                        // Base gray arc guide
+                        // Base arc guide - StrokeCap.Butt ensures no dark round caps protrude beyond 180°/360°!
                         drawArc(
-                            color = Color(0x22888888),
+                            color = Color(0x1F888888),
                             startAngle = 180f,
                             sweepAngle = 180f,
                             useCenter = false,
                             topLeft = topLeft,
                             size = arcSize,
-                            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                            style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
                         )
 
                         if (totalSpent > 0 && catMap.isNotEmpty()) {
@@ -563,11 +569,12 @@ fun ChartsTab(
                     // Center Hub Metrics inside the 180° arch
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(top = 70.dp)
+                        modifier = Modifier.padding(top = 55.dp)
                     ) {
                         Text("TOTAL SPENT", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(formatRM(totalSpent), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
-                        Text("${expenses.size} expenses logged", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        val countLabel = if (expenses.size == 1) "1 expense logged" else "${expenses.size} expenses logged"
+                        Text(countLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                     }
                 }
 
@@ -609,12 +616,79 @@ fun ChartsTab(
 }
 
 // -------------------------------------------------------------
-// TNG / BANK STATEMENT IMPORT TAB
+// TNG / BANK STATEMENT & GOOGLE ML KIT OCR SCANNER TAB
 // -------------------------------------------------------------
 @Composable
 fun ImportTab(onImportTransactions: (List<Transaction>) -> Unit) {
+    val context = LocalContext.current
+    val recognizer = remember { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
+
+    var isScanning by remember { mutableStateOf(false) }
+    var scanStatus by remember { mutableStateOf("") }
     var rawText by remember { mutableStateOf("") }
     var parsedList by remember { mutableStateOf<List<Transaction>>(emptyList()) }
+    var activeMode by remember { mutableIntStateOf(0) } // 0: AI OCR Scanner, 1: Paste Text
+    var showRawText by remember { mutableStateOf(false) }
+
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                isScanning = true
+                scanStatus = "Scanning image with Google ML Kit OCR..."
+                val image = InputImage.fromFilePath(context, uri)
+                recognizer.process(image)
+                    .addOnSuccessListener { visionText ->
+                        val text = visionText.text
+                        rawText = text
+                        val results = StatementParser.parseFinancialText(text)
+                        parsedList = results
+                        isScanning = false
+                        scanStatus = if (results.isEmpty()) {
+                            "OCR finished: No financial transactions detected. You can review the raw text below."
+                        } else {
+                            "Successfully parsed ${results.size} transaction(s)!"
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        isScanning = false
+                        scanStatus = "OCR Scan error: ${e.localizedMessage}"
+                    }
+            } catch (e: Exception) {
+                isScanning = false
+                scanStatus = "Could not open image: ${e.localizedMessage}"
+            }
+        }
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap: Bitmap? ->
+        if (bitmap != null) {
+            try {
+                isScanning = true
+                scanStatus = "Scanning photo with Google ML Kit OCR..."
+                val image = InputImage.fromBitmap(bitmap, 0)
+                recognizer.process(image)
+                    .addOnSuccessListener { visionText ->
+                        val text = visionText.text
+                        rawText = text
+                        val results = StatementParser.parseFinancialText(text)
+                        parsedList = results
+                        isScanning = false
+                        scanStatus = if (results.isEmpty()) {
+                            "OCR finished: No financial transactions detected. You can review the raw text below."
+                        } else {
+                            "Successfully parsed ${results.size} transaction(s)!"
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        isScanning = false
+                        scanStatus = "Camera OCR error: ${e.localizedMessage}"
+                    }
+            } catch (e: Exception) {
+                isScanning = false
+                scanStatus = "Camera capture error: ${e.localizedMessage}"
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -623,70 +697,200 @@ fun ImportTab(onImportTransactions: (List<Transaction>) -> Unit) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Card(
+        // Mode Selector Chips
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.DocumentScanner, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Touch 'n Go eWallet & Statement Parser", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                }
+            FilterChip(
+                selected = activeMode == 0,
+                onClick = { activeMode = 0 },
+                label = { Text("📷 AI OCR Scanner", fontWeight = FontWeight.Bold) },
+                shape = CircleShape,
+                modifier = Modifier.weight(1f)
+            )
+            FilterChip(
+                selected = activeMode == 1,
+                onClick = { activeMode = 1 },
+                label = { Text("📝 Paste Statement", fontWeight = FontWeight.Bold) },
+                shape = CircleShape,
+                modifier = Modifier.weight(1f)
+            )
+        }
 
-                Text(
-                    "Paste your Touch 'n Go (TNG) eWallet statement, university card (APSpace), or bank report text below to parse and categorize transactions automatically.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                OutlinedTextField(
-                    value = rawText,
-                    onValueChange = {
-                        rawText = it
-                        parsedList = StatementParser.parseFullText(it)
-                    },
-                    modifier = Modifier.fillMaxWidth().height(160.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    placeholder = {
-                        Text(
-                            "e.g.\n15/10/2026 14:23:10 Successful Payment Restoran Ali Food Court -15.50 120.40\n16/10/2026 08:30:15 Successful RFID PLUS TOLL SUBANG -2.50 117.90\n18 2026-10-16 12:48:04 Parking Fee 3.94",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+        if (activeMode == 0) {
+            // AI OCR Scanner Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+            ) {
+                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.DocumentScanner, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("AI Receipt & Statement OCR", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Fast on-device Google ML Kit scanner", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        }
                     }
-                )
 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Scan physical paper receipts, DuitNow QR slips, Touch 'n Go eWallet screenshots, or bills. The app recognizes amounts, dates, and merchants automatically.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    // Action buttons: Camera & Gallery
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = { cameraLauncher.launch(null) },
+                            modifier = Modifier.weight(1f).height(50.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            enabled = !isScanning
+                        ) {
+                            Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Camera", fontWeight = FontWeight.Bold)
+                        }
+
+                        FilledTonalButton(
+                            onClick = {
+                                galleryLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
+                            modifier = Modifier.weight(1f).height(50.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            enabled = !isScanning
+                        ) {
+                            Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Gallery", fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    // Scanning State
+                    if (isScanning) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(12.dp))
+                                .padding(12.dp)
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(scanStatus, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                        }
+                    } else if (scanStatus.isNotEmpty()) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = scanStatus,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            // Text Paste Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+            ) {
+                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.ContentPaste, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Touch 'n Go & Bank Statement Text", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+
+                    Text(
+                        "Paste raw report lines from TNG eWallet, APCard/APSpace, or online banking reports:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    OutlinedTextField(
+                        value = rawText,
+                        onValueChange = {
+                            rawText = it
+                            parsedList = StatementParser.parseFinancialText(it)
+                        },
+                        modifier = Modifier.fillMaxWidth().height(150.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        placeholder = {
+                            Text(
+                                "e.g.\n15/10/2026 14:23:10 Successful Payment Restoran Ali Food Court -15.50 120.40\n16/10/2026 08:30:15 Successful RFID PLUS TOLL SUBANG -2.50 117.90\n18 2026-10-16 12:48:04 Parking Fee 3.94",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    )
+
                     Button(
-                        onClick = { parsedList = StatementParser.parseFullText(rawText) },
-                        modifier = Modifier.weight(1f),
+                        onClick = { parsedList = StatementParser.parseFinancialText(rawText) },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
                         shape = CircleShape
                     ) {
-                        Text("Parse Text")
-                    }
-
-                    if (parsedList.isNotEmpty()) {
-                        Button(
-                            onClick = {
-                                onImportTransactions(parsedList)
-                                rawText = ""
-                                parsedList = emptyList()
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = CircleShape,
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                        ) {
-                            Text("Import (${parsedList.size})")
-                        }
+                        Text("Parse Statement Text", fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
 
+        // Detected Transactions Section
         if (parsedList.isNotEmpty()) {
-            Text("Detected Transactions (${parsedList.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            val totalBatch = parsedList.sumOf { it.amount }
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Detected Transactions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text("${parsedList.size} item(s) • Total: ${formatRM(totalBatch)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+
+                    Button(
+                        onClick = {
+                            onImportTransactions(parsedList)
+                            rawText = ""
+                            parsedList = emptyList()
+                            scanStatus = "Imported successfully into Ledger!"
+                        },
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("Import All", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
             parsedList.forEach { tx ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -694,15 +898,55 @@ fun ImportTab(onImportTransactions: (List<Transaction>) -> Unit) {
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
                 ) {
                     Row(
-                        modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                        modifier = Modifier.padding(14.dp).fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(tx.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                            Text("${tx.date} • ${tx.category} • ${tx.method}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                "${tx.date} • ${tx.category} • ${tx.method}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                        Text(formatRM(tx.amount), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            formatRM(tx.amount),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
+
+        // Collapsible Raw Text Inspector
+        if (rawText.isNotEmpty()) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showRawText = !showRawText }
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Raw OCR / Statement Text", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Text(if (showRawText) "Hide ▲" else "View ▼", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                    if (showRawText) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = rawText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }

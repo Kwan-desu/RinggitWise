@@ -180,4 +180,119 @@ object StatementParser {
         }
         return list
     }
+
+    fun parseFinancialText(rawText: String): List<Transaction> {
+        val cleanText = rawText.replace("\r", "").trim()
+        if (cleanText.isEmpty()) return emptyList()
+
+        // 1. Try parsing line-by-line statement table
+        val statementResults = parseFullText(cleanText)
+        if (statementResults.isNotEmpty()) {
+            return statementResults
+        }
+
+        // 2. Try parsing single receipt / DuitNow slip
+        val singleTx = parseSingleReceipt(cleanText)
+        if (singleTx != null) {
+            return listOf(singleTx)
+        }
+
+        return emptyList()
+    }
+
+    fun parseSingleReceipt(rawText: String): Transaction? {
+        val lines = rawText.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        if (lines.isEmpty()) return null
+
+        // 1. Amount Extraction
+        val amountRegexes = listOf(
+            Regex("""(?:Total|Jumlah|Grand\s*Total|Amount|Bayaran|Nilai)\s*[:=]?\s*(?:RM|MYR)?\s*([0-9]{1,4}(?:,[0-9]{3})*\.[0-9]{2})""", RegexOption.IGNORE_CASE),
+            Regex("""(?:RM|MYR)\s*([0-9]{1,4}(?:,[0-9]{3})*\.[0-9]{2})""", RegexOption.IGNORE_CASE),
+            Regex("""([0-9]{1,4}\.[0-9]{2})\s*(?:RM|MYR)""", RegexOption.IGNORE_CASE),
+            Regex("""\b([0-9]{1,4}\.[0-9]{2})\b""")
+        )
+
+        var amount: Double? = null
+        for (regex in amountRegexes) {
+            for (line in lines) {
+                val match = regex.find(line)
+                if (match != null) {
+                    val rawVal = match.groupValues[1].replace(",", "")
+                    val parsed = rawVal.toDoubleOrNull()
+                    if (parsed != null && parsed > 0) {
+                        amount = parsed
+                        break
+                    }
+                }
+            }
+            if (amount != null) break
+        }
+
+        if (amount == null || amount <= 0) return null
+
+        // 2. Date Extraction
+        var dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(java.util.Date())
+        val dateRegexes = listOf(
+            Regex("""\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b"""),
+            Regex("""\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{2,4})\b""", RegexOption.IGNORE_CASE),
+            Regex("""\b(\d{4}-\d{2}-\d{2})\b""")
+        )
+
+        for (regex in dateRegexes) {
+            val match = regex.find(rawText)
+            if (match != null) {
+                dateStr = normalizeDate(match.groupValues[1])
+                break
+            }
+        }
+
+        // 3. Time Extraction
+        var timeStr = ""
+        val timeMatch = Regex("""\b(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)\b""").find(rawText)
+        if (timeMatch != null) {
+            timeStr = timeMatch.groupValues[1]
+        }
+
+        // 4. Merchant / Recipient Extraction
+        var merchant = ""
+        val recipientMatch = Regex("""(?:To|Recipient|Penerima|Merchant|Paid\s*to)\s*[:]?\s*(.+)""", RegexOption.IGNORE_CASE).find(rawText)
+        if (recipientMatch != null) {
+            merchant = recipientMatch.groupValues[1].trim()
+        }
+
+        if (merchant.isEmpty()) {
+            val ignoreKeywords = listOf("receipt", "tax", "invoice", "successful", "completed", "duitnow", "transfer", "payment", "bank", "welcome")
+            for (line in lines.take(6)) {
+                val lower = line.lowercase(Locale.ROOT)
+                if (line.length in 3..40 && !ignoreKeywords.any { lower.contains(it) } && !line.matches(Regex("""^[\d\s:./-]+$"""))) {
+                    merchant = line
+                    break
+                }
+            }
+        }
+
+        if (merchant.isEmpty()) {
+            merchant = "Scanned Receipt"
+        }
+
+        val category = autoCategorize(merchant, rawText)
+        val method = when {
+            rawText.contains("duitnow", true) -> "DuitNow QR"
+            rawText.contains("touch", true) || rawText.contains("tng", true) -> "Touch 'n Go eWallet"
+            rawText.contains("maybank", true) || rawText.contains("mae", true) -> "MAE by Maybank"
+            rawText.contains("grab", true) -> "GrabPay"
+            rawText.contains("card", true) || rawText.contains("visa", true) || rawText.contains("mastercard", true) -> "Card Payment"
+            else -> "Receipt Scan"
+        }
+
+        return Transaction(
+            date = dateStr,
+            time = timeStr,
+            title = merchant,
+            amount = amount,
+            category = category,
+            method = method,
+            note = if (timeStr.isNotEmpty()) "OCR Time: $timeStr" else "Scanned via OCR"
+        )
+    }
 }

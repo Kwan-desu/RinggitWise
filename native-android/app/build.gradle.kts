@@ -63,6 +63,9 @@ dependencies {
   implementation(libs.androidx.compose.material3)
   implementation(libs.androidx.compose.material.icons.extended)
   implementation(libs.kotlinx.serialization.json)
+
+  // Google ML Kit Text Recognition (On-device OCR for receipts, slips & statements)
+  implementation("com.google.mlkit:text-recognition:16.0.1")
   // Tooling
   debugImplementation(libs.androidx.compose.ui.tooling)
   // Instrumented tests
