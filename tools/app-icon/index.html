@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RinggitWise - App Icon Studio</title>
+  <title>RinggitWise - Minimalist App Icon (Claude Style)</title>
   <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
     
     * {
       box-sizing: border-box;
@@ -17,18 +17,7 @@
       font-family: 'JetBrains Mono', monospace;
     }
 
-    /* 3D Canvas Scene */
-    .icon-stage {
-      perspective: 1200px;
-    }
-
-    .icon-card-3d {
-      transform-style: preserve-3d;
-      transition: transform 0.15s ease-out, box-shadow 0.2s ease;
-      will-change: transform;
-    }
-
-    /* Squircle & Mask shapes */
+    /* Mask shapes */
     .shape-squircle {
       border-radius: 22.5%;
     }
@@ -38,253 +27,130 @@
     .shape-rounded {
       border-radius: 16%;
     }
-    .shape-teardrop {
-      border-radius: 50% 50% 50% 10%;
-    }
     .shape-square {
       border-radius: 0;
     }
 
-    /* Glass Gloss Overlays */
-    .glass-specular {
-      background: linear-gradient(135deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.08) 45%, rgba(255,255,255,0) 50%, rgba(255,255,255,0.12) 100%);
+    /* Subtle press & hover */
+    .btn-minimal {
+      transition: all 0.15s ease;
     }
-
-    .glass-bezel {
-      box-shadow: 
-        inset 0 1px 2px rgba(255, 255, 255, 0.4),
-        inset 0 -2px 4px rgba(0, 0, 0, 0.4),
-        0 20px 40px -10px rgba(0, 0, 0, 0.5),
-        0 10px 20px -5px rgba(16, 185, 129, 0.25);
+    .btn-minimal:hover {
+      transform: translateY(-1px);
     }
-
-    /* Custom range slider thumb styling */
-    input[type=range] {
-      accent-color: #10B981;
-    }
-
-    /* Animated sheen */
-    @keyframes sheenMove {
-      0% { transform: translateX(-150%) rotate(25deg); }
-      100% { transform: translateX(250%) rotate(25deg); }
-    }
-    .sheen-anim {
-      position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: linear-gradient(
-        90deg,
-        transparent 0%,
-        rgba(255, 255, 255, 0.08) 45%,
-        rgba(255, 255, 255, 0.22) 50%,
-        rgba(255, 255, 255, 0.08) 55%,
-        transparent 100%
-      );
-      animation: sheenMove 6s infinite ease-in-out;
-      pointer-events: none;
+    .btn-minimal:active {
+      transform: translateY(0);
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen p-4 md:p-8 antialiased selection:bg-emerald-500 selection:text-white">
+<body class="bg-[#141210] text-[#EBE5DE] min-h-screen p-5 md:p-10 antialiased selection:bg-[#D97757] selection:text-white">
 
   <!-- Header -->
-  <header class="max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-800/80">
-    <div class="flex items-center gap-3">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-[1px] shadow-lg shadow-emerald-500/20">
-        <div class="w-full h-full bg-slate-900 rounded-[11px] flex items-center justify-center font-bold text-emerald-400 text-lg">
-          RM
-        </div>
+  <header class="max-w-5xl mx-auto mb-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-[#2C2723]">
+    <div class="flex items-center gap-3.5">
+      <div class="w-9 h-9 rounded-xl bg-[#D97757] flex items-center justify-center font-bold text-[#141210] text-base">
+        ✱
       </div>
       <div>
-        <h1 class="text-xl md:text-2xl font-extrabold tracking-tight text-white flex items-center gap-2">
-          RinggitWise <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">Icon Studio</span>
+        <h1 class="text-xl font-bold tracking-tight text-[#FAF7F2] flex items-center gap-2">
+          RinggitWise <span class="text-xs px-2 py-0.5 rounded-full bg-[#D97757]/15 text-[#D97757] border border-[#D97757]/30 font-medium">Minimal</span>
         </h1>
-        <p class="text-xs md:text-sm text-slate-400">Pure CSS &amp; JavaScript App Icon Generator &amp; Android Vector Exporter</p>
+        <p class="text-xs text-[#9E948A]">Simple, clean, flat icon inspired by Claude &amp; Swiss modernism</p>
       </div>
     </div>
 
-    <!-- Quick Actions -->
-    <div class="flex items-center gap-2 self-stretch sm:self-auto flex-wrap">
-      <button id="btnExportPlayStore" class="flex-1 sm:flex-none px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-sm transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-        Export 512px (Play Store)
+    <!-- Actions -->
+    <div class="flex items-center gap-2.5">
+      <button id="btnExportPlayStore" class="btn-minimal px-4 py-2 bg-[#D97757] hover:bg-[#C96B4C] text-[#FAF7F2] font-semibold rounded-xl text-xs flex items-center gap-1.5 shadow-sm">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Export 512px PNG
       </button>
-      <button id="btnExportMaster" class="flex-1 sm:flex-none px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl text-sm border border-slate-700 transition-all flex items-center justify-center gap-2">
-        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-        Master 1024px
+      <button id="btnExport1024" class="btn-minimal px-3.5 py-2 bg-[#231F1C] hover:bg-[#2C2723] text-[#FAF7F2] font-medium rounded-xl text-xs border border-[#3A332E]">
+        1024px PNG
       </button>
-      <button id="btnCopySvg" class="px-3 py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 font-medium rounded-xl text-sm border border-slate-700/80 transition-all" title="Copy SVG">
+      <button id="btnCopySvg" class="btn-minimal px-3 py-2 bg-[#231F1C] hover:bg-[#2C2723] text-[#9E948A] hover:text-[#FAF7F2] font-medium rounded-xl text-xs border border-[#3A332E]">
         Copy SVG
       </button>
     </div>
   </header>
 
   <!-- Main Grid -->
-  <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-    
-    <!-- Left Column: Interactive 3D Canvas Stage -->
+  <main class="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+    <!-- Left: Minimalist Display -->
     <div class="lg:col-span-7 flex flex-col items-center gap-6">
-      
-      <!-- Stage Container -->
-      <div class="w-full bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-3xl p-6 sm:p-10 flex flex-col items-center justify-center relative overflow-hidden shadow-2xl">
-        <!-- Ambient radial glow behind stage -->
-        <div id="ambientGlow" class="absolute w-96 h-96 rounded-full bg-emerald-500/15 blur-3xl -z-10 pointer-events-none transition-all duration-500"></div>
 
-        <!-- Safe zone & grid toggle header -->
-        <div class="w-full flex items-center justify-between mb-8 z-10 text-xs text-slate-400">
-          <div class="flex items-center gap-2">
-            <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Interactive 3D Preview (Move mouse over icon)</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <label class="flex items-center gap-1.5 cursor-pointer hover:text-slate-200">
-              <input type="checkbox" id="chkGrid" class="rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-0">
-              Safe Area
-            </label>
-            <label class="flex items-center gap-1.5 cursor-pointer hover:text-slate-200 ml-2">
-              <input type="checkbox" id="chkSheen" checked class="rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-0">
-              Sheen
-            </label>
-          </div>
+      <!-- Icon Frame Container -->
+      <div class="w-full bg-[#1C1815] border border-[#2C2723] rounded-3xl p-8 sm:p-14 flex flex-col items-center justify-center relative shadow-sm">
+        
+        <!-- Safe Area check -->
+        <div class="w-full flex items-center justify-between mb-6 text-xs text-[#9E948A]">
+          <span class="font-medium text-[#FAF7F2]">Icon Preview</span>
+          <label class="flex items-center gap-1.5 cursor-pointer hover:text-[#FAF7F2]">
+            <input type="checkbox" id="chkGuide" class="rounded bg-[#231F1C] border-[#3A332E] text-[#D97757] focus:ring-0">
+            Show Safe Circle
+          </label>
         </div>
 
-        <!-- 3D Perspective Box -->
-        <div class="icon-stage w-[280px] h-[280px] sm:w-[320px] sm:h-[320px] flex items-center justify-center my-4">
-          <!-- The Icon itself, rendered via CSS & SVG -->
-          <div id="iconCard" class="icon-card-3d shape-squircle w-full h-full relative cursor-grab active:cursor-grabbing select-none overflow-hidden transition-all duration-300 glass-bezel" style="background: linear-gradient(135deg, #09131F 0%, #064E3B 50%, #022C22 100%);">
+        <!-- The Minimal Icon Card -->
+        <div class="w-[240px] h-[240px] sm:w-[280px] sm:h-[280px] flex items-center justify-center relative">
+          <div id="iconBox" class="shape-squircle w-full h-full relative flex items-center justify-center transition-all duration-200 select-none overflow-hidden" style="background-color: #D97757;">
             
-            <!-- Dynamic Background Lighting layers -->
-            <div id="bgLayerGradient" class="absolute inset-0 transition-all duration-300" style="background: radial-gradient(circle at 35% 25%, rgba(16, 185, 129, 0.45), transparent 70%), radial-gradient(circle at 80% 80%, rgba(6, 182, 212, 0.35), transparent 60%);"></div>
+            <!-- Safe Circle Guide -->
+            <div id="guideCircle" class="absolute inset-0 pointer-events-none hidden border border-white/20 rounded-full w-[66%] h-[66%] m-auto"></div>
 
-            <!-- Subtle Vector Micro-Grid Pattern -->
-            <div id="bgPattern" class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(rgba(255,255,255,0.4) 1px, transparent 1px); background-size: 18px 18px;"></div>
+            <!-- Minimal Emblem SVG -->
+            <svg id="iconSvg" class="w-[62%] h-[62%] transition-transform duration-200" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <g id="svgContent">
+                <!-- Claude Style 6-Spoke Asterisk / Hibiscus Star -->
+              </g>
+            </svg>
 
-            <!-- Stylized Emblem Container (Centered) -->
-            <div id="emblemContainer" class="absolute inset-0 flex items-center justify-center pointer-events-none p-12 transition-transform duration-200">
-              <!-- SVG Monogram / Emblem -->
-              <svg id="emblemSvg" class="w-full h-full filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.6)]" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <!-- Primary Gradient for Emblem -->
-                  <linearGradient id="emblemGrad" x1="20" y1="20" x2="180" y2="180" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#34D399" />
-                    <stop offset="50%" stop-color="#10B981" />
-                    <stop offset="100%" stop-color="#059669" />
-                  </linearGradient>
-                  <!-- Gold Accent Gradient -->
-                  <linearGradient id="goldGrad" x1="50" y1="30" x2="150" y2="170" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#FDE047" />
-                    <stop offset="50%" stop-color="#F59E0B" />
-                    <stop offset="100%" stop-color="#D97706" />
-                  </linearGradient>
-                  <!-- Cyan Spark Gradient -->
-                  <linearGradient id="cyanGrad" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#67E8F9" />
-                    <stop offset="100%" stop-color="#06B6D4" />
-                  </linearGradient>
-                  <!-- Inner Shadow Filter -->
-                  <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#10B981" flood-opacity="0.4"/>
-                  </filter>
-                </defs>
-
-                <!-- Symbol G: Dynamically replaced by JS depending on selected symbol -->
-                <g id="symbolGroup">
-                  <!-- Monogram "RM" Futuristic Connected Ribbon -->
-                  <!-- Ring / Crest Outer Ring Arc -->
-                  <circle cx="100" cy="100" r="76" stroke="url(#cyanGrad)" stroke-width="4" stroke-linecap="round" stroke-dasharray="320 80" opacity="0.35" />
-                  <circle cx="100" cy="100" r="76" stroke="url(#goldGrad)" stroke-width="3" stroke-linecap="round" stroke-dasharray="60 380" stroke-dashoffset="-120" opacity="0.8" />
-
-                  <!-- Stylized 'R' Stem & Loop -->
-                  <path d="M 62 145 L 62 55 C 62 55, 96 46, 108 64 C 118 78, 110 98, 92 101 C 80 103, 62 101, 62 101" stroke="url(#emblemGrad)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" />
-                  
-                  <!-- Dynamic Ascending Growth Kick / Leg into 'M' -->
-                  <path d="M 86 100 L 118 145" stroke="url(#emblemGrad)" stroke-width="16" stroke-linecap="round" />
-                  
-                  <!-- Stylized 'M' Financial Peaks -->
-                  <path d="M 108 145 L 126 88 L 144 116 L 162 68 L 162 145" stroke="url(#cyanGrad)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" opacity="0.95" />
-
-                  <!-- Growth Trend Sparkle Star (4-point AI Wisdom Spark) -->
-                  <path d="M 162 48 Q 162 60 174 60 Q 162 60 162 72 Q 162 60 150 60 Q 162 60 162 48 Z" fill="url(#goldGrad)" filter="url(#softGlow)" />
-                  <circle cx="162" cy="60" r="2.5" fill="#FFF" />
-                </g>
-              </svg>
-            </div>
-
-            <!-- Glass Specular Reflection Highlight -->
-            <div id="specularOverlay" class="glass-specular absolute inset-0 pointer-events-none opacity-80 transition-opacity duration-300"></div>
-
-            <!-- Animated diagonal sheen beam -->
-            <div id="sheenLayer" class="sheen-anim"></div>
-
-            <!-- Adaptive Icon Safe Area Guides Overlay (Hidden by default) -->
-            <div id="safeAreaGuide" class="absolute inset-0 pointer-events-none hidden border-2 border-dashed border-amber-400/50 flex items-center justify-center">
-              <div class="w-[66%] h-[66%] rounded-full border-2 border-emerald-400/80 bg-emerald-400/5 flex items-center justify-center">
-                <span class="text-[10px] text-emerald-300/80 font-mono tracking-widest uppercase">Safe Zone (66%)</span>
-              </div>
-            </div>
-
-            <!-- Light Source dynamic shine layer attached to cursor -->
-            <div id="mouseGleam" class="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-200" style="background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.25) 0%, transparent 60%);"></div>
           </div>
         </div>
 
-        <!-- Shape Selector Badges -->
-        <div class="flex items-center gap-2 mt-4 z-10 flex-wrap justify-center">
-          <span class="text-xs text-slate-500 font-semibold mr-1">MASK:</span>
-          <button data-shape="shape-squircle" class="shape-btn px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-semibold">iOS Squircle</button>
-          <button data-shape="shape-circle" class="shape-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 text-xs font-medium hover:bg-slate-750">Android Circle</button>
-          <button data-shape="shape-rounded" class="shape-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 text-xs font-medium hover:bg-slate-750">Rounded</button>
-          <button data-shape="shape-teardrop" class="shape-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 text-xs font-medium hover:bg-slate-750">Pebble</button>
-          <button data-shape="shape-square" class="shape-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 text-xs font-medium hover:bg-slate-750">Full Square</button>
+        <!-- Shape Selector -->
+        <div class="flex items-center gap-1.5 mt-8 flex-wrap justify-center text-xs">
+          <span class="text-[#6E655C] font-semibold mr-1.5">SHAPE:</span>
+          <button data-shape="shape-squircle" class="shape-tab px-3 py-1.5 rounded-lg bg-[#D97757]/20 text-[#D97757] font-semibold border border-[#D97757]/40">Squircle</button>
+          <button data-shape="shape-circle" class="shape-tab px-3 py-1.5 rounded-lg bg-[#231F1C] text-[#9E948A] hover:text-[#FAF7F2] font-medium border border-[#2C2723]">Circle</button>
+          <button data-shape="shape-rounded" class="shape-tab px-3 py-1.5 rounded-lg bg-[#231F1C] text-[#9E948A] hover:text-[#FAF7F2] font-medium border border-[#2C2723]">Rounded</button>
+          <button data-shape="shape-square" class="shape-tab px-3 py-1.5 rounded-lg bg-[#231F1C] text-[#9E948A] hover:text-[#FAF7F2] font-medium border border-[#2C2723]">Square</button>
         </div>
 
       </div>
 
-      <!-- Real World Size Mockup Previews -->
-      <div class="w-full bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6">
-        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center justify-between">
-          <span>Live Device Scale Mockups</span>
-          <span class="text-slate-500 font-normal text-[11px]">Real dimensions</span>
-        </h3>
-
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 items-end">
+      <!-- Real Phone Grid Scale Mockup -->
+      <div class="w-full bg-[#1C1815] border border-[#2C2723] rounded-2xl p-6">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-[#9E948A] mb-4">Phone Launcher Preview</h3>
+        <div class="flex items-center justify-around gap-4 py-2">
           
-          <!-- Home Screen Dock (64px) -->
-          <div class="flex flex-col items-center gap-2 p-3 bg-slate-950/50 rounded-xl border border-slate-800">
-            <div class="w-16 h-16 relative">
-              <div class="mini-icon-clone shape-squircle w-full h-full shadow-lg shadow-black/50 overflow-hidden relative"></div>
+          <div class="flex flex-col items-center gap-2">
+            <div class="w-16 h-16 mini-preview shape-squircle relative flex items-center justify-center shadow-md overflow-hidden" style="background-color: #D97757;">
+              <svg class="w-[60%] h-[60%] mini-svg" viewBox="0 0 100 100" fill="none"></svg>
             </div>
-            <span class="text-[11px] font-medium text-slate-300">Dock (64px)</span>
-            <span class="text-[10px] text-slate-500 font-mono">RinggitWise</span>
+            <span class="text-[11px] font-medium text-[#FAF7F2]">Dock</span>
           </div>
 
-          <!-- App Grid (48px) -->
-          <div class="flex flex-col items-center gap-2 p-3 bg-slate-950/50 rounded-xl border border-slate-800">
-            <div class="w-12 h-12 relative">
-              <div class="mini-icon-clone shape-squircle w-full h-full shadow-md shadow-black/50 overflow-hidden relative"></div>
+          <div class="flex flex-col items-center gap-2">
+            <div class="w-12 h-12 mini-preview shape-squircle relative flex items-center justify-center shadow-sm overflow-hidden" style="background-color: #D97757;">
+              <svg class="w-[60%] h-[60%] mini-svg" viewBox="0 0 100 100" fill="none"></svg>
             </div>
-            <span class="text-[11px] font-medium text-slate-300">Grid (48px)</span>
-            <span class="text-[10px] text-slate-500 font-mono">Launcher</span>
+            <span class="text-[11px] font-medium text-[#FAF7F2]">Grid</span>
           </div>
 
-          <!-- Notification / Settings (32px) -->
-          <div class="flex flex-col items-center gap-2 p-3 bg-slate-950/50 rounded-xl border border-slate-800">
-            <div class="w-8 h-8 relative">
-              <div class="mini-icon-clone shape-squircle w-full h-full shadow-sm overflow-hidden relative"></div>
+          <div class="flex flex-col items-center gap-2">
+            <div class="w-8 h-8 mini-preview shape-squircle relative flex items-center justify-center overflow-hidden" style="background-color: #D97757;">
+              <svg class="w-[60%] h-[60%] mini-svg" viewBox="0 0 100 100" fill="none"></svg>
             </div>
-            <span class="text-[11px] font-medium text-slate-300">Settings (32px)</span>
-            <span class="text-[10px] text-slate-500 font-mono">In-App</span>
+            <span class="text-[11px] font-medium text-[#FAF7F2]">Settings</span>
           </div>
 
-          <!-- Favicon / Taskbar (24px) -->
-          <div class="flex flex-col items-center gap-2 p-3 bg-slate-950/50 rounded-xl border border-slate-800">
-            <div class="w-6 h-6 relative">
-              <div class="mini-icon-clone shape-squircle w-full h-full shadow-sm overflow-hidden relative"></div>
+          <div class="flex flex-col items-center gap-2">
+            <div class="w-6 h-6 mini-preview shape-squircle relative flex items-center justify-center overflow-hidden" style="background-color: #D97757;">
+              <svg class="w-[60%] h-[60%] mini-svg" viewBox="0 0 100 100" fill="none"></svg>
             </div>
-            <span class="text-[11px] font-medium text-slate-300">Icon (24px)</span>
-            <span class="text-[10px] text-slate-500 font-mono">Status Bar</span>
+            <span class="text-[11px] font-medium text-[#FAF7F2]">Notification</span>
           </div>
 
         </div>
@@ -292,687 +158,386 @@
 
     </div>
 
-    <!-- Right Column: Controls, Customization & Code Generators -->
+    <!-- Right: Color Palette & Symbol Choice -->
     <div class="lg:col-span-5 flex flex-col gap-6">
 
-      <!-- Style Presets Palette -->
-      <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6">
-        <h3 class="text-sm font-bold text-white mb-3 flex items-center justify-between">
-          <span>Theme Presets</span>
-          <span class="text-xs text-emerald-400 font-medium">Fine-tuned palettes</span>
-        </h3>
+      <!-- Symbol Picker -->
+      <div class="bg-[#1C1815] border border-[#2C2723] rounded-2xl p-6">
+        <h3 class="text-sm font-bold text-[#FAF7F2] mb-3">Minimalist Emblem</h3>
+        <p class="text-xs text-[#9E948A] mb-4">Pure bold geometry without glossy gradients or skeuomorphism.</p>
         
-        <div class="grid grid-cols-2 gap-2.5" id="presetContainer">
-          <!-- Preset buttons inserted dynamically or statically -->
-          <button data-preset="emerald" class="preset-btn active p-3 rounded-xl border border-emerald-500 bg-emerald-500/10 text-left flex items-center gap-3 transition-all">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 via-teal-600 to-slate-950 shadow-inner flex-shrink-0"></div>
-            <div>
-              <div class="text-xs font-bold text-white">Emerald Royal</div>
-              <div class="text-[10px] text-slate-400">Signature Ringgit</div>
-            </div>
+        <div class="grid grid-cols-2 gap-2.5" id="glyphOptions">
+          
+          <button data-glyph="asterisk" class="glyph-btn active p-3 rounded-xl border border-[#D97757] bg-[#D97757]/10 text-left transition-all">
+            <div class="text-lg font-bold text-[#D97757] mb-1">✱ Asterisk</div>
+            <div class="text-[11px] text-[#9E948A]">Claude style 6-spoke rounded starburst</div>
           </button>
 
-          <button data-preset="cyber" class="preset-btn p-3 rounded-xl border border-slate-800 bg-slate-950/40 hover:bg-slate-800/60 text-left flex items-center gap-3 transition-all">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 via-blue-600 to-slate-950 shadow-inner flex-shrink-0"></div>
-            <div>
-              <div class="text-xs font-bold text-white">Cyber Fintech</div>
-              <div class="text-[10px] text-slate-400">Neon Electric</div>
-            </div>
+          <button data-glyph="rm-minimal" class="glyph-btn p-3 rounded-xl border border-[#2C2723] bg-[#231F1C]/40 hover:bg-[#231F1C] text-left transition-all">
+            <div class="text-lg font-bold text-[#FAF7F2] mb-1">rm Bauhaus</div>
+            <div class="text-[11px] text-[#9E948A]">Geometric continuous Ringgit monogram</div>
           </button>
 
-          <button data-preset="gold" class="preset-btn p-3 rounded-xl border border-slate-800 bg-slate-950/40 hover:bg-slate-800/60 text-left flex items-center gap-3 transition-all">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-300 via-amber-600 to-neutral-950 shadow-inner flex-shrink-0"></div>
-            <div>
-              <div class="text-xs font-bold text-white">Obsidian Gold</div>
-              <div class="text-[10px] text-slate-400">Luxury Wealth</div>
-            </div>
+          <button data-glyph="sparkle" class="glyph-btn p-3 rounded-xl border border-[#2C2723] bg-[#231F1C]/40 hover:bg-[#231F1C] text-left transition-all">
+            <div class="text-lg font-bold text-[#FAF7F2] mb-1">✦ Sparkle</div>
+            <div class="text-[11px] text-[#9E948A]">4-point chunky organic starlight</div>
           </button>
 
-          <button data-preset="midnight" class="preset-btn p-3 rounded-xl border border-slate-800 bg-slate-950/40 hover:bg-slate-800/60 text-left flex items-center gap-3 transition-all">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 via-purple-700 to-slate-950 shadow-inner flex-shrink-0"></div>
-            <div>
-              <div class="text-xs font-bold text-white">Midnight Royal</div>
-              <div class="text-[10px] text-slate-400">Deep Sapphire</div>
-            </div>
+          <button data-glyph="coin" class="glyph-btn p-3 rounded-xl border border-[#2C2723] bg-[#231F1C]/40 hover:bg-[#231F1C] text-left transition-all">
+            <div class="text-lg font-bold text-[#FAF7F2] mb-1">◎ Coin Slice</div>
+            <div class="text-[11px] text-[#9E948A]">Heavy currency ring with negative cut</div>
           </button>
+
         </div>
       </div>
 
-      <!-- Emblem / Symbol Type Selection -->
-      <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6">
-        <h3 class="text-sm font-bold text-white mb-3">Symbol Archetype</h3>
-        <div class="grid grid-cols-2 gap-2" id="symbolSelector">
-          <button data-symbol="nexus" class="symbol-btn active p-2.5 rounded-xl border border-emerald-500/80 bg-emerald-500/10 text-xs font-semibold text-emerald-300 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-            RM Nexus Ribbon
+      <!-- Colorway (Claude inspired palettes) -->
+      <div class="bg-[#1C1815] border border-[#2C2723] rounded-2xl p-6">
+        <h3 class="text-sm font-bold text-[#FAF7F2] mb-3">Color Palette</h3>
+        <div class="space-y-2" id="paletteOptions">
+
+          <!-- Claude Signature Terracotta -->
+          <button data-bg="#D97757" data-fg="#FAF7F2" class="pal-btn active w-full p-3 rounded-xl border border-[#D97757] bg-[#D97757]/10 flex items-center justify-between text-left transition-all">
+            <div class="flex items-center gap-3">
+              <div class="w-6 h-6 rounded-lg bg-[#D97757] border border-white/20 flex items-center justify-center text-xs font-bold text-[#FAF7F2]">✱</div>
+              <div>
+                <div class="text-xs font-bold text-[#FAF7F2]">Claude Terracotta</div>
+                <div class="text-[10px] text-[#9E948A]">Warm Rust Clay &amp; Warm Ivory</div>
+              </div>
+            </div>
+            <div class="flex gap-1">
+              <span class="w-4 h-4 rounded-full bg-[#D97757]"></span>
+              <span class="w-4 h-4 rounded-full bg-[#FAF7F2]"></span>
+            </div>
           </button>
-          <button data-symbol="vault" class="symbol-btn p-2.5 rounded-xl border border-slate-800 bg-slate-950/40 hover:bg-slate-800 text-xs font-medium text-slate-300 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-slate-600"></span>
-            Ringgit Coin Shield
+
+          <!-- Matte Heritage Forest -->
+          <button data-bg="#142921" data-fg="#EADBCE" class="pal-btn w-full p-3 rounded-xl border border-[#2C2723] bg-[#231F1C]/40 hover:bg-[#231F1C] flex items-center justify-between text-left transition-all">
+            <div class="flex items-center gap-3">
+              <div class="w-6 h-6 rounded-lg bg-[#142921] border border-white/20 flex items-center justify-center text-xs font-bold text-[#EADBCE]">✱</div>
+              <div>
+                <div class="text-xs font-bold text-[#FAF7F2]">Heritage Forest</div>
+                <div class="text-[10px] text-[#9E948A]">Deep British Racing Green &amp; Parchment</div>
+              </div>
+            </div>
+            <div class="flex gap-1">
+              <span class="w-4 h-4 rounded-full bg-[#142921]"></span>
+              <span class="w-4 h-4 rounded-full bg-[#EADBCE]"></span>
+            </div>
           </button>
-          <button data-symbol="growth" class="symbol-btn p-2.5 rounded-xl border border-slate-800 bg-slate-950/40 hover:bg-slate-800 text-xs font-medium text-slate-300 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-slate-600"></span>
-            Ascending Trend
+
+          <!-- Dark Obsidian & Terracotta -->
+          <button data-bg="#181614" data-fg="#D97757" class="pal-btn w-full p-3 rounded-xl border border-[#2C2723] bg-[#231F1C]/40 hover:bg-[#231F1C] flex items-center justify-between text-left transition-all">
+            <div class="flex items-center gap-3">
+              <div class="w-6 h-6 rounded-lg bg-[#181614] border border-[#2C2723] flex items-center justify-center text-xs font-bold text-[#D97757]">✱</div>
+              <div>
+                <div class="text-xs font-bold text-[#FAF7F2]">Obsidian &amp; Rust</div>
+                <div class="text-[10px] text-[#9E948A]">Warm Charcoal Slate &amp; Terracotta Star</div>
+              </div>
+            </div>
+            <div class="flex gap-1">
+              <span class="w-4 h-4 rounded-full bg-[#181614]"></span>
+              <span class="w-4 h-4 rounded-full bg-[#D97757]"></span>
+            </div>
           </button>
-          <button data-symbol="gemini" class="symbol-btn p-2.5 rounded-xl border border-slate-800 bg-slate-950/40 hover:bg-slate-800 text-xs font-medium text-slate-300 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-slate-600"></span>
-            AI Gemini Spark
+
+          <!-- Clean Linen & Ink -->
+          <button data-bg="#F4EFE6" data-fg="#181614" class="pal-btn w-full p-3 rounded-xl border border-[#2C2723] bg-[#231F1C]/40 hover:bg-[#231F1C] flex items-center justify-between text-left transition-all">
+            <div class="flex items-center gap-3">
+              <div class="w-6 h-6 rounded-lg bg-[#F4EFE6] border border-black/10 flex items-center justify-center text-xs font-bold text-[#181614]">✱</div>
+              <div>
+                <div class="text-xs font-bold text-[#FAF7F2]">Warm Linen &amp; Ink</div>
+                <div class="text-[10px] text-[#9E948A]">Minimalist Off-White &amp; Dark Ink</div>
+              </div>
+            </div>
+            <div class="flex gap-1">
+              <span class="w-4 h-4 rounded-full bg-[#F4EFE6]"></span>
+              <span class="w-4 h-4 rounded-full bg-[#181614]"></span>
+            </div>
           </button>
+
+          <!-- Minimal Sage / Emerald -->
+          <button data-bg="#062E22" data-fg="#34D399" class="pal-btn w-full p-3 rounded-xl border border-[#2C2723] bg-[#231F1C]/40 hover:bg-[#231F1C] flex items-center justify-between text-left transition-all">
+            <div class="flex items-center gap-3">
+              <div class="w-6 h-6 rounded-lg bg-[#062E22] border border-white/20 flex items-center justify-center text-xs font-bold text-[#34D399]">✱</div>
+              <div>
+                <div class="text-xs font-bold text-[#FAF7F2]">Matte Jade &amp; Mint</div>
+                <div class="text-[10px] text-[#9E948A]">Deep Pine &amp; Clean Mint Glyph</div>
+              </div>
+            </div>
+            <div class="flex gap-1">
+              <span class="w-4 h-4 rounded-full bg-[#062E22]"></span>
+              <span class="w-4 h-4 rounded-full bg-[#34D399]"></span>
+            </div>
+          </button>
+
         </div>
       </div>
 
-      <!-- Fine-Tuning Sliders -->
-      <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 flex flex-col gap-4">
-        <h3 class="text-sm font-bold text-white">CSS Styling Properties</h3>
-
-        <!-- Angle Slider -->
-        <div class="space-y-1.5">
-          <div class="flex justify-between text-xs">
-            <span class="text-slate-400">Gradient Angle</span>
-            <span id="valAngle" class="text-emerald-400 font-mono">135°</span>
-          </div>
-          <input type="range" id="rangeAngle" min="0" max="360" value="135" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+      <!-- Android Ready Vector XML -->
+      <div class="bg-[#1C1815] border border-[#2C2723] rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-bold text-[#FAF7F2]">Android Vector Code</h3>
+          <button id="btnCopyAndroidXml" class="text-xs text-[#D97757] hover:underline font-medium">Copy XML</button>
         </div>
-
-        <!-- Glass Glare Opacity -->
-        <div class="space-y-1.5">
-          <div class="flex justify-between text-xs">
-            <span class="text-slate-400">Glass Reflection &amp; Glare</span>
-            <span id="valGlare" class="text-emerald-400 font-mono">80%</span>
-          </div>
-          <input type="range" id="rangeGlare" min="0" max="100" value="80" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
-        </div>
-
-        <!-- Symbol Scale -->
-        <div class="space-y-1.5">
-          <div class="flex justify-between text-xs">
-            <span class="text-slate-400">Emblem Padding / Scale</span>
-            <span id="valScale" class="text-emerald-400 font-mono">100%</span>
-          </div>
-          <input type="range" id="rangeScale" min="70" max="130" value="100" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
-        </div>
-
-        <!-- Bezel & Shadow Depth -->
-        <div class="space-y-1.5">
-          <div class="flex justify-between text-xs">
-            <span class="text-slate-400">Elevation Drop-Shadow</span>
-            <span id="valShadow" class="text-emerald-400 font-mono">50px</span>
-          </div>
-          <input type="range" id="rangeShadow" min="10" max="80" value="40" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
-        </div>
-      </div>
-
-      <!-- Android Direct Install & Code Drawer -->
-      <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="text-sm font-bold text-white flex items-center gap-2">
-            <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.551 0 .9992.4482.9992.9993s-.4482.9997-.9992.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993s-.4482.9997-.9993.9997m11.4045-6.02l1.997-3.4592a.416.416 0 00-.1523-.5676.416.416 0 00-.568.1524l-2.0223 3.503C15.5835 8.411 13.8565 8.1 12 8.1s-3.5835.311-5.136.8507L4.8418 5.4475a.4161.4161 0 00-.568-.1524.416.416 0 00-.1524.5676l1.997 3.4592C2.6888 11.1867.3333 14.7788.3333 18.9h23.3334c0-4.1212-2.3555-7.7133-5.7867-9.5786"/></svg>
-            Android Vector Drawables
-          </h3>
-          <button id="btnCopyAndroidXml" class="text-xs text-emerald-400 hover:text-emerald-300 font-medium">Copy XML</button>
-        </div>
-        <p class="text-xs text-slate-400 mb-3">
-          Adaptive vector foreground and background ready for <code class="text-emerald-300 font-mono">res/drawable/</code>.
-        </p>
-        <div class="bg-slate-950 rounded-xl p-3 border border-slate-800 text-[11px] code-font text-slate-300 max-h-36 overflow-y-auto" id="xmlCodePreview">
-&lt;!-- ic_launcher_foreground.xml --&gt;
-&lt;vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108"&gt;
-    ...
-&lt;/vector&gt;
-        </div>
+        <p class="text-xs text-[#9E948A] mb-3">Pure vector code for Android adaptive icons.</p>
+        <pre id="xmlPreview" class="bg-[#141210] p-3 rounded-xl border border-[#2C2723] text-[11px] code-font text-[#EBE5DE] overflow-x-auto max-h-32"></pre>
       </div>
 
     </div>
 
   </main>
 
-  <!-- Hidden Canvas for Raster PNG Rendering -->
   <canvas id="exportCanvas" class="hidden"></canvas>
 
-  <!-- Interactive JavaScript Engine -->
   <script>
     // State
     const state = {
-      preset: 'emerald',
-      symbol: 'nexus',
+      glyph: 'asterisk',
+      bgColor: '#D97757',
+      fgColor: '#FAF7F2',
       shape: 'shape-squircle',
-      angle: 135,
-      glare: 80,
-      scale: 100,
-      shadow: 40,
-      showGrid: false,
-      showSheen: true
+      showGuide: false
     };
 
-    // Palettes configuration
-    const PRESETS = {
-      emerald: {
-        bgStart: '#051814',
-        bgMid: '#064E3B',
-        bgEnd: '#022C22',
-        rad1: 'rgba(16, 185, 129, 0.45)',
-        rad2: 'rgba(6, 182, 212, 0.35)',
-        emblemStart: '#34D399',
-        emblemMid: '#10B981',
-        emblemEnd: '#059669',
-        goldStart: '#FDE047',
-        goldMid: '#F59E0B',
-        goldEnd: '#D97706',
-        cyanStart: '#67E8F9',
-        cyanEnd: '#06B6D4',
-        ambient: 'rgba(16, 185, 129, 0.25)',
-        shadowTint: 'rgba(16, 185, 129, 0.3)'
-      },
-      cyber: {
-        bgStart: '#030712',
-        bgMid: '#0F172A',
-        bgEnd: '#020617',
-        rad1: 'rgba(6, 182, 212, 0.5)',
-        rad2: 'rgba(139, 92, 246, 0.4)',
-        emblemStart: '#38BDF8',
-        emblemMid: '#0284C7',
-        emblemEnd: '#0369A1',
-        goldStart: '#A78BFA',
-        goldMid: '#8B5CF6',
-        goldEnd: '#7C3AED',
-        cyanStart: '#67E8F9',
-        cyanEnd: '#22D3EE',
-        ambient: 'rgba(6, 182, 212, 0.3)',
-        shadowTint: 'rgba(6, 182, 212, 0.35)'
-      },
-      gold: {
-        bgStart: '#171206',
-        bgMid: '#281F0B',
-        bgEnd: '#0C0A04',
-        rad1: 'rgba(245, 158, 11, 0.45)',
-        rad2: 'rgba(251, 191, 36, 0.25)',
-        emblemStart: '#FDE68A',
-        emblemMid: '#F59E0B',
-        emblemEnd: '#B45309',
-        goldStart: '#FEF08A',
-        goldMid: '#FACC15',
-        goldEnd: '#CA8A04',
-        cyanStart: '#FBBF24',
-        cyanEnd: '#D97706',
-        ambient: 'rgba(245, 158, 11, 0.25)',
-        shadowTint: 'rgba(245, 158, 11, 0.3)'
-      },
-      midnight: {
-        bgStart: '#080A1A',
-        bgMid: '#1E1B4B',
-        bgEnd: '#0A091E',
-        rad1: 'rgba(99, 102, 241, 0.5)',
-        rad2: 'rgba(168, 85, 247, 0.35)',
-        emblemStart: '#818CF8',
-        emblemMid: '#6366F1',
-        emblemEnd: '#4F46E5',
-        goldStart: '#C084FC',
-        goldMid: '#A855F7',
-        goldEnd: '#9333EA',
-        cyanStart: '#93C5FD',
-        cyanEnd: '#60A5FA',
-        ambient: 'rgba(99, 102, 241, 0.3)',
-        shadowTint: 'rgba(99, 102, 241, 0.35)'
-      }
-    };
+    // Minimalist SVG Glyphs
+    // Designed in a 100 x 100 viewport
+    const GLYPHS = {
+      // Claude Style 6-Spoke Chunky Rounded Asterisk
+      asterisk: (fg) => `
+        <g stroke="${fg}" stroke-width="14" stroke-linecap="round">
+          <!-- 3 intersecting chunky rounded bars at 0, 60, 120 deg -->
+          <line x1="50" y1="20" x2="50" y2="80" />
+          <line x1="24" y1="35" x2="76" y2="65" />
+          <line x1="24" y1="65" x2="76" y2="35" />
+        </g>
+      `,
 
-    // Symbols configuration
-    const SYMBOLS = {
-      nexus: `
-        <!-- Outer Ring Accent -->
-        <circle cx="100" cy="100" r="76" stroke="url(#cyanGrad)" stroke-width="4" stroke-linecap="round" stroke-dasharray="320 80" opacity="0.35" />
-        <circle cx="100" cy="100" r="76" stroke="url(#goldGrad)" stroke-width="3" stroke-linecap="round" stroke-dasharray="60 380" stroke-dashoffset="-120" opacity="0.8" />
-        <!-- Stylized 'R' Stem & Loop -->
-        <path d="M 62 145 L 62 55 C 62 55, 96 46, 108 64 C 118 78, 110 98, 92 101 C 80 103, 62 101, 62 101" stroke="url(#emblemGrad)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" />
-        <!-- Dynamic Ascending Growth Kick / Leg into 'M' -->
-        <path d="M 86 100 L 118 145" stroke="url(#emblemGrad)" stroke-width="16" stroke-linecap="round" />
-        <!-- Stylized 'M' Financial Peaks -->
-        <path d="M 108 145 L 126 88 L 144 116 L 162 68 L 162 145" stroke="url(#cyanGrad)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" opacity="0.95" />
-        <!-- Growth Sparkle Star -->
-        <path d="M 162 48 Q 162 60 174 60 Q 162 60 162 72 Q 162 60 150 60 Q 162 60 162 48 Z" fill="url(#goldGrad)" filter="url(#softGlow)" />
-        <circle cx="162" cy="60" r="2.5" fill="#FFF" />
+      // Minimalist Geometric Bauhaus 'rm'
+      'rm-minimal': (fg) => `
+        <g stroke="${fg}" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+          <!-- Geometric 'r' -->
+          <line x1="28" y1="34" x2="28" y2="70" />
+          <path d="M28,46 C36,36 48,36 50,44" fill="none" />
+          <!-- Geometric 'm' -->
+          <line x1="56" y1="46" x2="56" y2="70" />
+          <path d="M56,52 C61,43 70,43 73,50 C77,43 86,43 88,52 L88,70" fill="none" />
+        </g>
       `,
-      vault: `
-        <!-- Geometric Shield / Vault -->
-        <path d="M 100 32 L 158 56 C 158 112, 134 148, 100 168 C 66 148, 42 112, 42 56 Z" stroke="url(#goldGrad)" stroke-width="6" fill="rgba(16, 185, 129, 0.15)" stroke-linejoin="round" />
-        <!-- Ringgit 'RM' Inscription -->
-        <path d="M 72 130 L 72 75 C 72 75, 96 68, 104 80 C 110 90, 102 105, 90 106 L 72 106" stroke="url(#emblemGrad)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
-        <path d="M 88 106 L 108 130" stroke="url(#emblemGrad)" stroke-width="12" stroke-linecap="round" />
-        <!-- 'M' Accent -->
-        <path d="M 116 130 L 126 95 L 138 112 L 150 82 L 150 130" stroke="url(#cyanGrad)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
-        <!-- Vault Core Sparkle -->
-        <circle cx="100" cy="100" r="6" fill="url(#goldGrad)" filter="url(#softGlow)" />
+
+      // 4-Point Chunky Organic Sparkle
+      sparkle: (fg) => `
+        <path d="M50,15 C50,40 60,50 85,50 C60,50 50,60 50,85 C50,60 40,50 15,50 C40,50 50,40 50,15 Z" fill="${fg}" />
       `,
-      growth: `
-        <!-- Financial Chart Grid Bars -->
-        <rect x="45" y="115" width="22" height="35" rx="6" fill="url(#emblemGrad)" opacity="0.5" />
-        <rect x="75" y="95" width="22" height="55" rx="6" fill="url(#emblemGrad)" opacity="0.75" />
-        <rect x="105" y="75" width="22" height="75" rx="6" fill="url(#emblemGrad)" opacity="0.9" />
-        <rect x="135" y="55" width="22" height="95" rx="6" fill="url(#goldGrad)" />
-        <!-- Ascending Trend Curve Line -->
-        <path d="M 45 125 C 75 110, 105 70, 148 45" stroke="url(#cyanGrad)" stroke-width="8" stroke-linecap="round" fill="none" filter="url(#softGlow)" />
-        <!-- Breakout Star -->
-        <path d="M 148 35 Q 148 45 158 45 Q 148 45 148 55 Q 148 45 138 45 Q 148 45 148 35 Z" fill="url(#goldGrad)" />
-      `,
-      gemini: `
-        <!-- AI Gemini 4-Point Nova Core with Currency Ring -->
-        <circle cx="100" cy="100" r="68" stroke="url(#emblemGrad)" stroke-width="5" stroke-dasharray="18 12" opacity="0.6" />
-        <!-- Central AI Spark Shape -->
-        <path d="M 100 36 Q 100 100 164 100 Q 100 100 100 164 Q 100 100 36 100 Q 100 100 100 36 Z" fill="url(#emblemGrad)" filter="url(#softGlow)" />
-        <!-- Inner Core Ringgit Spark -->
-        <circle cx="100" cy="100" r="22" fill="#064E3B" stroke="url(#goldGrad)" stroke-width="4" />
-        <!-- Stylized RM text inside core -->
-        <text x="100" y="106" font-family="'Plus Jakarta Sans', sans-serif" font-weight="900" font-size="16" fill="#FDE047" text-anchor="middle" letter-spacing="-1">RM</text>
+
+      // Heavy Currency Coin with Negative Slit
+      coin: (fg) => `
+        <circle cx="50" cy="50" r="32" stroke="${fg}" stroke-width="14" fill="none" />
+        <rect x="44" y="14" width="12" height="18" rx="6" fill="${state.bgColor}" />
+        <circle cx="50" cy="50" r="6" fill="${fg}" />
       `
     };
 
-    // DOM Elements
-    const iconCard = document.getElementById('iconCard');
-    const bgLayerGradient = document.getElementById('bgLayerGradient');
-    const emblemContainer = document.getElementById('emblemContainer');
-    const symbolGroup = document.getElementById('symbolGroup');
-    const specularOverlay = document.getElementById('specularOverlay');
-    const sheenLayer = document.getElementById('sheenLayer');
-    const mouseGleam = document.getElementById('mouseGleam');
-    const safeAreaGuide = document.getElementById('safeAreaGuide');
-    const ambientGlow = document.getElementById('ambientGlow');
-    const miniIconClones = document.querySelectorAll('.mini-icon-clone');
+    // DOM
+    const iconBox = document.getElementById('iconBox');
+    const svgContent = document.getElementById('svgContent');
+    const guideCircle = document.getElementById('guideCircle');
+    const chkGuide = document.getElementById('chkGuide');
+    const xmlPreview = document.getElementById('xmlPreview');
+    const miniPreviews = document.querySelectorAll('.mini-preview');
+    const miniSvgs = document.querySelectorAll('.mini-svg');
 
-    // Controls
-    const rangeAngle = document.getElementById('rangeAngle');
-    const valAngle = document.getElementById('valAngle');
-    const rangeGlare = document.getElementById('rangeGlare');
-    const valGlare = document.getElementById('valGlare');
-    const rangeScale = document.getElementById('rangeScale');
-    const valScale = document.getElementById('valScale');
-    const rangeShadow = document.getElementById('rangeShadow');
-    const valShadow = document.getElementById('valShadow');
-    const chkGrid = document.getElementById('chkGrid');
-    const chkSheen = document.getElementById('chkSheen');
+    function render() {
+      // Main icon container styling
+      iconBox.style.backgroundColor = state.bgColor;
+      iconBox.className = `${state.shape} w-full h-full relative flex items-center justify-center transition-all duration-200 select-none overflow-hidden`;
 
-    // SVG Gradient stops
-    const emblemGrad = document.getElementById('emblemGrad');
-    const goldGrad = document.getElementById('goldGrad');
-    const cyanGrad = document.getElementById('cyanGrad');
+      // Render Glyph
+      const glyphFunc = GLYPHS[state.glyph];
+      const svgMarkup = glyphFunc(state.fgColor);
+      svgContent.innerHTML = svgMarkup;
 
-    // Update Visuals
-    function updateIcon() {
-      const p = PRESETS[state.preset];
+      // Guide
+      guideCircle.classList.toggle('hidden', !state.showGuide);
 
-      // Update Card Background Gradient
-      const angle = state.angle;
-      iconCard.style.background = `linear-gradient(${angle}deg, ${p.bgStart} 0%, ${p.bgMid} 50%, ${p.bgEnd} 100%)`;
-      bgLayerGradient.style.background = `radial-gradient(circle at 35% 25%, ${p.rad1}, transparent 70%), radial-gradient(circle at 80% 80%, ${p.rad2}, transparent 60%)`;
+      // Mini Previews
+      miniPreviews.forEach(p => {
+        p.style.backgroundColor = state.bgColor;
+        p.className = `mini-preview ${state.shape} relative flex items-center justify-center overflow-hidden`;
+      });
+      miniSvgs.forEach(s => {
+        s.innerHTML = svgMarkup;
+      });
 
-      // Update Specular & Glare
-      specularOverlay.style.opacity = (state.glare / 100);
-
-      // Update Emblem Scale
-      const scaleVal = state.scale / 100;
-      emblemContainer.style.transform = `scale(${scaleVal})`;
-
-      // Update Card Shadow
-      const shadowDepth = state.shadow;
-      iconCard.style.boxShadow = `
-        inset 0 1px 2px rgba(255, 255, 255, 0.4),
-        inset 0 -2px 4px rgba(0, 0, 0, 0.4),
-        0 ${shadowDepth / 2}px ${shadowDepth}px -10px rgba(0, 0, 0, 0.7),
-        0 ${shadowDepth / 3}px ${shadowDepth * 0.8}px -5px ${p.shadowTint}
-      `;
-
-      // Update Ambient Backdrop Glow
-      ambientGlow.style.backgroundColor = p.ambient;
-
-      // Update SVG Gradients
-      if (emblemGrad) {
-        emblemGrad.children[0].setAttribute('stop-color', p.emblemStart);
-        emblemGrad.children[1].setAttribute('stop-color', p.emblemMid);
-        emblemGrad.children[2].setAttribute('stop-color', p.emblemEnd);
-      }
-      if (goldGrad) {
-        goldGrad.children[0].setAttribute('stop-color', p.goldStart);
-        goldGrad.children[1].setAttribute('stop-color', p.goldMid);
-        goldGrad.children[2].setAttribute('stop-color', p.goldEnd);
-      }
-      if (cyanGrad) {
-        cyanGrad.children[0].setAttribute('stop-color', p.cyanStart);
-        cyanGrad.children[1].setAttribute('stop-color', p.cyanEnd);
-      }
-
-      // Update Symbol innerHTML
-      symbolGroup.innerHTML = SYMBOLS[state.symbol];
-
-      // Update Sheen
-      sheenLayer.style.display = state.showSheen ? 'block' : 'none';
-
-      // Update Safe Area Guide
-      safeAreaGuide.classList.toggle('hidden', !state.showGrid);
-
-      // Sync Mini Clones for scale previews
-      syncMiniClones();
-
-      // Update Android XML preview
-      updateXmlPreview();
+      // Update XML preview
+      renderXmlCode();
     }
 
-    // Sync Mini Previews
-    function syncMiniClones() {
-      const p = PRESETS[state.preset];
-      miniIconClones.forEach(clone => {
-        // clear classes
-        clone.className = `mini-icon-clone ${state.shape} w-full h-full shadow-lg overflow-hidden relative`;
-        clone.style.background = `linear-gradient(${state.angle}deg, ${p.bgStart} 0%, ${p.bgMid} 50%, ${p.bgEnd} 100%)`;
-        
-        // inner HTML clone
-        clone.innerHTML = `
-          <div class="absolute inset-0" style="background: radial-gradient(circle at 35% 25%, ${p.rad1}, transparent 70%)"></div>
-          <div class="absolute inset-0 flex items-center justify-center p-[20%]">
-            <svg class="w-full h-full" viewBox="0 0 200 200" fill="none">
-              ${document.getElementById('emblemSvg').innerHTML}
-            </svg>
-          </div>
-          <div class="glass-specular absolute inset-0 pointer-events-none" style="opacity: ${state.glare/100}"></div>
-        `;
-      });
-    }
-
-    // 3D Interactive Mouse / Touch Tracking
-    const stage = document.querySelector('.icon-stage');
-
-    function handleMove(e) {
-      const rect = stage.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width;
-      const y = (e.clientY - rect.top) / rect.height;
-
-      // Bound between 0 and 1
-      if (x < 0 || x > 1 || y < 0 || y > 1) return;
-
-      const tiltX = (y - 0.5) * -28; // -14 to +14 deg
-      const tiltY = (x - 0.5) * 28;
-
-      iconCard.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(1.02)`;
-
-      // Dynamic Gleam at cursor point
-      mouseGleam.style.opacity = '1';
-      mouseGleam.style.background = `radial-gradient(circle at ${x * 100}% ${y * 100}%, rgba(255,255,255,0.3) 0%, transparent 60%)`;
-    }
-
-    function handleLeave() {
-      iconCard.style.transform = `rotateX(0deg) rotateY(0deg) scale(1)`;
-      mouseGleam.style.opacity = '0';
-    }
-
-    stage.addEventListener('mousemove', handleMove);
-    stage.addEventListener('mouseleave', handleLeave);
-
-    // Touch support for 3D tilt
-    stage.addEventListener('touchmove', (e) => {
-      if (e.touches.length > 0) {
-        handleMove(e.touches[0]);
-      }
-    }, { passive: true });
-    stage.addEventListener('touchend', handleLeave);
-
-    // Range input listeners
-    rangeAngle.addEventListener('input', (e) => {
-      state.angle = e.target.value;
-      valAngle.textContent = `${state.angle}°`;
-      updateIcon();
-    });
-
-    rangeGlare.addEventListener('input', (e) => {
-      state.glare = e.target.value;
-      valGlare.textContent = `${state.glare}%`;
-      updateIcon();
-    });
-
-    rangeScale.addEventListener('input', (e) => {
-      state.scale = e.target.value;
-      valScale.textContent = `${state.scale}%`;
-      updateIcon();
-    });
-
-    rangeShadow.addEventListener('input', (e) => {
-      state.shadow = e.target.value;
-      valShadow.textContent = `${state.shadow}px`;
-      updateIcon();
-    });
-
-    chkGrid.addEventListener('change', (e) => {
-      state.showGrid = e.target.checked;
-      updateIcon();
-    });
-
-    chkSheen.addEventListener('change', (e) => {
-      state.showSheen = e.target.checked;
-      updateIcon();
-    });
-
-    // Preset Buttons
-    document.querySelectorAll('.preset-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.preset-btn').forEach(b => {
-          b.classList.remove('active', 'border-emerald-500', 'bg-emerald-500/10');
-          b.classList.add('border-slate-800', 'bg-slate-950/40');
-        });
-        btn.classList.add('active', 'border-emerald-500', 'bg-emerald-500/10');
-        btn.classList.remove('border-slate-800', 'bg-slate-950/40');
-        state.preset = btn.dataset.preset;
-        updateIcon();
-      });
-    });
-
-    // Symbol Buttons
-    document.querySelectorAll('.symbol-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.symbol-btn').forEach(b => {
-          b.classList.remove('active', 'border-emerald-500/80', 'bg-emerald-500/10', 'text-emerald-300');
-          b.classList.add('border-slate-800', 'bg-slate-950/40', 'text-slate-300');
-          b.querySelector('span').classList.remove('bg-emerald-400');
-          b.querySelector('span').classList.add('bg-slate-600');
-        });
-        btn.classList.add('active', 'border-emerald-500/80', 'bg-emerald-500/10', 'text-emerald-300');
-        btn.classList.remove('border-slate-800', 'bg-slate-950/40', 'text-slate-300');
-        btn.querySelector('span').classList.remove('bg-slate-600');
-        btn.querySelector('span').classList.add('bg-emerald-400');
-        state.symbol = btn.dataset.symbol;
-        updateIcon();
-      });
-    });
-
-    // Shape Buttons
-    document.querySelectorAll('.shape-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.shape-btn').forEach(b => {
-          b.classList.remove('bg-emerald-500/20', 'text-emerald-300', 'border-emerald-500/40');
-          b.classList.add('bg-slate-800', 'text-slate-300', 'border-slate-700');
-        });
-        btn.classList.add('bg-emerald-500/20', 'text-emerald-300', 'border-emerald-500/40');
-        btn.classList.remove('bg-slate-800', 'text-slate-300', 'border-slate-700');
-        
-        // Remove previous shapes from card
-        iconCard.classList.remove('shape-squircle', 'shape-circle', 'shape-rounded', 'shape-teardrop', 'shape-square');
-        state.shape = btn.dataset.shape;
-        iconCard.classList.add(state.shape);
-        syncMiniClones();
-      });
-    });
-
-    // Export Canvas to High-Res PNG
-    function renderToCanvas(size, callback) {
-      const canvas = document.getElementById('exportCanvas');
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d');
-      const p = PRESETS[state.preset];
-
-      // Draw Background
-      const angleRad = (state.angle * Math.PI) / 180;
-      const x1 = size / 2 - Math.cos(angleRad) * (size / 2);
-      const y1 = size / 2 - Math.sin(angleRad) * (size / 2);
-      const x2 = size / 2 + Math.cos(angleRad) * (size / 2);
-      const y2 = size / 2 + Math.sin(angleRad) * (size / 2);
-
-      const grad = ctx.createLinearGradient(x1, y1, x2, y2);
-      grad.addColorStop(0, p.bgStart);
-      grad.addColorStop(0.5, p.bgMid);
-      grad.addColorStop(1, p.bgEnd);
-
-      // Mask Shape if needed
-      ctx.save();
-      if (state.shape === 'shape-circle') {
-        ctx.beginPath();
-        ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-        ctx.clip();
-      } else if (state.shape === 'shape-squircle') {
-        // Squircle rounding (radius ~ 22.5%)
-        const r = size * 0.225;
-        ctx.beginPath();
-        ctx.roundRect(0, 0, size, size, r);
-        ctx.clip();
-      } else if (state.shape === 'shape-rounded') {
-        const r = size * 0.16;
-        ctx.beginPath();
-        ctx.roundRect(0, 0, size, size, r);
-        ctx.clip();
-      }
-
-      // Fill Gradient
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, size, size);
-
-      // Radial Lights
-      const radGrad1 = ctx.createRadialGradient(size * 0.35, size * 0.25, 0, size * 0.35, size * 0.25, size * 0.7);
-      radGrad1.addColorStop(0, p.rad1);
-      radGrad1.addColorStop(1, 'transparent');
-      ctx.fillStyle = radGrad1;
-      ctx.fillRect(0, 0, size, size);
-
-      const radGrad2 = ctx.createRadialGradient(size * 0.8, size * 0.8, 0, size * 0.8, size * 0.8, size * 0.6);
-      radGrad2.addColorStop(0, p.rad2);
-      radGrad2.addColorStop(1, 'transparent');
-      ctx.fillStyle = radGrad2;
-      ctx.fillRect(0, 0, size, size);
-
-      // Draw SVG Emblem onto Canvas
-      const svgEl = document.getElementById('emblemSvg');
-      const svgString = new XMLSerializer().serializeToString(svgEl);
-      const img = new Image();
-      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(svgBlob);
-
-      img.onload = function() {
-        const padding = size * 0.16 * (1 / (state.scale / 100));
-        const drawSize = size - padding * 2;
-        ctx.drawImage(img, padding, padding, drawSize, drawSize);
-        URL.revokeObjectURL(url);
-
-        // Specular overlay
-        if (state.glare > 0) {
-          const specGrad = ctx.createLinearGradient(0, 0, size, size);
-          specGrad.addColorStop(0, `rgba(255,255,255,${0.45 * (state.glare/100)})`);
-          specGrad.addColorStop(0.45, `rgba(255,255,255,${0.08 * (state.glare/100)})`);
-          specGrad.addColorStop(0.5, 'rgba(255,255,255,0)');
-          specGrad.addColorStop(1, `rgba(255,255,255,${0.12 * (state.glare/100)})`);
-          ctx.fillStyle = specGrad;
-          ctx.fillRect(0, 0, size, size);
-        }
-
-        // Inner bezel border
-        ctx.lineWidth = Math.max(2, size * 0.005);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-        ctx.stroke();
-
-        ctx.restore();
-        callback(canvas.toDataURL('image/png'));
-      };
-      img.src = url;
-    }
-
-    // Export Handlers
-    document.getElementById('btnExportPlayStore').addEventListener('click', () => {
-      renderToCanvas(512, (dataUrl) => {
-        const link = document.createElement('a');
-        link.download = 'ringgitwise_icon_512.png';
-        link.href = dataUrl;
-        link.click();
-      });
-    });
-
-    document.getElementById('btnExportMaster').addEventListener('click', () => {
-      renderToCanvas(1024, (dataUrl) => {
-        const link = document.createElement('a');
-        link.download = 'ringgitwise_icon_1024.png';
-        link.href = dataUrl;
-        link.click();
-      });
-    });
-
-    // Copy SVG
-    document.getElementById('btnCopySvg').addEventListener('click', () => {
-      const svgEl = document.getElementById('emblemSvg');
-      const svgStr = new XMLSerializer().serializeToString(svgEl);
-      navigator.clipboard.writeText(svgStr).then(() => {
-        const btn = document.getElementById('btnCopySvg');
-        const orig = btn.textContent;
-        btn.textContent = 'Copied!';
-        btn.classList.add('text-emerald-400');
-        setTimeout(() => {
-          btn.textContent = orig;
-          btn.classList.remove('text-emerald-400');
-        }, 2000);
-      });
-    });
-
-    // Update Android XML Preview text
-    function updateXmlPreview() {
-      const p = PRESETS[state.preset];
-      const codeBox = document.getElementById('xmlCodePreview');
-      codeBox.textContent = `<!-- res/drawable/ic_launcher_foreground.xml -->
+    function renderXmlCode() {
+      xmlPreview.textContent = `<!-- res/drawable/ic_launcher_foreground.xml -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:strokeColor="${p.emblemMid}"
-        android:strokeWidth="5"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M38,70 L38,36 C38,36 50,32 56,39 C60,44 57,51 50,52 C45,53 38,52 38,52" />
-    <path
-        android:strokeColor="${p.emblemMid}"
-        android:strokeWidth="5"
-        android:strokeLineCap="round"
-        android:pathData="M48,52 L60,70" />
-    <path
-        android:strokeColor="${p.cyanEnd}"
-        android:strokeWidth="4"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M56,70 L63,48 L70,59 L77,41 L77,70" />
-    <path
-        android:fillColor="${p.goldMid}"
-        android:pathData="M77,32 Q77,37 82,37 Q77,37 77,42 Q77,37 72,37 Q77,37 77,32 Z" />
+    <group
+        android:scaleX="0.66"
+        android:scaleY="0.66"
+        android:translateX="18.36"
+        android:translateY="18.36">
+        <!-- Minimalist Claude-Style Asterisk -->
+        <path
+            android:strokeColor="${state.fgColor}"
+            android:strokeWidth="14"
+            android:strokeLineCap="round"
+            android:pathData="M50,20 L50,80" />
+        <path
+            android:strokeColor="${state.fgColor}"
+            android:strokeWidth="14"
+            android:strokeLineCap="round"
+            android:pathData="M24,35 L76,65" />
+        <path
+            android:strokeColor="${state.fgColor}"
+            android:strokeWidth="14"
+            android:strokeLineCap="round"
+            android:pathData="M24,65 L76,35" />
+    </group>
 </vector>`;
     }
 
-    // Copy XML
+    // Glyph Buttons
+    document.querySelectorAll('.glyph-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.glyph-btn').forEach(b => {
+          b.classList.remove('active', 'border-[#D97757]', 'bg-[#D97757]/10');
+          b.classList.add('border-[#2C2723]', 'bg-[#231F1C]/40');
+          b.querySelector('div').classList.remove('text-[#D97757]');
+          b.querySelector('div').classList.add('text-[#FAF7F2]');
+        });
+        btn.classList.add('active', 'border-[#D97757]', 'bg-[#D97757]/10');
+        btn.classList.remove('border-[#2C2723]', 'bg-[#231F1C]/40');
+        btn.querySelector('div').classList.add('text-[#D97757]');
+        btn.querySelector('div').classList.remove('text-[#FAF7F2]');
+        state.glyph = btn.dataset.glyph;
+        render();
+      });
+    });
+
+    // Palette Buttons
+    document.querySelectorAll('.pal-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.pal-btn').forEach(b => {
+          b.classList.remove('active', 'border-[#D97757]', 'bg-[#D97757]/10');
+          b.classList.add('border-[#2C2723]', 'bg-[#231F1C]/40');
+        });
+        btn.classList.add('active', 'border-[#D97757]', 'bg-[#D97757]/10');
+        btn.classList.remove('border-[#2C2723]', 'bg-[#231F1C]/40');
+        state.bgColor = btn.dataset.bg;
+        state.fgColor = btn.dataset.fg;
+        render();
+      });
+    });
+
+    // Shape Buttons
+    document.querySelectorAll('.shape-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.shape-tab').forEach(b => {
+          b.classList.remove('bg-[#D97757]/20', 'text-[#D97757]', 'border-[#D97757]/40', 'font-semibold');
+          b.classList.add('bg-[#231F1C]', 'text-[#9E948A]', 'border-[#2C2723]', 'font-medium');
+        });
+        btn.classList.add('bg-[#D97757]/20', 'text-[#D97757]', 'border-[#D97757]/40', 'font-semibold');
+        btn.classList.remove('bg-[#231F1C]', 'text-[#9E948A]', 'border-[#2C2723]', 'font-medium');
+        state.shape = btn.dataset.shape;
+        render();
+      });
+    });
+
+    // Guide Toggle
+    chkGuide.addEventListener('change', (e) => {
+      state.showGuide = e.target.checked;
+      render();
+    });
+
+    // Canvas Raster Exporter
+    function exportPng(size, callback) {
+      const canvas = document.getElementById('exportCanvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      // Draw flat background
+      ctx.fillStyle = state.bgColor;
+      if (state.shape === 'shape-circle') {
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, size/2, 0, Math.PI * 2);
+        ctx.clip();
+      } else if (state.shape === 'shape-squircle') {
+        ctx.beginPath();
+        ctx.roundRect(0, 0, size, size, size * 0.225);
+        ctx.clip();
+      } else if (state.shape === 'shape-rounded') {
+        ctx.beginPath();
+        ctx.roundRect(0, 0, size, size, size * 0.16);
+        ctx.clip();
+      }
+      ctx.fillRect(0, 0, size, size);
+
+      // Draw SVG
+      const svg = document.getElementById('iconSvg');
+      const xml = new XMLSerializer().serializeToString(svg);
+      const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+
+      img.onload = () => {
+        const padding = size * 0.19;
+        const drawSize = size - padding * 2;
+        ctx.drawImage(img, padding, padding, drawSize, drawSize);
+        URL.revokeObjectURL(url);
+        callback(canvas.toDataURL('image/png'));
+      };
+      img.src = url;
+    }
+
+    // Export Buttons
+    document.getElementById('btnExportPlayStore').addEventListener('click', () => {
+      exportPng(512, (url) => {
+        const a = document.createElement('a');
+        a.download = 'ringgitwise_icon_minimal_512.png';
+        a.href = url;
+        a.click();
+      });
+    });
+
+    document.getElementById('btnExport1024').addEventListener('click', () => {
+      exportPng(1024, (url) => {
+        const a = document.createElement('a');
+        a.download = 'ringgitwise_icon_minimal_1024.png';
+        a.href = url;
+        a.click();
+      });
+    });
+
+    document.getElementById('btnCopySvg').addEventListener('click', () => {
+      const svg = document.getElementById('iconSvg');
+      const str = new XMLSerializer().serializeToString(svg);
+      navigator.clipboard.writeText(str).then(() => {
+        const btn = document.getElementById('btnCopySvg');
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy SVG'; }, 2000);
+      });
+    });
+
     document.getElementById('btnCopyAndroidXml').addEventListener('click', () => {
-      const codeBox = document.getElementById('xmlCodePreview');
-      navigator.clipboard.writeText(codeBox.textContent).then(() => {
+      navigator.clipboard.writeText(xmlPreview.textContent).then(() => {
         const btn = document.getElementById('btnCopyAndroidXml');
         btn.textContent = 'Copied!';
         setTimeout(() => { btn.textContent = 'Copy XML'; }, 2000);
       });
     });
 
-    // Initial render
-    updateIcon();
+    // Init
+    render();
   </script>
 </body>
 </html>
