@@ -13,7 +13,10 @@ data class Transaction(
     val type: String = "debit", // "debit" (expense) or "credit" (topup/income)
     val category: String = "Mamak & Dining",
     val method: String = "DuitNow QR",
-    val note: String = ""
+    val note: String = "",
+    val isHelpBuy: Boolean = false, // True if bought on behalf of someone else
+    val claimRecipient: String = "", // Recipient / Friend's name (e.g. "Ah Ming", "Sarah")
+    val isSettled: Boolean = false // false = Pending Claim / Unpaid, true = Settled
 )
 
 data class Category(
@@ -35,7 +38,9 @@ data class GeminiProposedAction(
     val time: String = "",
     val note: String = "",
     val targetId: String = "", // for delete/update
-    val explanation: String = ""
+    val explanation: String = "",
+    val isHelpBuy: Boolean = false,
+    val claimRecipient: String = ""
 )
 
 @Serializable
@@ -57,7 +62,8 @@ val DEFAULT_CATEGORIES = listOf(
     Category("c7", "Utilities & Bills", Color(0xFF64748B), "#64748B"),
     Category("c8", "Healthcare & Pharmacy", Color(0xFFEC4899), "#EC4899"),
     Category("c9", "Snacks & Desserts", Color(0xFFC856DB), "#C856DB"),
-    Category("c10", "Top Up (Credit)", Color(0xFF85F8CE), "#85F8CE")
+    Category("c10", "Top Up (Credit)", Color(0xFF85F8CE), "#85F8CE"),
+    Category("c11", "Tolong Beli (Help Buy)", Color(0xFF38BDF8), "#38BDF8")
 )
 
 fun formatRM(amount: Double): String {

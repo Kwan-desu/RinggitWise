@@ -59,6 +59,11 @@ object StatementParser {
             return "Top Up (Credit)"
         }
 
+        // 11. Tolong Beli (Help Buy / Claims)
+        if (lower.contains(Regex("""\b(tolong|help\s*buy|bought\s*for|claim|split|iou)\b"""))) {
+            return "Tolong Beli (Help Buy)"
+        }
+
         return "Mamak & Dining"
     }
 

@@ -58,6 +58,11 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import android.content.Intent
+import android.content.ClipboardManager
+import android.content.ClipData
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -129,6 +134,7 @@ fun RinggitWiseApp(repository: FinanceRepository) {
     val cardAlpha by repository.cardAlpha.collectAsState()
     val geminiApiKey by repository.geminiApiKey.collectAsState()
     val geminiModel by repository.geminiModel.collectAsState()
+    val userDuitNowInfo by repository.userDuitNowInfo.collectAsState()
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var previousTab by remember { mutableIntStateOf(0) }
@@ -136,6 +142,21 @@ fun RinggitWiseApp(repository: FinanceRepository) {
     var showBudgetDialog by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
     var showMonthPicker by remember { mutableStateOf(false) }
+    var initialLedgerFilter by remember { mutableStateOf("All") }
+    var claimShareTarget by remember { mutableStateOf<Pair<String, List<Transaction>>?>(null) }
+
+    val tolongBeliPendingList = remember(transactions) {
+        transactions.filter { (it.isHelpBuy || it.category.contains("Tolong Beli", ignoreCase = true)) && !it.isSettled }
+    }
+    val pendingClaimsTotal = remember(tolongBeliPendingList) { tolongBeliPendingList.sumOf { it.amount } }
+    val pendingClaimsCount = tolongBeliPendingList.size
+
+    val allRecipients = remember(transactions) {
+        transactions.mapNotNull {
+            val r = it.claimRecipient.trim()
+            if (r.isNotBlank()) r else null
+        }.distinct()
+    }
 
     // Safe downsampled bitmap decoding to prevent Canvas memory crashes
     val avatarBitmap = remember(hasCustomProfileImage, avatarTrigger) {
@@ -432,8 +453,14 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                             daysRemaining = daysRemaining,
                             selectedMonth = selectedMonth,
                             recentTransactions = activeMonthExpenses.take(5),
+                            pendingClaimsTotal = pendingClaimsTotal,
+                            pendingClaimsCount = pendingClaimsCount,
                             onEditBudget = { showBudgetDialog = true },
                             onNavigateToHistory = { selectedTab = 3 },
+                            onNavigateToTolongBeli = {
+                                initialLedgerFilter = "Tolong Beli (Help Buy)"
+                                selectedTab = 3
+                            },
                             onDeleteTransaction = { repository.deleteTransaction(it) }
                         )
                         1 -> ChartsTab(
@@ -456,7 +483,13 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                         )
                         3 -> LedgerTab(
                             transactions = activeMonthExpenses,
-                            onDelete = { repository.deleteTransaction(it) }
+                            duitNowInfo = userDuitNowInfo,
+                            initialFilter = initialLedgerFilter,
+                            onDelete = { repository.deleteTransaction(it) },
+                            onToggleSettled = { repository.toggleTransactionSettled(it) },
+                            onShareClaim = { recip, txs ->
+                                claimShareTarget = Pair(recip, txs)
+                            }
                         )
                         4 -> SettingsPage(
                             userProfileEmoji = userProfileEmoji,
@@ -502,6 +535,8 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                             onSetGeminiApiKey = { repository.setGeminiApiKey(it) },
                             onSetGeminiModel = { repository.setGeminiModel(it) },
                             onTestGeminiKey = { key, model -> repository.testGeminiApiKey(key, model) },
+                            userDuitNowInfo = userDuitNowInfo,
+                            onSetDuitNowInfo = { repository.setDuitNowInfo(it) },
                             monthlyBudget = monthlyBudget,
                             onEditBudget = { showBudgetDialog = true },
                             onClearAllData = { showClearDialog = true }
@@ -515,6 +550,7 @@ fun RinggitWiseApp(repository: FinanceRepository) {
     // Add Expense Bottom Sheet
     if (showAddSheet) {
         AddExpenseSheet(
+            recentRecipients = allRecipients,
             onDismiss = { showAddSheet = false },
             onAdd = { newTx ->
                 repository.addTransaction(newTx)
@@ -595,6 +631,26 @@ fun RinggitWiseApp(repository: FinanceRepository) {
             }
         )
     }
+
+    // Share Claim Bottom Sheet / Dialog
+    if (claimShareTarget != null) {
+        val (recip, txs) = claimShareTarget!!
+        ShareClaimDialog(
+            recipientName = recip,
+            transactionsToClaim = txs,
+            savedDuitNow = userDuitNowInfo,
+            onDismiss = { claimShareTarget = null },
+            onMarkAllSettled = {
+                txs.forEach { tx ->
+                    if (!tx.isSettled) {
+                        repository.toggleTransactionSettled(tx.id)
+                    }
+                }
+                claimShareTarget = null
+            },
+            onSaveDuitNow = { repository.setDuitNowInfo(it) }
+        )
+    }
 }
 
 // -------------------------------------------------------------
@@ -611,8 +667,11 @@ fun OverviewTab(
     daysRemaining: Int,
     selectedMonth: String,
     recentTransactions: List<Transaction>,
+    pendingClaimsTotal: Double = 0.0,
+    pendingClaimsCount: Int = 0,
     onEditBudget: () -> Unit,
     onNavigateToHistory: () -> Unit,
+    onNavigateToTolongBeli: () -> Unit = {},
     onDeleteTransaction: (String) -> Unit
 ) {
     Column(
@@ -718,6 +777,58 @@ fun OverviewTab(
                     Text(formatRM(dailySafeSpend), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.height(14.dp))
                     Text("Guilt-free daily burn rate", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+
+        // Tolong Beli Pending Claim Alert Banner
+        if (pendingClaimsCount > 0) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNavigateToTolongBeli() },
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF38BDF8).copy(alpha = 0.16f)
+                ),
+                border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.4f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp).fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFF38BDF8),
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.VolunteerActivism, contentDescription = null, tint = Color.Black, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                        Column {
+                            Text(
+                                "Tolong Beli • ${formatRM(pendingClaimsTotal)} to Collect",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "$pendingClaimsCount pending claims from friends",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    TextButton(onClick = onNavigateToTolongBeli) {
+                        Text("View Claims >", fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8))
+                    }
                 }
             }
         }
@@ -2155,18 +2266,52 @@ fun ImportTab(
 @Composable
 fun LedgerTab(
     transactions: List<Transaction>,
-    onDelete: (String) -> Unit
+    duitNowInfo: String = "",
+    initialFilter: String = "All",
+    onDelete: (String) -> Unit,
+    onToggleSettled: (String) -> Unit = {},
+    onShareClaim: (String, List<Transaction>) -> Unit = { _, _ -> }
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var selectedCategoryFilter by remember { mutableStateOf("All") }
+    var selectedCategoryFilter by remember(initialFilter) { mutableStateOf(initialFilter) }
+    var selectedRecipientFilter by remember { mutableStateOf("All People") }
 
-    val filtered = remember(transactions, searchQuery, selectedCategoryFilter) {
+    val tolongBeliTxs = remember(transactions) {
+        transactions.filter { it.isHelpBuy || it.category.contains("Tolong Beli", ignoreCase = true) }
+    }
+    val pendingClaims = remember(tolongBeliTxs) {
+        tolongBeliTxs.filter { !it.isSettled }
+    }
+    val settledClaims = remember(tolongBeliTxs) {
+        tolongBeliTxs.filter { it.isSettled }
+    }
+    val totalPending = remember(pendingClaims) { pendingClaims.sumOf { it.amount } }
+    val totalSettled = remember(settledClaims) { settledClaims.sumOf { it.amount } }
+
+    val recipients = remember(tolongBeliTxs) {
+        tolongBeliTxs.map { it.claimRecipient.trim() }.filter { it.isNotBlank() }.distinct()
+    }
+
+    val isViewingTolongBeli = selectedCategoryFilter.contains("Tolong Beli", ignoreCase = true)
+
+    val filtered = remember(transactions, searchQuery, selectedCategoryFilter, selectedRecipientFilter, isViewingTolongBeli) {
         transactions.filter { tx ->
             val matchesSearch = tx.title.contains(searchQuery, true) ||
                     tx.category.contains(searchQuery, true) ||
-                    tx.note.contains(searchQuery, true)
-            val matchesCat = selectedCategoryFilter == "All" || tx.category.equals(selectedCategoryFilter, true)
-            matchesSearch && matchesCat
+                    tx.note.contains(searchQuery, true) ||
+                    tx.claimRecipient.contains(searchQuery, true)
+
+            val matchesCat = if (isViewingTolongBeli) {
+                tx.isHelpBuy || tx.category.contains("Tolong Beli", ignoreCase = true)
+            } else {
+                selectedCategoryFilter == "All" || tx.category.equals(selectedCategoryFilter, true)
+            }
+
+            val matchesRecipient = if (isViewingTolongBeli && selectedRecipientFilter != "All People") {
+                tx.claimRecipient.equals(selectedRecipientFilter, true)
+            } else true
+
+            matchesSearch && matchesCat && matchesRecipient
         }
     }
 
@@ -2177,7 +2322,7 @@ fun LedgerTab(
             onValueChange = { searchQuery = it },
             modifier = Modifier.fillMaxWidth(),
             shape = CircleShape,
-            placeholder = { Text("Filter transactions...") },
+            placeholder = { Text("Filter transactions or friend...") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             singleLine = true
         )
@@ -2195,7 +2340,37 @@ fun LedgerTab(
                 label = { Text("All") },
                 shape = CircleShape
             )
-            DEFAULT_CATEGORIES.forEach { cat ->
+
+            // Dedicated Tolong Beli chip with pending badge
+            val isTolongSelected = selectedCategoryFilter.contains("Tolong Beli", ignoreCase = true)
+            FilterChip(
+                selected = isTolongSelected,
+                onClick = { selectedCategoryFilter = "Tolong Beli (Help Buy)" },
+                label = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("🛍️ Tolong Beli")
+                        if (pendingClaims.isNotEmpty()) {
+                            Surface(
+                                shape = CircleShape,
+                                color = if (isTolongSelected) MaterialTheme.colorScheme.primary else Color(0xFF38BDF8),
+                                modifier = Modifier.size(18.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        "${pendingClaims.size}",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Black
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                shape = CircleShape
+            )
+
+            DEFAULT_CATEGORIES.filter { !it.name.contains("Tolong Beli", ignoreCase = true) }.forEach { cat ->
                 FilterChip(
                     selected = selectedCategoryFilter == cat.name,
                     onClick = { selectedCategoryFilter = cat.name },
@@ -2207,10 +2382,133 @@ fun LedgerTab(
 
         Spacer(modifier = Modifier.height(10.dp))
 
+        // Tolong Beli Tracker Summary Card (When Viewing Tolong Beli)
+        if (isViewingTolongBeli) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(22.dp),
+                colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+                border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.45f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Surface(
+                                shape = CircleShape,
+                                color = Color(0xFF38BDF8).copy(alpha = 0.2f),
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.VolunteerActivism, contentDescription = null, tint = Color(0xFF38BDF8), modifier = Modifier.size(20.dp))
+                                }
+                            }
+                            Column {
+                                Text("Tolong Beli Claims", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text("Stuff you helped friends buy", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+
+                    // Stats: Pending vs Settled
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = Color(0xFFF59E0B).copy(alpha = 0.15f),
+                            border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.35f)),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text("UNCOLLECTED", style = MaterialTheme.typography.labelSmall, color = Color(0xFFF59E0B), fontWeight = FontWeight.Bold)
+                                Text(formatRM(totalPending), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = Color(0xFFF59E0B))
+                                Text("${pendingClaims.size} pending", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = Color(0xFF10B981).copy(alpha = 0.15f),
+                            border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.35f)),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text("SETTLED", style = MaterialTheme.typography.labelSmall, color = Color(0xFF10B981), fontWeight = FontWeight.Bold)
+                                Text(formatRM(totalSettled), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = Color(0xFF10B981))
+                                Text("${settledClaims.size} settled", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+
+                    // Recipient Filter Row
+                    if (recipients.isNotEmpty()) {
+                        Text("Filter by Friend:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            FilterChip(
+                                selected = selectedRecipientFilter == "All People",
+                                onClick = { selectedRecipientFilter = "All People" },
+                                label = { Text("All (${recipients.size})") },
+                                shape = CircleShape
+                            )
+                            recipients.forEach { person ->
+                                val personPending = pendingClaims.filter { it.claimRecipient.equals(person, true) }.sumOf { it.amount }
+                                FilterChip(
+                                    selected = selectedRecipientFilter == person,
+                                    onClick = { selectedRecipientFilter = person },
+                                    label = {
+                                        Text(if (personPending > 0) "$person (${formatRM(personPending)})" else person)
+                                    },
+                                    shape = CircleShape
+                                )
+                            }
+                        }
+                    }
+
+                    // Share Batch Claim Button
+                    val claimableForSelected = if (selectedRecipientFilter == "All People") {
+                        pendingClaims
+                    } else {
+                        pendingClaims.filter { it.claimRecipient.equals(selectedRecipientFilter, true) }
+                    }
+
+                    if (claimableForSelected.isNotEmpty()) {
+                        Button(
+                            onClick = {
+                                onShareClaim(selectedRecipientFilter, claimableForSelected)
+                            },
+                            modifier = Modifier.fillMaxWidth().height(46.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                "Share Combined Claim (${formatRM(claimableForSelected.sumOf { it.amount })})",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+
         // Transactions LazyColumn
         if (filtered.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No transactions found.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    if (isViewingTolongBeli) "No Tolong Beli expenses recorded yet.\nTag items when recording or use AI scan!" else "No transactions found.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
             }
         } else {
             LazyColumn(
@@ -2219,7 +2517,12 @@ fun LedgerTab(
                 contentPadding = PaddingValues(bottom = 80.dp)
             ) {
                 items(filtered, key = { it.id }) { tx ->
-                    TransactionCardItem(tx = tx, onDelete = { onDelete(tx.id) })
+                    TransactionCardItem(
+                        tx = tx,
+                        onDelete = { onDelete(tx.id) },
+                        onToggleSettled = { onToggleSettled(tx.id) },
+                        onShareClaim = { onShareClaim(tx.claimRecipient, listOf(tx)) }
+                    )
                 }
             }
         }
@@ -2227,9 +2530,15 @@ fun LedgerTab(
 }
 
 @Composable
-fun TransactionCardItem(tx: Transaction, onDelete: () -> Unit) {
+fun TransactionCardItem(
+    tx: Transaction,
+    onDelete: () -> Unit,
+    onToggleSettled: () -> Unit = {},
+    onShareClaim: () -> Unit = {}
+) {
     val catObj = DEFAULT_CATEGORIES.find { it.name.equals(tx.category, true) }
     val color = catObj?.color ?: MaterialTheme.colorScheme.primary
+    val isHelp = tx.isHelpBuy || tx.category.contains("Tolong Beli", ignoreCase = true)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -2237,54 +2546,121 @@ fun TransactionCardItem(tx: Transaction, onDelete: () -> Unit) {
         colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
         border = glassCardBorder()
     ) {
-        Row(
-            modifier = Modifier.padding(14.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    shape = CircleShape,
-                    color = color,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = CircleShape,
+                        color = color,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            if (isHelp) {
+                                Icon(Icons.Default.VolunteerActivism, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                            } else {
+                                Text(
+                                    text = tx.title.take(1).uppercase(),
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = tx.title.take(1).uppercase(),
-                            color = Color.White,
+                            text = tx.title.ifEmpty { tx.category },
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "${tx.date} • ${tx.category} • ${tx.method}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
                         )
                     }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = tx.title.ifEmpty { tx.category },
+                        text = formatRM(tx.amount),
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        fontWeight = FontWeight.Black
                     )
-                    Text(
-                        text = "${tx.date} • ${tx.category} • ${tx.method}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
-                    )
+                    if (isHelp) {
+                        IconButton(onClick = onShareClaim) {
+                            Icon(Icons.Outlined.Share, contentDescription = "Share Claim", tint = Color(0xFF38BDF8))
+                        }
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.outline)
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            // Tolong Beli Recipient & Settlement Status Row
+            if (isHelp) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF38BDF8).copy(alpha = 0.15f),
+                        border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.35f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(13.dp), tint = Color(0xFF38BDF8))
+                            Text(
+                                text = if (tx.claimRecipient.isNotBlank()) "For ${tx.claimRecipient}" else "Tolong Beli",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF38BDF8)
+                            )
+                        }
+                    }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = formatRM(tx.amount),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Black
-                )
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.outline)
+                    Surface(
+                        shape = CircleShape,
+                        color = if (tx.isSettled) Color(0xFF10B981).copy(alpha = 0.18f) else Color(0xFFF59E0B).copy(alpha = 0.18f),
+                        border = BorderStroke(1.dp, if (tx.isSettled) Color(0xFF10B981).copy(alpha = 0.45f) else Color(0xFFF59E0B).copy(alpha = 0.45f)),
+                        modifier = Modifier.clickable { onToggleSettled() }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Icon(
+                                if (tx.isSettled) Icons.Default.CheckCircle else Icons.Default.Schedule,
+                                contentDescription = null,
+                                modifier = Modifier.size(13.dp),
+                                tint = if (tx.isSettled) Color(0xFF10B981) else Color(0xFFF59E0B)
+                            )
+                            Text(
+                                text = if (tx.isSettled) "Settled (Tap to undo)" else "Unpaid (Tap to settle)",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (tx.isSettled) Color(0xFF10B981) else Color(0xFFF59E0B)
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -2312,6 +2688,7 @@ fun TransactionRow(tx: Transaction, onDelete: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddExpenseSheet(
+    recentRecipients: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onAdd: (Transaction) -> Unit
 ) {
@@ -2320,6 +2697,11 @@ fun AddExpenseSheet(
     var selectedCat by remember { mutableStateOf(DEFAULT_CATEGORIES[0].name) }
     var selectedMethod by remember { mutableStateOf("DuitNow QR") }
     var dateStr by remember { mutableStateOf(SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())) }
+
+    val isTolongBeliCat = selectedCat.contains("Tolong Beli", ignoreCase = true)
+    var isHelpBuy by remember(isTolongBeliCat) { mutableStateOf(isTolongBeliCat) }
+    var claimRecipient by remember { mutableStateOf("") }
+    var isSettled by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -2345,7 +2727,7 @@ fun AddExpenseSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Description (OPTIONAL - as explicitly requested!)
+            // Description (OPTIONAL)
             OutlinedTextField(
                 value = titleStr,
                 onValueChange = { titleStr = it },
@@ -2354,6 +2736,82 @@ fun AddExpenseSheet(
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth()
             )
+
+            // Tolong Beli Toggle & Recipient Card
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = if (isHelpBuy) Color(0xFF38BDF8).copy(alpha = 0.12f) else glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
+                border = BorderStroke(1.dp, if (isHelpBuy) Color(0xFF38BDF8).copy(alpha = 0.45f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.VolunteerActivism, contentDescription = null, tint = if (isHelpBuy) Color(0xFF38BDF8) else MaterialTheme.colorScheme.onSurfaceVariant)
+                            Column {
+                                Text("Tolong Beli (Bought for someone)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                Text("Tag friend & share claim easily", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        Switch(
+                            checked = isHelpBuy,
+                            onCheckedChange = {
+                                isHelpBuy = it
+                                if (it && !isTolongBeliCat) {
+                                    selectedCat = "Tolong Beli (Help Buy)"
+                                }
+                            }
+                        )
+                    }
+
+                    if (isHelpBuy) {
+                        OutlinedTextField(
+                            value = claimRecipient,
+                            onValueChange = { claimRecipient = it },
+                            label = { Text("Who did you help buy for? (Friend's Name)") },
+                            placeholder = { Text("e.g. Ah Ming, Sarah, Mom") },
+                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFF38BDF8)) },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        if (recentRecipients.isNotEmpty()) {
+                            Text("Recent friends:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                recentRecipients.forEach { name ->
+                                    SuggestionChip(
+                                        onClick = { claimRecipient = name },
+                                        label = { Text(name, fontSize = 11.sp) },
+                                        shape = CircleShape
+                                    )
+                                }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Payment Status:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                            FilterChip(
+                                selected = isSettled,
+                                onClick = { isSettled = !isSettled },
+                                label = { Text(if (isSettled) "✅ Already Paid" else "⏳ Pending Claim") },
+                                shape = CircleShape
+                            )
+                        }
+                    }
+                }
+            }
 
             // Category Picker
             Text("Category", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
@@ -2364,7 +2822,12 @@ fun AddExpenseSheet(
                 DEFAULT_CATEGORIES.forEach { cat ->
                     FilterChip(
                         selected = selectedCat == cat.name,
-                        onClick = { selectedCat = cat.name },
+                        onClick = {
+                            selectedCat = cat.name
+                            if (cat.name.contains("Tolong Beli", ignoreCase = true)) {
+                                isHelpBuy = true
+                            }
+                        },
                         label = { Text(cat.name) },
                         shape = CircleShape
                     )
@@ -2403,14 +2866,19 @@ fun AddExpenseSheet(
                 onClick = {
                     val amt = amountStr.toDoubleOrNull() ?: 0.0
                     if (amt > 0) {
-                        val finalTitle = titleStr.trim().ifEmpty { selectedCat }
+                        val finalTitle = titleStr.trim().ifEmpty {
+                            if (isHelpBuy && claimRecipient.isNotBlank()) "Bought for $claimRecipient" else selectedCat
+                        }
                         onAdd(
                             Transaction(
                                 date = dateStr,
                                 title = finalTitle,
                                 amount = amt,
                                 category = selectedCat,
-                                method = selectedMethod
+                                method = selectedMethod,
+                                isHelpBuy = isHelpBuy,
+                                claimRecipient = if (isHelpBuy) claimRecipient.trim() else "",
+                                isSettled = isSettled
                             )
                         )
                     }
@@ -2422,6 +2890,235 @@ fun AddExpenseSheet(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// SHARE CLAIM DIALOG (WHATSAPP & APP INTENT SHARE)
+// -------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ShareClaimDialog(
+    recipientName: String,
+    transactionsToClaim: List<Transaction>,
+    savedDuitNow: String,
+    onDismiss: () -> Unit,
+    onMarkAllSettled: () -> Unit,
+    onSaveDuitNow: (String) -> Unit
+) {
+    val context = LocalContext.current
+    var customDuitNow by remember(savedDuitNow) { mutableStateOf(savedDuitNow) }
+    var showDuitNowEdit by remember { mutableStateOf(savedDuitNow.isBlank()) }
+    var includeDuitNow by remember { mutableStateOf(true) }
+    var customNote by remember { mutableStateOf("") }
+
+    val totalAmount = remember(transactionsToClaim) {
+        transactionsToClaim.sumOf { it.amount }
+    }
+
+    val displayRecipient = if (recipientName.isNotBlank() && recipientName != "All People") recipientName else "friend"
+
+    // Construct the formatted WhatsApp / Text claim
+    val claimMessage = remember(recipientName, transactionsToClaim, customDuitNow, includeDuitNow, customNote) {
+        val sb = StringBuilder()
+        sb.append("🧾 *RinggitWise Claim • Tolong Beli*\n\n")
+        sb.append("Hey $displayRecipient! 👋\n")
+        if (transactionsToClaim.size == 1) {
+            val tx = transactionsToClaim.first()
+            sb.append("Here's the receipt for what I helped you buy:\n\n")
+            sb.append("📅 *Date:* ${tx.date}\n")
+            sb.append("🛍️ *Item:* ${tx.title}\n")
+            sb.append("💰 *Amount:* ${formatRM(tx.amount)}\n")
+            if (tx.note.isNotBlank()) {
+                sb.append("📝 *Note:* ${tx.note}\n")
+            }
+        } else {
+            sb.append("Here is the summary of items I helped you buy (${transactionsToClaim.size} items):\n\n")
+            transactionsToClaim.forEach { tx ->
+                sb.append("• ${tx.date}: ${tx.title} — ${formatRM(tx.amount)}\n")
+            }
+        }
+
+        if (customNote.isNotBlank()) {
+            sb.append("\n💬 $customNote\n")
+        }
+
+        sb.append("\n────────────────────────\n")
+        sb.append("👉 *Total to transfer:* *${formatRM(totalAmount)}*\n")
+        sb.append("────────────────────────\n")
+
+        if (includeDuitNow && customDuitNow.isNotBlank()) {
+            sb.append("\n📲 *DuitNow / Transfer Details:*\n$customDuitNow\n")
+        }
+        sb.append("\nThanks bro! Let me know once transferred 🙌")
+        sb.toString()
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 12.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("Share Claim Receipt", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("For $displayRecipient • Total ${formatRM(totalAmount)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFF38BDF8).copy(alpha = 0.2f),
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Share, contentDescription = null, tint = Color(0xFF38BDF8))
+                    }
+                }
+            }
+
+            // Receipt Preview Card
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainerHighest),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Preview Message", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8))
+                    Text(
+                        text = claimMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+
+            // Custom note input
+            OutlinedTextField(
+                value = customNote,
+                onValueChange = { customNote = it },
+                label = { Text("Add Custom Note (Optional)") },
+                placeholder = { Text("e.g. Bro pay me before Friday ya") },
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            // DuitNow toggle and edit
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
+                border = glassCardBorder(),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.SendToMobile, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                            Text("Include DuitNow / Payment Details", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                        }
+                        Switch(checked = includeDuitNow, onCheckedChange = { includeDuitNow = it })
+                    }
+
+                    if (includeDuitNow) {
+                        if (customDuitNow.isBlank() || showDuitNowEdit) {
+                            OutlinedTextField(
+                                value = customDuitNow,
+                                onValueChange = {
+                                    customDuitNow = it
+                                    onSaveDuitNow(it)
+                                },
+                                label = { Text("DuitNow / Account Details") },
+                                placeholder = { Text("e.g. 012-3456789 (Maybank - Tan)") },
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(customDuitNow, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                TextButton(onClick = { showDuitNowEdit = true }) {
+                                    Text("Edit")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Primary Actions: WhatsApp / Apps Share & Copy
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = {
+                        val sendIntent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            putExtra(Intent.EXTRA_TEXT, claimMessage)
+                            type = "text/plain"
+                        }
+                        context.startActivity(Intent.createChooser(sendIntent, "Share Claim with $displayRecipient via"))
+                    },
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Share (WhatsApp)", fontWeight = FontWeight.Bold)
+                }
+
+                FilledTonalButton(
+                    onClick = {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("RinggitWise Claim", claimMessage))
+                        Toast.makeText(context, "Claim receipt copied to clipboard! 📋", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.height(50.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Copy")
+                }
+            }
+
+            // Settle button
+            OutlinedButton(
+                onClick = {
+                    onMarkAllSettled()
+                    Toast.makeText(context, "Marked as settled! 🎉", Toast.LENGTH_SHORT).show()
+                    onDismiss()
+                },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Mark as Settled (Paid Back)")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -2993,6 +3690,8 @@ fun SettingsPage(
     onSetGeminiApiKey: (String) -> Unit,
     onSetGeminiModel: (String) -> Unit,
     onTestGeminiKey: suspend (String, String) -> Result<String>,
+    userDuitNowInfo: String = "",
+    onSetDuitNowInfo: (String) -> Unit = {},
     monthlyBudget: Double,
     onEditBudget: () -> Unit,
     onClearAllData: () -> Unit
@@ -3519,7 +4218,45 @@ fun SettingsPage(
             }
         }
 
-        // Section 4: Data Management & Reset
+        // Section 4: Tolong Beli & DuitNow Payment Info
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+            border = glassCardBorder()
+        ) {
+            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.SendToMobile, contentDescription = null, tint = Color(0xFF38BDF8))
+                    Text("Tolong Beli • Claim Payment Info", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+
+                Text(
+                    "Set your default DuitNow ID, TNG eWallet number, or Bank Account. When you share claims with friends via WhatsApp, this is automatically attached for easy transfer.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                var localDuitNow by remember(userDuitNowInfo) { mutableStateOf(userDuitNowInfo) }
+                OutlinedTextField(
+                    value = localDuitNow,
+                    onValueChange = {
+                        localDuitNow = it
+                        onSetDuitNowInfo(it)
+                    },
+                    label = { Text("My DuitNow / Bank Info") },
+                    placeholder = { Text("e.g. 012-3456789 (Maybank / TNG - Tan)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    singleLine = true
+                )
+            }
+        }
+
+        // Section 5: Data Management & Reset
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),

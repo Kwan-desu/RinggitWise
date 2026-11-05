@@ -93,6 +93,10 @@ class FinanceRepository(private val context: Context) {
     private val _chartMode = MutableStateFlow(prefs.getString("chart_mode", "half_pie") ?: "half_pie")
     val chartMode: StateFlow<String> = _chartMode.asStateFlow()
 
+    // Saved DuitNow / Payment details for Tolong Beli claims
+    private val _userDuitNowInfo = MutableStateFlow(prefs.getString("user_duitnow_info", "") ?: "")
+    val userDuitNowInfo: StateFlow<String> = _userDuitNowInfo.asStateFlow()
+
     init {
         loadData()
     }
@@ -149,6 +153,22 @@ class FinanceRepository(private val context: Context) {
             _transactions.value = current
             saveTransactions(current)
         }
+    }
+
+    fun toggleTransactionSettled(id: String) {
+        val current = _transactions.value.toMutableList()
+        val idx = current.indexOfFirst { it.id == id }
+        if (idx != -1) {
+            val old = current[idx]
+            current[idx] = old.copy(isSettled = !old.isSettled)
+            _transactions.value = current
+            saveTransactions(current)
+        }
+    }
+
+    fun setDuitNowInfo(info: String) {
+        _userDuitNowInfo.value = info.trim()
+        prefs.edit().putString("user_duitnow_info", info.trim()).apply()
     }
 
     fun updateBudget(newBudget: Double) {
@@ -253,14 +273,17 @@ Supported Malaysian expense categories:
 - Healthcare & Pharmacy
 - Snacks & Desserts
 - Top Up (Credit)
+- Tolong Beli (Help Buy)
 
 TASK & CAPABILITIES:
 1. When given an image, receipt photo, bank statement screenshot, or PDF document (e.g. Touch 'n Go eWallet, Maybank MAE, CIMB, Bank Islam, RHB, Public Bank, APSpace / student card):
    - Extract ALL distinct financial transactions found.
    - For each transaction, create an action with actionType="ADD".
    - Extract title (clean store/merchant name), amount (positive float e.g. 15.50), type ("debit" for expenses, "credit" for income/refund/transfer in), category (best match from supported categories), date (YYYY-MM-DD), time (HH:mm:ss if present), and payment method (e.g. "DuitNow QR", "TNG eWallet", "Debit Card", etc.).
-2. When given natural language user requests (e.g., "Add RM 12 for chicken rice", "Delete my Spotify payment", "Update yesterday's Grab to RM 18", "How much have I spent on food?"):
+2. When given natural language user requests (e.g., "Add RM 12 for chicken rice", "I helped Ah Ming buy Starbucks RM 15.50", "Tolong beli lunch for Sarah RM 12", "Delete my Spotify payment", "Update yesterday's Grab to RM 18", "How much have I spent on food?"):
    - For additions: actionType="ADD"
+   - When user mentions helping someone buy, buying on behalf of a friend/colleague/family (e.g. "helped Ah Ming buy", "tolong beli for Sarah", "claim from boss"):
+     Set category="Tolong Beli (Help Buy)", isHelpBuy=true, and extract claimRecipient with the person's name (e.g. "Ah Ming", "Sarah").
    - For deletions: actionType="DELETE" and set targetId matching the transaction ID from the ledger context
    - For updates/corrections: actionType="UPDATE" and set targetId with updated fields
    - For questions / advice: actionType="MESSAGE" with no modifications
@@ -280,7 +303,9 @@ You MUST respond ONLY with a valid JSON object matching this exact structure:
       "time": "HH:mm:ss",
       "targetId": "",
       "note": "",
-      "explanation": "Brief reason"
+      "explanation": "Brief reason",
+      "isHelpBuy": false,
+      "claimRecipient": ""
     }
   ]
 }
@@ -379,6 +404,8 @@ $ledgerContext
                     val targetId = act.optString("targetId", "")
                     val note = act.optString("note", "")
                     val explanation = act.optString("explanation", "")
+                    val isHelpBuy = act.optBoolean("isHelpBuy", false) || cat.contains("Tolong Beli", ignoreCase = true)
+                    val claimRecipient = act.optString("claimRecipient", "")
 
                     actionsList.add(
                         GeminiProposedAction(
@@ -392,7 +419,9 @@ $ledgerContext
                             time = time,
                             note = note,
                             targetId = targetId,
-                            explanation = explanation
+                            explanation = explanation,
+                            isHelpBuy = isHelpBuy,
+                            claimRecipient = claimRecipient
                         )
                     )
                 }
@@ -426,7 +455,9 @@ $ledgerContext
                         type = action.type.ifBlank { "debit" },
                         category = action.category.ifBlank { "Mamak & Dining" },
                         method = action.method.ifBlank { "DuitNow QR" },
-                        note = action.note.ifBlank { "Added via RinggitWise AI" }
+                        note = action.note.ifBlank { "Added via RinggitWise AI" },
+                        isHelpBuy = action.isHelpBuy || action.category.contains("Tolong Beli", ignoreCase = true),
+                        claimRecipient = action.claimRecipient
                     )
                 )
             }
@@ -457,7 +488,9 @@ $ledgerContext
                         category = if (action.category.isNotBlank()) action.category else existing.category,
                         date = if (action.date.isNotBlank()) action.date else existing.date,
                         time = if (action.time.isNotBlank()) action.time else existing.time,
-                        type = if (action.type.isNotBlank()) action.type else existing.type
+                        type = if (action.type.isNotBlank()) action.type else existing.type,
+                        isHelpBuy = if (action.isHelpBuy) true else existing.isHelpBuy,
+                        claimRecipient = if (action.claimRecipient.isNotBlank()) action.claimRecipient else existing.claimRecipient
                     )
                     updateTransaction(updated)
                 }
