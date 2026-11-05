@@ -28,11 +28,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -236,6 +238,16 @@ fun RinggitWiseApp(repository: FinanceRepository) {
         }
     }
 
+    val currentHour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
+    val timeGreeting = remember(currentHour) {
+        when (currentHour) {
+            in 5..11 -> "Good morning ☀️"
+            in 12..17 -> "Good afternoon 🌤️"
+            in 18..21 -> "Good evening 🌙"
+            else -> "Welcome back ✨"
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         // Custom Wallpaper Layer
         if (bgBitmap != null) {
@@ -266,48 +278,56 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                                 IconButton(onClick = { selectedTab = previousTab }) {
                                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
                                 }
+                            } else {
+                                // Profile Avatar with decorative glowing emerald ring
+                                Box(
+                                    modifier = Modifier
+                                        .padding(start = 12.dp, end = 8.dp)
+                                        .size(42.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                                        .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                                        .clickable {
+                                            previousTab = selectedTab
+                                            selectedTab = 4
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (avatarBitmap != null) {
+                                        Image(
+                                            bitmap = avatarBitmap.asImageBitmap(),
+                                            contentDescription = "Profile Avatar",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                        )
+                                    } else if (userProfileEmoji.isNotEmpty() && userProfileEmoji != "RM") {
+                                        Text(userProfileEmoji, fontSize = 20.sp)
+                                    } else {
+                                        Text("RM", fontWeight = FontWeight.Black, fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
                             }
                         },
                         title = {
                             if (selectedTab == 4) {
                                 Text("Settings & Personalization", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             } else {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.primaryContainer,
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(CircleShape)
-                                            .clickable {
-                                                previousTab = selectedTab
-                                                selectedTab = 4
-                                            }
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            if (avatarBitmap != null) {
-                                                Image(
-                                                    bitmap = avatarBitmap.asImageBitmap(),
-                                                    contentDescription = "Profile Avatar",
-                                                    contentScale = ContentScale.Crop,
-                                                    modifier = Modifier.fillMaxSize()
-                                                )
-                                            } else if (userProfileEmoji.isNotEmpty() && userProfileEmoji != "RM") {
-                                                Text(userProfileEmoji, fontSize = 18.sp)
-                                            } else {
-                                                Text("RM", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                            }
-                                        }
+                                Column(
+                                    modifier = Modifier.clickable {
+                                        previousTab = selectedTab
+                                        selectedTab = 4
                                     }
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                ) {
                                     Text(
-                                        "RinggitWise",
+                                        text = timeGreeting,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "RinggitWise",
                                         style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.clickable {
-                                            previousTab = selectedTab
-                                            selectedTab = 4
-                                        }
+                                        fontWeight = FontWeight.ExtraBold,
+                                        letterSpacing = (-0.3).sp
                                     )
                                 }
                             }
@@ -318,7 +338,7 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                                 Surface(
                                     shape = CircleShape,
                                     color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainerHigh),
-                                    border = glassCardBorder(),
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = if (bgBitmap != null) 0.18f else 0.08f)),
                                     modifier = Modifier.padding(end = 4.dp)
                                 ) {
                                     Row(
@@ -387,58 +407,63 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                     )
                 },
                 bottomBar = {
-                    NavigationBar(
-                        containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer)
+                    Surface(
+                        shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp),
+                        color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = if (bgBitmap != null) 0.15f else 0.05f)),
+                        shadowElevation = 8.dp
                     ) {
-                        NavigationBarItem(
-                            selected = selectedTab == 0,
-                            onClick = { selectedTab = 0 },
-                            icon = { Icon(Icons.Default.Dashboard, contentDescription = "Overview") },
-                            label = { Text("Overview") }
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == 1,
-                            onClick = { selectedTab = 1 },
-                            icon = { Icon(Icons.Default.PieChart, contentDescription = "Charts") },
-                            label = { Text("Charts") }
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == 2,
-                            onClick = { selectedTab = 2 },
-                            icon = { Icon(Icons.Default.DocumentScanner, contentDescription = "AI OCR Scan") },
-                            label = { Text("AI Scan") }
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == 3,
-                            onClick = { selectedTab = 3 },
-                            icon = { Icon(Icons.Default.History, contentDescription = "Ledger") },
-                            label = { Text("Ledger") }
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == 4,
-                            onClick = {
-                                previousTab = selectedTab
-                                selectedTab = 4
-                            },
-                            icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                            label = { Text("Settings") }
-                        )
+                        NavigationBar(
+                            containerColor = Color.Transparent,
+                            tonalElevation = 0.dp
+                        ) {
+                            NavigationBarItem(
+                                selected = selectedTab == 0,
+                                onClick = { selectedTab = 0 },
+                                icon = { Icon(if (selectedTab == 0) Icons.Default.Dashboard else Icons.Outlined.Dashboard, contentDescription = "Overview") },
+                                label = { Text("Overview", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) }
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == 1,
+                                onClick = { selectedTab = 1 },
+                                icon = { Icon(if (selectedTab == 1) Icons.Default.PieChart else Icons.Outlined.PieChart, contentDescription = "Charts") },
+                                label = { Text("Charts", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) }
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == 2,
+                                onClick = { selectedTab = 2 },
+                                icon = { Icon(Icons.Default.DocumentScanner, contentDescription = "AI OCR Scan") },
+                                label = { Text("AI Scan", fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal) }
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == 3,
+                                onClick = { selectedTab = 3 },
+                                icon = { Icon(if (selectedTab == 3) Icons.Default.ReceiptLong else Icons.Outlined.ReceiptLong, contentDescription = "Ledger") },
+                                label = { Text("Ledger", fontWeight = if (selectedTab == 3) FontWeight.Bold else FontWeight.Normal) }
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == 4,
+                                onClick = {
+                                    previousTab = selectedTab
+                                    selectedTab = 4
+                                },
+                                icon = { Icon(if (selectedTab == 4) Icons.Default.Settings else Icons.Outlined.Settings, contentDescription = "Settings") },
+                                label = { Text("Settings", fontWeight = if (selectedTab == 4) FontWeight.Bold else FontWeight.Normal) }
+                            )
+                        }
                     }
                 },
                 floatingActionButton = {
                     if (selectedTab in listOf(0, 1, 3)) {
-                        FloatingActionButton(
+                        ExtendedFloatingActionButton(
                             onClick = { showAddSheet = true },
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary,
-                            shape = RoundedCornerShape(18.dp)
-                        ) {
-                            Row(modifier = Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Add, contentDescription = "Add Expense")
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Add RM", fontWeight = FontWeight.Bold)
-                            }
-                        }
+                            shape = RoundedCornerShape(20.dp),
+                            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp, pressedElevation = 10.dp),
+                            icon = { Icon(Icons.Default.Add, contentDescription = "Add Expense", modifier = Modifier.size(20.dp)) },
+                            text = { Text("Add RM", fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+                        )
                     }
                 }
             ) { innerPadding ->
@@ -464,6 +489,9 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                             availableUpdate = availableUpdate,
                             onOpenUpdateModal = { activeUpdateInfo = availableUpdate },
                             onEditBudget = { showBudgetDialog = true },
+                            onQuickAdd = { showAddSheet = true },
+                            onNavigateToScan = { selectedTab = 2 },
+                            onNavigateToAnalytics = { selectedTab = 1 },
                             onNavigateToHistory = { selectedTab = 3 },
                             onNavigateToTolongBeli = {
                                 initialLedgerFilter = "Tolong Beli (Help Buy)"
@@ -698,10 +726,16 @@ fun OverviewTab(
     availableUpdate: AppUpdateInfo? = null,
     onOpenUpdateModal: () -> Unit = {},
     onEditBudget: () -> Unit,
+    onQuickAdd: () -> Unit = {},
+    onNavigateToScan: () -> Unit = {},
+    onNavigateToAnalytics: () -> Unit = {},
     onNavigateToHistory: () -> Unit,
     onNavigateToTolongBeli: () -> Unit = {},
     onDeleteTransaction: (String) -> Unit
 ) {
+    val isWp = LocalIsWallpaperActive.current
+    val cardAlpha = LocalCardAlpha.current
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -753,103 +787,257 @@ fun OverviewTab(
                 }
             }
         }
-        // 4 Material You KPI Cards in 2x2 Grid
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            // 1. Total Spent Card
-            Card(
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(24.dp),
-                colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
-                border = glassCardBorder()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("TOTAL SPENT", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(formatRM(totalSpent), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
-                    Spacer(modifier = Modifier.height(10.dp))
-                    LinearProgressIndicator(
-                        progress = { (percentUsed / 100f).coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
-                        color = if (isOverBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.surfaceContainer
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text("$percentUsed% of budget", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
 
-            // 2. Monthly Budget Card
-            Card(
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(24.dp),
-                colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
-                border = glassCardBorder()
+        // HERO FINANCIAL HEALTH CARD
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isWp) MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = cardAlpha) else MaterialTheme.colorScheme.surfaceContainerHigh
+            ),
+            border = BorderStroke(1.dp, Color.White.copy(alpha = if (isWp) 0.18f else 0.08f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = if (isWp) {
+                                listOf(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
+                                    Color.Transparent
+                                )
+                            } else {
+                                listOf(
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                                    MaterialTheme.colorScheme.surfaceContainerHigh
+                                )
+                            }
+                        )
+                    )
+                    .padding(20.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("BUDGET", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        IconButton(onClick = onEditBudget, modifier = Modifier.size(20.dp)) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    // Header Row: Cycle & Status Badge
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.CalendarMonth,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                "CYCLE • ${formatDisplayMonth(selectedMonth).uppercase()}",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Surface(
+                            shape = CircleShape,
+                            color = if (isOverBudget) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+                            border = BorderStroke(
+                                1.dp,
+                                if (isOverBudget) MaterialTheme.colorScheme.error.copy(alpha = 0.5f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                            )
+                        ) {
+                            Text(
+                                text = if (isOverBudget) "Over by ${formatRM(totalSpent - monthlyBudget)}" else "${formatRM(remaining)} left",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
                         }
                     }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(formatRM(monthlyBudget), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Text("Ceiling Limit (RM)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                    // Main Total Spent Number
+                    Column {
+                        Text(
+                            text = "TOTAL SPENT",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = formatRM(totalSpent),
+                            style = MaterialTheme.typography.displaySmall,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-0.5).sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    // Progress Bar & Budget Limit Row
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        LinearProgressIndicator(
+                            progress = { (percentUsed / 100f).coerceIn(0f, 1f) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp)
+                                .clip(CircleShape),
+                            color = if (isOverBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f)
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "$percentUsed% of ${formatRM(monthlyBudget)} ceiling",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { onEditBudget() }
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = "Edit Budget",
+                                    modifier = Modifier.size(12.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    "Edit",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+
+                    // 2-Column Micro-Metrics Footer
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "DAILY SAFE ALLOWANCE",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "${formatRM(dailySafeSpend)} / day",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                "Guilt-free pace",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .height(40.dp)
+                                .width(1.dp)
+                                .background(Color.White.copy(alpha = 0.15f))
+                        )
+
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.End
+                        ) {
+                            Text(
+                                "CYCLE TIME",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "$daysRemaining days",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "Left in this month",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
                 }
             }
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            // 3. Remaining Balance Card
-            Card(
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(24.dp),
-                colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
-                border = glassCardBorder()
+        // FINTECH QUICK ACTION DOCK (4 Circular Modern Action Buttons)
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
+            border = BorderStroke(1.dp, Color.White.copy(alpha = if (isWp) 0.15f else 0.05f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 14.dp, horizontal = 8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("REMAINING", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Surface(
-                            shape = CircleShape,
-                            color = if (isOverBudget) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer
-                        ) {
-                            Text(
-                                text = if (isOverBudget) "Over" else "Track",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = if (isOverBudget) "-${formatRM(totalSpent - monthlyBudget)}" else formatRM(remaining),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black,
-                        color = if (isOverBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Text("$daysRemaining days left in month", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
+                // 1. Add Expense Action
+                QuickActionButton(
+                    icon = Icons.Default.Add,
+                    label = "Add RM",
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    onClick = onQuickAdd
+                )
 
-            // 4. Daily Safe Allowance Card
-            Card(
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(24.dp),
-                colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
-                border = glassCardBorder()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("DAILY SAFE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(formatRM(dailySafeSpend), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Text("Guilt-free daily burn rate", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                // 2. AI Scanner Action
+                QuickActionButton(
+                    icon = Icons.Default.DocumentScanner,
+                    label = "AI Scan",
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    iconTint = MaterialTheme.colorScheme.onTertiaryContainer,
+                    onClick = onNavigateToScan
+                )
+
+                // 3. Tolong Beli Action with badge
+                QuickActionButton(
+                    icon = Icons.Default.VolunteerActivism,
+                    label = "Tolong Beli",
+                    containerColor = Color(0xFF38BDF8).copy(alpha = 0.2f),
+                    iconTint = Color(0xFF0284C7),
+                    badgeCount = pendingClaimsCount,
+                    onClick = onNavigateToTolongBeli
+                )
+
+                // 4. Analytics Action
+                QuickActionButton(
+                    icon = Icons.Default.PieChart,
+                    label = "Analytics",
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    onClick = onNavigateToAnalytics
+                )
             }
         }
 
@@ -937,6 +1125,68 @@ fun OverviewTab(
         }
 
         Spacer(modifier = Modifier.height(60.dp))
+    }
+}
+
+@Composable
+fun QuickActionButton(
+    icon: ImageVector,
+    label: String,
+    containerColor: Color,
+    iconTint: Color,
+    badgeCount: Int = 0,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        Box {
+            Surface(
+                shape = CircleShape,
+                color = containerColor,
+                modifier = Modifier.size(52.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = label,
+                        tint = iconTint,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+
+            if (badgeCount > 0) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(18.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = if (badgeCount > 9) "9+" else "$badgeCount",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onError
+                        )
+                    }
+                }
+            }
+        }
+
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
@@ -2601,6 +2851,23 @@ fun LedgerTab(
     }
 }
 
+fun getCategoryIcon(category: String): ImageVector {
+    return when {
+        category.contains("Parking", true) || category.contains("Toll", true) -> Icons.Default.DirectionsCar
+        category.contains("Mamak", true) || category.contains("Dining", true) || category.contains("Food", true) -> Icons.Default.Restaurant
+        category.contains("Drink", true) || category.contains("Cafe", true) || category.contains("Coffee", true) -> Icons.Default.LocalCafe
+        category.contains("Grocer", true) || category.contains("Supermarket", true) -> Icons.Default.ShoppingCart
+        category.contains("Fuel", true) || category.contains("Petrol", true) || category.contains("Transport", true) -> Icons.Default.LocalGasStation
+        category.contains("Shop", true) || category.contains("Online", true) -> Icons.Default.ShoppingBag
+        category.contains("Util", true) || category.contains("Bill", true) -> Icons.Default.ReceiptLong
+        category.contains("Health", true) || category.contains("Pharm", true) || category.contains("Clinic", true) -> Icons.Default.MedicalServices
+        category.contains("Snack", true) || category.contains("Dessert", true) -> Icons.Default.Fastfood
+        category.contains("Top Up", true) || category.contains("Credit", true) -> Icons.Default.AccountBalanceWallet
+        category.contains("Tolong Beli", true) || category.contains("Help Buy", true) -> Icons.Default.VolunteerActivism
+        else -> Icons.Default.Payments
+    }
+}
+
 @Composable
 fun TransactionCardItem(
     tx: Transaction,
@@ -2610,11 +2877,12 @@ fun TransactionCardItem(
 ) {
     val catObj = DEFAULT_CATEGORIES.find { it.name.equals(tx.category, true) }
     val color = catObj?.color ?: MaterialTheme.colorScheme.primary
+    val icon = getCategoryIcon(tx.category)
     val isHelp = tx.isHelpBuy || tx.category.contains("Tolong Beli", ignoreCase = true)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(22.dp),
         colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
         border = glassCardBorder()
     ) {
@@ -2624,40 +2892,78 @@ fun TransactionCardItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Category Squircle Icon
                     Surface(
-                        shape = CircleShape,
-                        color = color,
-                        modifier = Modifier.size(40.dp)
+                        shape = RoundedCornerShape(14.dp),
+                        color = color.copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, color.copy(alpha = 0.4f)),
+                        modifier = Modifier.size(44.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            if (isHelp) {
-                                Icon(Icons.Default.VolunteerActivism, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                            } else {
-                                Text(
-                                    text = tx.title.take(1).uppercase(),
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
-                            }
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = tx.category,
+                                tint = color,
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = tx.title.ifEmpty { tx.category },
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "${tx.date} • ${tx.category} • ${tx.method}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = tx.title.ifEmpty { tx.category },
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (isHelp) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFF38BDF8).copy(alpha = 0.2f)
+                                ) {
+                                    Text(
+                                        "Claim",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF38BDF8),
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "${tx.date} • ${tx.category}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1
+                            )
+                            if (tx.method.isNotBlank()) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f)
+                                ) {
+                                    Text(
+                                        text = tx.method,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontSize = 9.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -2667,7 +2973,8 @@ fun TransactionCardItem(
                     Text(
                         text = formatRM(tx.amount),
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black
+                        fontWeight = FontWeight.Black,
+                        color = if (tx.type == "credit") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                     )
                     if (isHelp) {
                         IconButton(onClick = onShareClaim) {
@@ -2689,16 +2996,16 @@ fun TransactionCardItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(10.dp),
                         color = Color(0xFF38BDF8).copy(alpha = 0.15f),
                         border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.35f))
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(13.dp), tint = Color(0xFF38BDF8))
+                            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color(0xFF38BDF8))
                             Text(
                                 text = if (tx.claimRecipient.isNotBlank()) "For ${tx.claimRecipient}" else "Tolong Beli",
                                 style = MaterialTheme.typography.labelSmall,
@@ -2715,14 +3022,14 @@ fun TransactionCardItem(
                         modifier = Modifier.clickable { onToggleSettled() }
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Icon(
                                 if (tx.isSettled) Icons.Default.CheckCircle else Icons.Default.Schedule,
                                 contentDescription = null,
-                                modifier = Modifier.size(13.dp),
+                                modifier = Modifier.size(14.dp),
                                 tint = if (tx.isSettled) Color(0xFF10B981) else Color(0xFFF59E0B)
                             )
                             Text(
@@ -2741,16 +3048,87 @@ fun TransactionCardItem(
 
 @Composable
 fun TransactionRow(tx: Transaction, onDelete: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+    val catObj = DEFAULT_CATEGORIES.find { it.name.equals(tx.category, true) }
+    val color = catObj?.color ?: MaterialTheme.colorScheme.primary
+    val icon = getCategoryIcon(tx.category)
+    val isHelp = tx.isHelpBuy || tx.category.contains("Tolong Beli", ignoreCase = true)
+
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer).copy(alpha = if (LocalIsWallpaperActive.current) 0.5f else 0.7f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = if (LocalIsWallpaperActive.current) 0.12f else 0.05f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(tx.title.ifEmpty { tx.category }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-            Text("${tx.date} • ${tx.category}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Category squircle icon
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = color.copy(alpha = 0.2f),
+                    border = BorderStroke(1.dp, color.copy(alpha = 0.35f)),
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = tx.category,
+                            tint = color,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = tx.title.ifEmpty { tx.category },
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (isHelp) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Color(0xFF38BDF8).copy(alpha = 0.2f)
+                            ) {
+                                Text(
+                                    "Claim",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF38BDF8),
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        text = "${tx.date} • ${tx.category}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Text(
+                text = formatRM(tx.amount),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Black,
+                color = if (tx.type == "credit") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+            )
         }
-        Text(formatRM(tx.amount), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Black)
     }
 }
 
@@ -2798,6 +3176,39 @@ fun AddExpenseSheet(
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth()
             )
+
+            // Quick Preset Amount Chips
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(5, 10, 20, 50, 100).forEach { preset ->
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                val currentVal = amountStr.toDoubleOrNull() ?: 0.0
+                                amountStr = String.format(Locale.US, "%.2f", currentVal + preset)
+                            }
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        ) {
+                            Text(
+                                "+$preset",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
 
             // Description (OPTIONAL)
             OutlinedTextField(
@@ -4234,27 +4645,95 @@ fun SettingsPage(
                 }
 
                 if (testResult != null) {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isTestSuccess) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    if (isTestSuccess) {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(
-                                if (isTestSuccess) Icons.Default.CheckCircle else Icons.Default.Cancel,
-                                contentDescription = null,
-                                tint = if (isTestSuccess) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                testResult!!,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (isTestSuccess) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
-                            )
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Column {
+                                    Text(
+                                        "Gemini AI Connected!",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    Text(
+                                        "Model $localModel is ready for receipt scanning & AI ledger actions.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Cancel,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                    Text(
+                                        "Connection Issue",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+
+                                val err = testResult ?: "Unknown error"
+                                val isModelRetired = err.contains("404") || err.contains("no longer available") || err.contains("not found")
+                                val isKeyInvalid = err.contains("400") || err.contains("API_KEY_INVALID") || err.contains("key not valid")
+
+                                Text(
+                                    text = when {
+                                        isModelRetired -> "This model is retired or not supported by Google. Please switch to gemini-3.5-flash-lite."
+                                        isKeyInvalid -> "API key is invalid. Please make sure you copied the exact key from aistudio.google.com without spaces."
+                                        else -> err.take(200)
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+
+                                if (isModelRetired && localModel != "gemini-3.5-flash-lite") {
+                                    FilledTonalButton(
+                                        onClick = {
+                                            localModel = "gemini-3.5-flash-lite"
+                                            onSetGeminiModel("gemini-3.5-flash-lite")
+                                            testResult = null
+                                        },
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text("Switch to gemini-3.5-flash-lite", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
