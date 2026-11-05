@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Base64
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -97,8 +98,30 @@ class FinanceRepository(private val context: Context) {
     private val _userDuitNowInfo = MutableStateFlow(prefs.getString("user_duitnow_info", "") ?: "")
     val userDuitNowInfo: StateFlow<String> = _userDuitNowInfo.asStateFlow()
 
+    // GitHub Releases Auto-Update
+    private val _autoCheckUpdates = MutableStateFlow(prefs.getBoolean("auto_check_updates", true))
+    val autoCheckUpdates: StateFlow<Boolean> = _autoCheckUpdates.asStateFlow()
+
+    private val _githubRepoSlug = MutableStateFlow(prefs.getString("github_repo_slug", UpdateManager.DEFAULT_REPO) ?: UpdateManager.DEFAULT_REPO)
+    val githubRepoSlug: StateFlow<String> = _githubRepoSlug.asStateFlow()
+
+    private val _availableUpdate = MutableStateFlow<AppUpdateInfo?>(null)
+    val availableUpdate: StateFlow<AppUpdateInfo?> = _availableUpdate.asStateFlow()
+
     init {
         loadData()
+        if (_autoCheckUpdates.value) {
+            kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val res = UpdateManager.checkForUpdates(context, _githubRepoSlug.value)
+                    res.onSuccess {
+                        if (it.hasUpdate) {
+                            _availableUpdate.value = it
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+        }
     }
 
     private fun currentMonthString(): String {
@@ -171,6 +194,31 @@ class FinanceRepository(private val context: Context) {
         prefs.edit().putString("user_duitnow_info", info.trim()).apply()
     }
 
+    fun setAutoCheckUpdates(enabled: Boolean) {
+        _autoCheckUpdates.value = enabled
+        prefs.edit().putBoolean("auto_check_updates", enabled).apply()
+    }
+
+    fun setGithubRepoSlug(slug: String) {
+        val clean = slug.trim().ifBlank { UpdateManager.DEFAULT_REPO }
+        _githubRepoSlug.value = clean
+        prefs.edit().putString("github_repo_slug", clean).apply()
+    }
+
+    fun dismissUpdate() {
+        _availableUpdate.value = null
+    }
+
+    suspend fun checkForUpdates(): Result<AppUpdateInfo> = withContext(Dispatchers.IO) {
+        val res = UpdateManager.checkForUpdates(context, _githubRepoSlug.value)
+        res.onSuccess { info ->
+            if (info.hasUpdate) {
+                _availableUpdate.value = info
+            }
+        }
+        res
+    }
+
     fun updateBudget(newBudget: Double) {
         _monthlyBudget.value = newBudget
         prefs.edit().putFloat("monthly_budget", newBudget.toFloat()).apply()
@@ -198,14 +246,21 @@ class FinanceRepository(private val context: Context) {
     }
 
     fun setGeminiModel(model: String) {
-        _geminiModel.value = model.trim()
-        prefs.edit().putString("gemini_model", model.trim()).apply()
+        val cleaned = when (model.trim()) {
+            "gemini-2.5-flash-lite", "gemini-2.5-flash" -> "gemini-3.5-flash-lite"
+            else -> model.trim().ifBlank { "gemini-3.5-flash-lite" }
+        }
+        _geminiModel.value = cleaned
+        prefs.edit().putString("gemini_model", cleaned).apply()
     }
 
     suspend fun testGeminiApiKey(key: String, model: String): Result<String> = withContext(Dispatchers.IO) {
         val apiKey = key.trim()
         if (apiKey.isEmpty()) return@withContext Result.failure(Exception("API Key cannot be blank"))
-        val selectedModel = model.trim().ifBlank { "gemini-3.5-flash-lite" }
+        val selectedModel = when (model.trim()) {
+            "gemini-2.5-flash-lite", "gemini-2.5-flash" -> "gemini-3.5-flash-lite"
+            else -> model.trim().ifBlank { "gemini-3.5-flash-lite" }
+        }
         val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$selectedModel:generateContent?key=$apiKey"
 
         try {
@@ -246,7 +301,11 @@ class FinanceRepository(private val context: Context) {
             )
         }
 
-        val model = _geminiModel.value.trim().ifBlank { "gemini-3.5-flash-lite" }
+        val rawModel = _geminiModel.value.trim()
+        val model = when (rawModel) {
+            "gemini-2.5-flash-lite", "gemini-2.5-flash" -> "gemini-3.5-flash-lite"
+            else -> rawModel.ifBlank { "gemini-3.5-flash-lite" }
+        }
         val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
 
         try {

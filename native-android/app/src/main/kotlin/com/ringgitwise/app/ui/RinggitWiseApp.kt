@@ -72,8 +72,10 @@ import kotlin.math.roundToInt
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.ringgitwise.app.BuildConfig
 import com.ringgitwise.app.data.*
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.min
@@ -135,6 +137,10 @@ fun RinggitWiseApp(repository: FinanceRepository) {
     val geminiApiKey by repository.geminiApiKey.collectAsState()
     val geminiModel by repository.geminiModel.collectAsState()
     val userDuitNowInfo by repository.userDuitNowInfo.collectAsState()
+    val autoCheckUpdates by repository.autoCheckUpdates.collectAsState()
+    val githubRepoSlug by repository.githubRepoSlug.collectAsState()
+    val availableUpdate by repository.availableUpdate.collectAsState()
+    var activeUpdateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var previousTab by remember { mutableIntStateOf(0) }
@@ -455,6 +461,8 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                             recentTransactions = activeMonthExpenses.take(5),
                             pendingClaimsTotal = pendingClaimsTotal,
                             pendingClaimsCount = pendingClaimsCount,
+                            availableUpdate = availableUpdate,
+                            onOpenUpdateModal = { activeUpdateInfo = availableUpdate },
                             onEditBudget = { showBudgetDialog = true },
                             onNavigateToHistory = { selectedTab = 3 },
                             onNavigateToTolongBeli = {
@@ -539,7 +547,14 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                             onSetDuitNowInfo = { repository.setDuitNowInfo(it) },
                             monthlyBudget = monthlyBudget,
                             onEditBudget = { showBudgetDialog = true },
-                            onClearAllData = { showClearDialog = true }
+                            onClearAllData = { showClearDialog = true },
+                            autoCheckUpdates = autoCheckUpdates,
+                            onSetAutoCheckUpdates = { repository.setAutoCheckUpdates(it) },
+                            githubRepoSlug = githubRepoSlug,
+                            onSetGithubRepoSlug = { repository.setGithubRepoSlug(it) },
+                            availableUpdate = availableUpdate,
+                            onCheckForUpdates = { repository.checkForUpdates() },
+                            onOpenUpdateModal = { activeUpdateInfo = it }
                         )
                     }
                 }
@@ -651,6 +666,17 @@ fun RinggitWiseApp(repository: FinanceRepository) {
             onSaveDuitNow = { repository.setDuitNowInfo(it) }
         )
     }
+
+    // App Update Sheet / Dialog
+    if (activeUpdateInfo != null) {
+        AppUpdateDialog(
+            updateInfo = activeUpdateInfo!!,
+            onDismiss = {
+                activeUpdateInfo = null
+                repository.dismissUpdate()
+            }
+        )
+    }
 }
 
 // -------------------------------------------------------------
@@ -669,6 +695,8 @@ fun OverviewTab(
     recentTransactions: List<Transaction>,
     pendingClaimsTotal: Double = 0.0,
     pendingClaimsCount: Int = 0,
+    availableUpdate: AppUpdateInfo? = null,
+    onOpenUpdateModal: () -> Unit = {},
     onEditBudget: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToTolongBeli: () -> Unit = {},
@@ -681,6 +709,50 @@ fun OverviewTab(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // GitHub Release Auto-Update Notification Banner
+        if (availableUpdate != null && availableUpdate.hasUpdate) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenUpdateModal() },
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        Icons.Default.SystemUpdate,
+                        contentDescription = "New Version Available",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "New Version Available • ${availableUpdate.latestVersion}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            "Tap to view release notes & download APK",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
+                    FilledTonalButton(
+                        onClick = onOpenUpdateModal,
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text("Update", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
         // 4 Material You KPI Cards in 2x2 Grid
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             // 1. Total Spent Card
@@ -3694,7 +3766,14 @@ fun SettingsPage(
     onSetDuitNowInfo: (String) -> Unit = {},
     monthlyBudget: Double,
     onEditBudget: () -> Unit,
-    onClearAllData: () -> Unit
+    onClearAllData: () -> Unit,
+    autoCheckUpdates: Boolean = true,
+    onSetAutoCheckUpdates: (Boolean) -> Unit = {},
+    githubRepoSlug: String = UpdateManager.DEFAULT_REPO,
+    onSetGithubRepoSlug: (String) -> Unit = {},
+    availableUpdate: AppUpdateInfo? = null,
+    onCheckForUpdates: suspend () -> Result<AppUpdateInfo> = { Result.failure(Exception()) },
+    onOpenUpdateModal: (AppUpdateInfo) -> Unit = {}
 ) {
     val quickEmojis = listOf("💰", "🦁", "🇲🇾", "🚀", "💳", "📈", "🍔", "☕", "🚗", "🏠", "🐱", "✨", "RM")
 
@@ -4030,7 +4109,7 @@ fun SettingsPage(
                 var localKey by remember(geminiApiKey) { mutableStateOf(geminiApiKey) }
                 var showPassword by remember { mutableStateOf(false) }
                 var localModel by remember(geminiModel) {
-                    val initial = if (geminiModel.isBlank() || geminiModel == "gemini-2.5-flash-lite") "gemini-3.5-flash-lite" else geminiModel
+                    val initial = if (geminiModel.isBlank() || geminiModel == "gemini-2.5-flash-lite" || geminiModel == "gemini-2.5-flash") "gemini-3.5-flash-lite" else geminiModel
                     if (initial != geminiModel) onSetGeminiModel(initial)
                     mutableStateOf(initial)
                 }
@@ -4256,7 +4335,183 @@ fun SettingsPage(
             }
         }
 
-        // Section 5: Data Management & Reset
+        // Section 5: App Updates & GitHub Releases
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+            border = glassCardBorder()
+        ) {
+            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.CloudSync, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text("App Updates & Releases", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+
+                Text(
+                    "Syncs with GitHub Releases. Seamlessly checks for new versions, downloads the APK in the background, and triggers one-tap install.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                // Version status row
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
+                    border = glassCardBorder(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("Installed Version", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        }
+
+                        if (availableUpdate != null && availableUpdate.hasUpdate) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.errorContainer
+                            ) {
+                                Text(
+                                    "Update: ${availableUpdate.latestVersion}",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        } else {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Text(
+                                    "Latest Version",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Auto-check Switch
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Auto-check for updates", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        Text("Silently checks GitHub Releases at app launch", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(
+                        checked = autoCheckUpdates,
+                        onCheckedChange = onSetAutoCheckUpdates
+                    )
+                }
+
+                // GitHub Repository Slug
+                var localSlug by remember(githubRepoSlug) { mutableStateOf(githubRepoSlug) }
+                OutlinedTextField(
+                    value = localSlug,
+                    onValueChange = {
+                        localSlug = it
+                        onSetGithubRepoSlug(it)
+                    },
+                    label = { Text("GitHub Repository (owner/repo)") },
+                    placeholder = { Text("Kwan-desu/RinggitWise") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    singleLine = true
+                )
+
+                // Check Button & Status
+                val scope = rememberCoroutineScope()
+                var isChecking by remember { mutableStateOf(false) }
+                var checkMessage by remember { mutableStateOf<String?>(null) }
+                var isCheckSuccess by remember { mutableStateOf(true) }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            isChecking = true
+                            checkMessage = null
+                            scope.launch {
+                                val res = onCheckForUpdates()
+                                isChecking = false
+                                res.onSuccess { info ->
+                                    isCheckSuccess = true
+                                    if (info.hasUpdate) {
+                                        checkMessage = "Found ${info.latestVersion}! Tap View Update."
+                                        onOpenUpdateModal(info)
+                                    } else {
+                                        checkMessage = "You're already on the latest version (${info.currentVersion})."
+                                    }
+                                }.onFailure { err ->
+                                    isCheckSuccess = false
+                                    checkMessage = "Check failed: ${err.message}"
+                                }
+                            }
+                        },
+                        enabled = !isChecking,
+                        modifier = Modifier.weight(1.2f),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        if (isChecking) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Checking...")
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Check Updates")
+                        }
+                    }
+
+                    if (availableUpdate != null && availableUpdate.hasUpdate) {
+                        FilledTonalButton(
+                            onClick = { onOpenUpdateModal(availableUpdate) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(Icons.Default.ArrowOutward, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("View Update")
+                        }
+                    }
+                }
+
+                if (checkMessage != null) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isCheckSuccess) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            checkMessage!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isCheckSuccess) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Section 6: Data Management & Reset
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
@@ -4287,11 +4542,257 @@ fun SettingsPage(
 
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            "RinggitWise Native v1.0 • Material You • Made for Malaysia",
+            "RinggitWise Native v${BuildConfig.VERSION_NAME} • Material You • Made for Malaysia",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
         Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+// -------------------------------------------------------------
+// APP UPDATE MODAL DIALOG
+// -------------------------------------------------------------
+@Composable
+fun AppUpdateDialog(
+    updateInfo: AppUpdateInfo,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isDownloading by remember { mutableStateOf(false) }
+    var downloadProgress by remember { mutableFloatStateOf(0f) }
+    var downloadError by remember { mutableStateOf<String?>(null) }
+    var downloadedFile by remember { mutableStateOf<File?>(null) }
+
+    Dialog(
+        onDismissRequest = {
+            if (!isDownloading) onDismiss()
+        },
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .wrapContentHeight()
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Header
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.SystemUpdate,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                    Column {
+                        Text(
+                            "New Version Available",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "${updateInfo.currentVersion} ➔ ${updateInfo.latestVersion}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                // Release Info & Notes
+                if (updateInfo.releaseTitle.isNotBlank()) {
+                    Text(
+                        updateInfo.releaseTitle,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 200.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(14.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Text(
+                            updateInfo.releaseNotes.ifBlank { "Minor bug fixes and performance improvements." },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                if (updateInfo.apkFileSize > 0) {
+                    val sizeMb = String.format(Locale.US, "%.1f MB", updateInfo.apkFileSize / (1024.0 * 1024.0))
+                    Text(
+                        "Package size: $sizeMb",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Download Progress
+                if (isDownloading) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "Downloading update...",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "${(downloadProgress * 100).toInt()}%",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        LinearProgressIndicator(
+                            progress = { downloadProgress.coerceIn(0f, 1f) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp)
+                                .clip(CircleShape),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                        )
+                    }
+                }
+
+                if (downloadError != null) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = downloadError!!,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+
+                // Action Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (!isDownloading) {
+                        OutlinedButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text("Later")
+                        }
+                    }
+
+                    if (downloadedFile != null && downloadedFile!!.exists()) {
+                        Button(
+                            onClick = {
+                                UpdateManager.installApk(context, downloadedFile!!)
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(Icons.Default.DownloadDone, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Install Now")
+                        }
+                    } else if (updateInfo.apkDownloadUrl != null) {
+                        Button(
+                            onClick = {
+                                isDownloading = true
+                                downloadError = null
+                                downloadProgress = 0f
+                                scope.launch {
+                                    val result = UpdateManager.downloadApk(
+                                        context = context,
+                                        downloadUrl = updateInfo.apkDownloadUrl,
+                                        fileName = updateInfo.apkFileName
+                                    ) { progress ->
+                                        downloadProgress = progress
+                                    }
+                                    isDownloading = false
+                                    result.onSuccess { file ->
+                                        downloadedFile = file
+                                        UpdateManager.installApk(context, file)
+                                    }.onFailure { err ->
+                                        downloadError = "Download failed: ${err.message}"
+                                    }
+                                }
+                            },
+                            enabled = !isDownloading,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            if (isDownloading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Downloading...")
+                            } else {
+                                Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Download APK")
+                            }
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(updateInfo.htmlUrl)).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(browserIntent)
+                                onDismiss()
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Open in GitHub")
+                        }
+                    }
+                }
+            }
+        }
     }
 }
