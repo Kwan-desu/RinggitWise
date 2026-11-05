@@ -115,7 +115,8 @@ class FinanceRepository(private val context: Context) {
                 try {
                     val res = UpdateManager.checkForUpdates(context, _githubRepoSlug.value)
                     res.onSuccess {
-                        if (it.hasUpdate) {
+                        val dismissedVersion = prefs.getString("dismissed_update_version", "") ?: ""
+                        if (it.hasUpdate && it.latestVersion != dismissedVersion) {
                             _availableUpdate.value = it
                         }
                     }
@@ -205,8 +206,11 @@ class FinanceRepository(private val context: Context) {
         prefs.edit().putString("github_repo_slug", clean).apply()
     }
 
-    fun dismissUpdate() {
+    fun dismissUpdate(version: String? = null) {
         _availableUpdate.value = null
+        if (!version.isNullOrBlank()) {
+            prefs.edit().putString("dismissed_update_version", version).apply()
+        }
     }
 
     suspend fun checkForUpdates(): Result<AppUpdateInfo> = withContext(Dispatchers.IO) {

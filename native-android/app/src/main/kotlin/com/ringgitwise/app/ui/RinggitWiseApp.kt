@@ -241,10 +241,10 @@ fun RinggitWiseApp(repository: FinanceRepository) {
     val currentHour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
     val timeGreeting = remember(currentHour) {
         when (currentHour) {
-            in 5..11 -> "Good morning ☀️"
-            in 12..17 -> "Good afternoon 🌤️"
-            in 18..21 -> "Good evening 🌙"
-            else -> "Welcome back ✨"
+            in 5..11 -> "Good morning"
+            in 12..17 -> "Good afternoon"
+            in 18..21 -> "Good evening"
+            else -> "Welcome back"
         }
     }
 
@@ -488,6 +488,7 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                             pendingClaimsCount = pendingClaimsCount,
                             availableUpdate = availableUpdate,
                             onOpenUpdateModal = { activeUpdateInfo = availableUpdate },
+                            onDismissUpdate = { repository.dismissUpdate(availableUpdate?.latestVersion) },
                             onEditBudget = { showBudgetDialog = true },
                             onQuickAdd = { showAddSheet = true },
                             onNavigateToScan = { selectedTab = 2 },
@@ -697,11 +698,12 @@ fun RinggitWiseApp(repository: FinanceRepository) {
 
     // App Update Sheet / Dialog
     if (activeUpdateInfo != null) {
+        val ver = activeUpdateInfo!!.latestVersion
         AppUpdateDialog(
             updateInfo = activeUpdateInfo!!,
             onDismiss = {
                 activeUpdateInfo = null
-                repository.dismissUpdate()
+                repository.dismissUpdate(ver)
             }
         )
     }
@@ -725,6 +727,7 @@ fun OverviewTab(
     pendingClaimsCount: Int = 0,
     availableUpdate: AppUpdateInfo? = null,
     onOpenUpdateModal: () -> Unit = {},
+    onDismissUpdate: () -> Unit = {},
     onEditBudget: () -> Unit,
     onQuickAdd: () -> Unit = {},
     onNavigateToScan: () -> Unit = {},
@@ -783,6 +786,18 @@ fun OverviewTab(
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                     ) {
                         Text("Update", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    IconButton(
+                        onClick = onDismissUpdate,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Dismiss",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        )
                     }
                 }
             }
@@ -1245,7 +1260,15 @@ fun ChartsTab(
             FilterChip(
                 selected = chartMode == "half_pie",
                 onClick = { onSelectChartMode("half_pie") },
-                label = { Text("⌒ 180° Half Pie", fontWeight = FontWeight.Bold) },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.PieChart,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (chartMode == "half_pie") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                label = { Text("180° Half Pie", fontWeight = FontWeight.Bold) },
                 shape = CircleShape,
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
@@ -1256,7 +1279,15 @@ fun ChartsTab(
             FilterChip(
                 selected = chartMode == "donut",
                 onClick = { onSelectChartMode("donut") },
-                label = { Text("◯ 360° Donut", fontWeight = FontWeight.Bold) },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.DonutLarge,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (chartMode == "donut") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                label = { Text("360° Donut", fontWeight = FontWeight.Bold) },
                 shape = CircleShape,
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
@@ -1267,7 +1298,15 @@ fun ChartsTab(
             FilterChip(
                 selected = chartMode == "bar",
                 onClick = { onSelectChartMode("bar") },
-                label = { Text("📊 Ranked Bars", fontWeight = FontWeight.Bold) },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.BarChart,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (chartMode == "bar") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                label = { Text("Ranked Bars", fontWeight = FontWeight.Bold) },
                 shape = CircleShape,
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
@@ -1278,7 +1317,15 @@ fun ChartsTab(
             FilterChip(
                 selected = chartMode == "timeline",
                 onClick = { onSelectChartMode("timeline") },
-                label = { Text("📅 Daily Timeline", fontWeight = FontWeight.Bold) },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Timeline,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (chartMode == "timeline") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                label = { Text("Daily Timeline", fontWeight = FontWeight.Bold) },
                 shape = CircleShape,
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
@@ -1896,7 +1943,15 @@ fun ImportTab(
             FilterChip(
                 selected = currentScanEngine == 0,
                 onClick = { currentScanEngine = 0 },
-                label = { Text("⚡ Local OCR (Offline)", fontWeight = FontWeight.Bold) },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.DocumentScanner,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (currentScanEngine == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                label = { Text("Local OCR", fontWeight = FontWeight.Bold) },
                 shape = CircleShape,
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
@@ -1908,7 +1963,15 @@ fun ImportTab(
             FilterChip(
                 selected = currentScanEngine == 1,
                 onClick = { currentScanEngine = 1 },
-                label = { Text("✨ Gemini AI (PDF & Chat)", fontWeight = FontWeight.Bold) },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (currentScanEngine == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                label = { Text("Gemini Cloud AI", fontWeight = FontWeight.Bold) },
                 shape = CircleShape,
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
@@ -1931,8 +1994,16 @@ fun ImportTab(
                 FilterChip(
                     selected = localActiveMode == 0,
                     onClick = { localActiveMode = 0 },
-                    label = { Text("📷 OCR Camera & Gallery", fontWeight = FontWeight.Bold) },
-                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.PhotoCamera,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = if (localActiveMode == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    label = { Text("Camera & Gallery", fontWeight = FontWeight.Bold) },
+                    shape = CircleShape,
                     colors = FilterChipDefaults.filterChipColors(
                         containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainerLow),
                         selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer
@@ -1942,8 +2013,16 @@ fun ImportTab(
                 FilterChip(
                     selected = localActiveMode == 1,
                     onClick = { localActiveMode = 1 },
-                    label = { Text("📝 Paste Text", fontWeight = FontWeight.Bold) },
-                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.ContentPaste,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = if (localActiveMode == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    label = { Text("Paste Text", fontWeight = FontWeight.Bold) },
+                    shape = CircleShape,
                     colors = FilterChipDefaults.filterChipColors(
                         containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainerLow),
                         selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer
@@ -2107,7 +2186,7 @@ fun ImportTab(
                             Text("Need deeper document analysis?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                         }
                         Text(
-                            "Local regex didn't recognize this format. ✨ Gemini AI can read complex tables, PDF statements, and handwritten notes.",
+                            "Local regex didn't recognize this format. Gemini AI can read complex tables, PDF statements, and handwritten notes.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
@@ -2203,7 +2282,15 @@ fun ImportTab(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Raw OCR / Statement Text", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                            Text(if (showLocalRawText) "Hide ▲" else "View ▼", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(if (showLocalRawText) "Hide" else "View", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                Icon(
+                                    if (showLocalRawText) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                         if (showLocalRawText) {
                             Spacer(modifier = Modifier.height(8.dp))
@@ -2369,23 +2456,31 @@ fun ImportTab(
 
                         // Quick Chips
                         val quickPrompts = listOf(
-                            "➕ Lunch at Mamak RM 14.50",
-                            "➕ Touch 'n Go Toll RM 3.50",
-                            "🗑️ Delete my latest expense",
-                            "📊 How much did I spend this month?"
+                            Triple(Icons.Default.Add, "Lunch at Mamak RM 14.50", "Add RM 14.50 for Mamak lunch"),
+                            Triple(Icons.Default.Add, "Touch 'n Go Toll RM 3.50", "Add RM 3.50 for toll"),
+                            Triple(Icons.Default.DeleteOutline, "Delete latest expense", "Delete my latest expense"),
+                            Triple(Icons.Default.BarChart, "Monthly spend", "How much did I spend this month?")
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            quickPrompts.forEach { p ->
+                            quickPrompts.forEach { (icon, label, prompt) ->
                                 SuggestionChip(
                                     onClick = {
-                                        userChatPrompt = p.removePrefix("➕ ").removePrefix("🗑️ ").removePrefix("📊 ")
+                                        userChatPrompt = prompt
                                         submitGeminiPrompt(userChatPrompt)
                                     },
-                                    label = { Text(p, fontSize = 11.sp) },
-                                    shape = RoundedCornerShape(10.dp)
+                                    icon = {
+                                        Icon(
+                                            icon,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    },
+                                    label = { Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium) },
+                                    shape = CircleShape
                                 )
                             }
                         }
@@ -2668,9 +2763,17 @@ fun LedgerTab(
             FilterChip(
                 selected = isTolongSelected,
                 onClick = { selectedCategoryFilter = "Tolong Beli (Help Buy)" },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.VolunteerActivism,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (isTolongSelected) MaterialTheme.colorScheme.primary else Color(0xFF38BDF8)
+                    )
+                },
                 label = {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("🛍️ Tolong Beli")
+                        Text("Tolong Beli", fontWeight = FontWeight.Bold)
                         if (pendingClaims.isNotEmpty()) {
                             Surface(
                                 shape = CircleShape,
@@ -3288,7 +3391,15 @@ fun AddExpenseSheet(
                             FilterChip(
                                 selected = isSettled,
                                 onClick = { isSettled = !isSettled },
-                                label = { Text(if (isSettled) "✅ Already Paid" else "⏳ Pending Claim") },
+                                leadingIcon = {
+                                    Icon(
+                                        if (isSettled) Icons.Default.CheckCircle else Icons.Default.Schedule,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = if (isSettled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                },
+                                label = { Text(if (isSettled) "Already Paid" else "Pending Claim", fontWeight = FontWeight.Bold) },
                                 shape = CircleShape
                             )
                         }
@@ -3774,11 +3885,19 @@ fun MonthPickerDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            "🕒 All Time (Everything)",
-                            fontWeight = if (currentMonth == "all") FontWeight.Bold else FontWeight.Medium,
-                            color = if (currentMonth == "all") MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(
+                                Icons.Default.AllInclusive,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = if (currentMonth == "all") MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                "All Time (Everything)",
+                                fontWeight = if (currentMonth == "all") FontWeight.Bold else FontWeight.Medium,
+                                color = if (currentMonth == "all") MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                         if (currentMonth == "all") {
                             Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         }
@@ -4038,7 +4157,7 @@ fun InteractiveImageCropperDialog(
                                 color = Color.White
                             )
                             Text(
-                                "🖐️ Drag to pan • 🤏 Pinch to zoom",
+                                "Drag to pan • Pinch to zoom",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color.White.copy(alpha = 0.75f)
                             )
@@ -4587,7 +4706,7 @@ fun SettingsPage(
                 )
 
                 Text("Quick Select Model:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                val availableModels = listOf("gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.5-flash", "gemini-2.0-flash")
+                val availableModels = listOf("gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-2.0-flash")
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -4602,7 +4721,7 @@ fun SettingsPage(
                                 testResult = null
                             },
                             label = { Text(m, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
-                            shape = RoundedCornerShape(12.dp)
+                            shape = CircleShape
                         )
                     }
                 }
