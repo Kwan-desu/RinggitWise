@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">RinggitWise</string>
+    <string name="widget_description">Today\'s spend, budget left and your next bill</string>
 </resources>

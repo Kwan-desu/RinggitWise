@@ -52,6 +52,9 @@ import android.graphics.Canvas as AndroidCanvas
 import android.graphics.Paint as AndroidPaint
 import android.graphics.Matrix as AndroidMatrix
 import android.net.Uri
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -112,12 +115,31 @@ fun glassSurfaceColor(
     return if (isWp) baseColor.copy(alpha = alpha) else baseColor
 }
 
+enum class LaunchAction { NONE, ADD_EXPENSE, OPEN_BILLS }
+
+private enum class SubScreen(val title: String) {
+    NONE(""),
+    BILLS("Bills & Subscriptions"),
+    GOALS("Savings Goals"),
+    EXPORT("Export & Backup"),
+    SCAN("Scan & AI Assistant"),
+    SETTINGS("Settings")
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RinggitWiseApp(repository: FinanceRepository) {
+fun RinggitWiseApp(
+    repository: FinanceRepository,
+    launchAction: LaunchAction = LaunchAction.NONE,
+    onLaunchActionConsumed: () -> Unit = {}
+) {
     val transactions by repository.transactions.collectAsState()
     val monthlyBudget by repository.monthlyBudget.collectAsState()
     val selectedMonth by repository.selectedMonth.collectAsState()
+    val bills by repository.bills.collectAsState()
+    val goals by repository.goals.collectAsState()
+    val themeMode by repository.themeMode.collectAsState()
+    val billRemindersEnabled by repository.billRemindersEnabled.collectAsState()
 
     // Profile & Background Customizations
     val userProfileEmoji by repository.userProfileEmoji.collectAsState()
@@ -144,14 +166,41 @@ fun RinggitWiseApp(repository: FinanceRepository) {
     val availableUpdate by repository.availableUpdate.collectAsState()
     var activeUpdateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
 
+    // 4 primary tabs: 0 = Home, 1 = Activity, 2 = Insights, 3 = More
     var selectedTab by remember { mutableIntStateOf(0) }
-    var previousTab by remember { mutableIntStateOf(0) }
+    var subScreen by remember { mutableStateOf(SubScreen.NONE) }
+    var initialOpenGoalId by remember { mutableStateOf<String?>(null) }
+    var showAddMenuSheet by remember { mutableStateOf(false) }
     var showAddSheet by remember { mutableStateOf(false) }
     var showBudgetDialog by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
     var showMonthPicker by remember { mutableStateOf(false) }
     var initialLedgerFilter by remember { mutableStateOf("All") }
     var claimShareTarget by remember { mutableStateOf<Pair<String, List<Transaction>>?>(null) }
+
+    val notifPermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        repository.setBillRemindersEnabled(granted)
+    }
+
+    LaunchedEffect(launchAction) {
+        when (launchAction) {
+            LaunchAction.ADD_EXPENSE -> {
+                showAddSheet = true
+                onLaunchActionConsumed()
+            }
+            LaunchAction.OPEN_BILLS -> {
+                subScreen = SubScreen.BILLS
+                onLaunchActionConsumed()
+            }
+            LaunchAction.NONE -> {}
+        }
+    }
+
+    BackHandler(enabled = subScreen != SubScreen.NONE) {
+        subScreen = SubScreen.NONE
+    }
 
     val tolongBeliPendingList = remember(transactions) {
         transactions.filter { (it.isHelpBuy || it.category.contains("Tolong Beli", ignoreCase = true)) && !it.isSettled }
@@ -184,6 +233,11 @@ fun RinggitWiseApp(repository: FinanceRepository) {
         transactions.filter { it.amount > 0 && it.type != "credit" }
     }
 
+    val todayIso = remember { SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date()) }
+    val todaySpent = remember(expenses, todayIso) {
+        expenses.filter { it.date == todayIso }.sumOf { it.amount }
+    }
+
     // Active month expenses
     val activeMonthExpenses = remember(expenses, selectedMonth) {
         if (selectedMonth == "all") expenses
@@ -202,7 +256,7 @@ fun RinggitWiseApp(repository: FinanceRepository) {
     val calendar = Calendar.getInstance()
     val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
     val currentDay = calendar.get(Calendar.DAY_OF_MONTH)
-    val daysRemaining = (daysInMonth - currentDay).coerceAtLeast(1)
+    val daysRemaining = (daysInMonth - currentDay + 1).coerceAtLeast(1)
     val dailySafeSpend = if (remaining > 0) remaining / daysRemaining else 0.0
 
     var cropperSourceBitmap by remember { mutableStateOf<Bitmap?>(null) }
@@ -270,27 +324,24 @@ fun RinggitWiseApp(repository: FinanceRepository) {
             LocalCardAlpha provides cardAlpha
         ) {
             Scaffold(
-                containerColor = if (bgBitmap != null) Color.Transparent else MaterialTheme.colorScheme.surface,
+                containerColor = if (bgBitmap != null) Color.Transparent else MaterialTheme.colorScheme.background,
                 topBar = {
-                    TopAppBar(
-                        navigationIcon = {
-                            if (selectedTab == 4) {
-                                IconButton(onClick = { selectedTab = previousTab }) {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
-                                }
-                            } else {
-                                // Profile Avatar with decorative glowing emerald ring
+                    if (subScreen != SubScreen.NONE) {
+                        SubScreenTopBar(
+                            title = subScreen.title,
+                            onBack = { subScreen = SubScreen.NONE }
+                        )
+                    } else {
+                        TopAppBar(
+                            navigationIcon = {
                                 Box(
                                     modifier = Modifier
                                         .padding(start = 12.dp, end = 8.dp)
-                                        .size(42.dp)
+                                        .size(40.dp)
                                         .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                                        .background(MaterialTheme.colorScheme.primaryContainer)
                                         .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                                        .clickable {
-                                            previousTab = selectedTab
-                                            selectedTab = 4
-                                        },
+                                        .clickable { subScreen = SubScreen.SETTINGS },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (avatarBitmap != null) {
@@ -301,23 +352,14 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                                             modifier = Modifier.fillMaxSize().clip(CircleShape)
                                         )
                                     } else if (userProfileEmoji.isNotEmpty() && userProfileEmoji != "RM") {
-                                        Text(userProfileEmoji, fontSize = 20.sp)
+                                        Text(userProfileEmoji, fontSize = 18.sp)
                                     } else {
-                                        Text("RM", fontWeight = FontWeight.Black, fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
+                                        Text("RM", fontWeight = FontWeight.Black, fontSize = 13.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                     }
                                 }
-                            }
-                        },
-                        title = {
-                            if (selectedTab == 4) {
-                                Text("Settings & Personalization", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            } else {
-                                Column(
-                                    modifier = Modifier.clickable {
-                                        previousTab = selectedTab
-                                        selectedTab = 4
-                                    }
-                                ) {
+                            },
+                            title = {
+                                Column(modifier = Modifier.clickable { subScreen = SubScreen.SETTINGS }) {
                                     Text(
                                         text = timeGreeting,
                                         style = MaterialTheme.typography.labelSmall,
@@ -330,16 +372,13 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                                         letterSpacing = (-0.3).sp
                                     )
                                 }
-                            }
-                        },
-                        actions = {
-                            if (selectedTab != 4) {
-                                // Month Stepper with Left/Right chevrons and interactive calendar picker
+                            },
+                            actions = {
                                 Surface(
                                     shape = CircleShape,
                                     color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainerHigh),
-                                    border = BorderStroke(1.dp, Color.White.copy(alpha = if (bgBitmap != null) 0.18f else 0.08f)),
-                                    modifier = Modifier.padding(end = 4.dp)
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                    modifier = Modifier.padding(end = 8.dp)
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -347,12 +386,12 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                                     ) {
                                         IconButton(
                                             onClick = { repository.selectMonth(getPreviousMonth(selectedMonth)) },
-                                            modifier = Modifier.size(28.dp)
+                                            modifier = Modifier.size(32.dp)
                                         ) {
                                             Icon(
                                                 Icons.Default.ChevronLeft,
                                                 contentDescription = "Previous Month",
-                                                modifier = Modifier.size(16.dp),
+                                                modifier = Modifier.size(18.dp),
                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
@@ -360,9 +399,9 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             modifier = Modifier
-                                                .clip(RoundedCornerShape(12.dp))
+                                                .clip(CircleShape)
                                                 .clickable { showMonthPicker = true }
-                                                .padding(horizontal = 6.dp, vertical = 4.dp)
+                                                .padding(horizontal = 8.dp, vertical = 6.dp)
                                         ) {
                                             Icon(
                                                 Icons.Default.CalendarMonth,
@@ -381,88 +420,30 @@ fun RinggitWiseApp(repository: FinanceRepository) {
 
                                         IconButton(
                                             onClick = { repository.selectMonth(getNextMonth(selectedMonth)) },
-                                            modifier = Modifier.size(28.dp)
+                                            modifier = Modifier.size(32.dp)
                                         ) {
                                             Icon(
                                                 Icons.Default.ChevronRight,
                                                 contentDescription = "Next Month",
-                                                modifier = Modifier.size(16.dp),
+                                                modifier = Modifier.size(18.dp),
                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                     }
                                 }
-
-                                IconButton(onClick = {
-                                    previousTab = selectedTab
-                                    selectedTab = 4
-                                }) {
-                                    Icon(Icons.Outlined.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = glassSurfaceColor(MaterialTheme.colorScheme.surface)
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = glassSurfaceColor(MaterialTheme.colorScheme.background)
+                            )
                         )
-                    )
-                },
-                bottomBar = {
-                    Surface(
-                        shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp),
-                        color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = if (bgBitmap != null) 0.15f else 0.05f)),
-                        shadowElevation = 8.dp
-                    ) {
-                        NavigationBar(
-                            containerColor = Color.Transparent,
-                            tonalElevation = 0.dp
-                        ) {
-                            NavigationBarItem(
-                                selected = selectedTab == 0,
-                                onClick = { selectedTab = 0 },
-                                icon = { Icon(if (selectedTab == 0) Icons.Default.Dashboard else Icons.Outlined.Dashboard, contentDescription = "Overview") },
-                                label = { Text("Overview", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) }
-                            )
-                            NavigationBarItem(
-                                selected = selectedTab == 1,
-                                onClick = { selectedTab = 1 },
-                                icon = { Icon(if (selectedTab == 1) Icons.Default.PieChart else Icons.Outlined.PieChart, contentDescription = "Charts") },
-                                label = { Text("Charts", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) }
-                            )
-                            NavigationBarItem(
-                                selected = selectedTab == 2,
-                                onClick = { selectedTab = 2 },
-                                icon = { Icon(Icons.Default.DocumentScanner, contentDescription = "AI OCR Scan") },
-                                label = { Text("AI Scan", fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal) }
-                            )
-                            NavigationBarItem(
-                                selected = selectedTab == 3,
-                                onClick = { selectedTab = 3 },
-                                icon = { Icon(if (selectedTab == 3) Icons.Default.ReceiptLong else Icons.Outlined.ReceiptLong, contentDescription = "Ledger") },
-                                label = { Text("Ledger", fontWeight = if (selectedTab == 3) FontWeight.Bold else FontWeight.Normal) }
-                            )
-                            NavigationBarItem(
-                                selected = selectedTab == 4,
-                                onClick = {
-                                    previousTab = selectedTab
-                                    selectedTab = 4
-                                },
-                                icon = { Icon(if (selectedTab == 4) Icons.Default.Settings else Icons.Outlined.Settings, contentDescription = "Settings") },
-                                label = { Text("Settings", fontWeight = if (selectedTab == 4) FontWeight.Bold else FontWeight.Normal) }
-                            )
-                        }
                     }
                 },
-                floatingActionButton = {
-                    if (selectedTab in listOf(0, 1, 3)) {
-                        ExtendedFloatingActionButton(
-                            onClick = { showAddSheet = true },
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                            shape = RoundedCornerShape(20.dp),
-                            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp, pressedElevation = 10.dp),
-                            icon = { Icon(Icons.Default.Add, contentDescription = "Add Expense", modifier = Modifier.size(20.dp)) },
-                            text = { Text("Add RM", fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+                bottomBar = {
+                    if (subScreen == SubScreen.NONE) {
+                        FintechBottomBar(
+                            selectedTab = selectedTab,
+                            onSelectTab = { selectedTab = it },
+                            onCenterAddClick = { showAddMenuSheet = true }
                         )
                     }
                 }
@@ -471,64 +452,50 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
-                        .background(if (bgBitmap != null) Color.Transparent else MaterialTheme.colorScheme.surface)
+                        .background(if (bgBitmap != null) Color.Transparent else MaterialTheme.colorScheme.background)
                 ) {
-                    when (selectedTab) {
-                        0 -> OverviewTab(
-                            totalSpent = totalSpent,
-                            monthlyBudget = monthlyBudget,
-                            remaining = remaining,
-                            dailySafeSpend = dailySafeSpend,
-                            percentUsed = percentUsed,
-                            isOverBudget = isOverBudget,
-                            daysRemaining = daysRemaining,
-                            selectedMonth = selectedMonth,
-                            recentTransactions = activeMonthExpenses.take(5),
-                            pendingClaimsTotal = pendingClaimsTotal,
-                            pendingClaimsCount = pendingClaimsCount,
-                            availableUpdate = availableUpdate,
-                            onOpenUpdateModal = { activeUpdateInfo = availableUpdate },
-                            onDismissUpdate = { repository.dismissUpdate(availableUpdate?.latestVersion) },
-                            onEditBudget = { showBudgetDialog = true },
-                            onQuickAdd = { showAddSheet = true },
-                            onNavigateToScan = { selectedTab = 2 },
-                            onNavigateToAnalytics = { selectedTab = 1 },
-                            onNavigateToHistory = { selectedTab = 3 },
-                            onNavigateToTolongBeli = {
-                                initialLedgerFilter = "Tolong Beli (Help Buy)"
-                                selectedTab = 3
+                    when (subScreen) {
+                        SubScreen.BILLS -> BillsScreen(
+                            bills = bills,
+                            remindersEnabled = billRemindersEnabled,
+                            onToggleReminders = { enable ->
+                                if (enable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    repository.setBillRemindersEnabled(enable)
+                                }
                             },
-                            onDeleteTransaction = { repository.deleteTransaction(it) }
+                            onUpsert = { repository.upsertBill(it) },
+                            onDelete = { repository.deleteBill(it) },
+                            onMarkPaid = { repository.markBillPaid(it, logExpense = true) },
+                            onUnmarkPaid = { repository.unmarkBillPaid(it) }
                         )
-                        1 -> ChartsTab(
-                            expenses = activeMonthExpenses,
-                            totalSpent = totalSpent,
-                            monthlyBudget = monthlyBudget,
+                        SubScreen.GOALS -> GoalsScreen(
+                            goals = goals,
+                            initialOpenGoalId = initialOpenGoalId,
+                            onInitialConsumed = { initialOpenGoalId = null },
+                            onUpsert = { repository.upsertGoal(it) },
+                            onDelete = { repository.deleteGoal(it) },
+                            onContribute = { id, amt -> repository.contributeToGoal(id, amt) }
+                        )
+                        SubScreen.EXPORT -> ExportScreen(
+                            repository = repository,
+                            allTransactions = transactions,
                             selectedMonth = selectedMonth,
-                            chartMode = chartMode,
-                            onSelectChartMode = { repository.setChartMode(it) }
+                            monthlyBudget = monthlyBudget
                         )
-                        2 -> ImportTab(
+                        SubScreen.SCAN -> ImportTab(
                             repository = repository,
                             onImportTransactions = { list ->
                                 repository.addMultipleTransactions(list)
-                                selectedTab = 3
+                                subScreen = SubScreen.NONE
+                                selectedTab = 1
                             },
                             onNavigateToSettings = {
-                                selectedTab = 4
+                                subScreen = SubScreen.SETTINGS
                             }
                         )
-                        3 -> LedgerTab(
-                            transactions = activeMonthExpenses,
-                            duitNowInfo = userDuitNowInfo,
-                            initialFilter = initialLedgerFilter,
-                            onDelete = { repository.deleteTransaction(it) },
-                            onToggleSettled = { repository.toggleTransactionSettled(it) },
-                            onShareClaim = { recip, txs ->
-                                claimShareTarget = Pair(recip, txs)
-                            }
-                        )
-                        4 -> SettingsPage(
+                        SubScreen.SETTINGS -> SettingsPage(
                             userProfileEmoji = userProfileEmoji,
                             hasCustomProfileImage = hasCustomProfileImage,
                             avatarBitmap = avatarBitmap,
@@ -585,10 +552,94 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                             onCheckForUpdates = { repository.checkForUpdates() },
                             onOpenUpdateModal = { activeUpdateInfo = it }
                         )
+                        SubScreen.NONE -> when (selectedTab) {
+                            0 -> HomeScreen(
+                                selectedMonth = selectedMonth,
+                                totalSpent = totalSpent,
+                                monthlyBudget = monthlyBudget,
+                                todaySpent = todaySpent,
+                                dailySafeSpend = dailySafeSpend,
+                                daysRemaining = daysRemaining,
+                                recentTransactions = activeMonthExpenses.take(5),
+                                bills = bills,
+                                goals = goals,
+                                pendingClaimsTotal = pendingClaimsTotal,
+                                pendingClaimsCount = pendingClaimsCount,
+                                availableUpdate = availableUpdate,
+                                onOpenUpdate = { activeUpdateInfo = availableUpdate },
+                                onDismissUpdate = { repository.dismissUpdate(availableUpdate?.latestVersion) },
+                                onEditBudget = { showBudgetDialog = true },
+                                onAddExpense = { showAddSheet = true },
+                                onScan = { subScreen = SubScreen.SCAN },
+                                onOpenBills = { subScreen = SubScreen.BILLS },
+                                onOpenGoals = { subScreen = SubScreen.GOALS },
+                                onPayBill = { repository.markBillPaid(it, logExpense = true) },
+                                onOpenGoal = { goal ->
+                                    initialOpenGoalId = goal.id
+                                    subScreen = SubScreen.GOALS
+                                },
+                                onOpenActivity = {
+                                    initialLedgerFilter = "All"
+                                    selectedTab = 1
+                                },
+                                onOpenClaims = {
+                                    initialLedgerFilter = "Tolong Beli (Help Buy)"
+                                    selectedTab = 1
+                                }
+                            )
+                            1 -> LedgerTab(
+                                transactions = activeMonthExpenses,
+                                duitNowInfo = userDuitNowInfo,
+                                initialFilter = initialLedgerFilter,
+                                onDelete = { repository.deleteTransaction(it) },
+                                onToggleSettled = { repository.toggleTransactionSettled(it) },
+                                onShareClaim = { recip, txs ->
+                                    claimShareTarget = Pair(recip, txs)
+                                }
+                            )
+                            2 -> ChartsTab(
+                                allTransactions = transactions,
+                                expenses = activeMonthExpenses,
+                                totalSpent = totalSpent,
+                                monthlyBudget = monthlyBudget,
+                                selectedMonth = selectedMonth,
+                                chartMode = chartMode,
+                                onSelectChartMode = { repository.setChartMode(it) }
+                            )
+                            else -> MoreScreen(
+                                avatarBitmap = avatarBitmap,
+                                profileEmoji = userProfileEmoji,
+                                bills = bills,
+                                goals = goals,
+                                pendingClaimsCount = pendingClaimsCount,
+                                themeMode = themeMode,
+                                onSetThemeMode = { repository.setThemeMode(it) },
+                                onOpenBills = { subScreen = SubScreen.BILLS },
+                                onOpenGoals = { subScreen = SubScreen.GOALS },
+                                onOpenClaims = {
+                                    initialLedgerFilter = "Tolong Beli (Help Buy)"
+                                    selectedTab = 1
+                                },
+                                onOpenExport = { subScreen = SubScreen.EXPORT },
+                                onOpenScan = { subScreen = SubScreen.SCAN },
+                                onOpenSettings = { subScreen = SubScreen.SETTINGS }
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+
+    // Centre "+" quick action chooser sheet
+    if (showAddMenuSheet) {
+        AddActionSheet(
+            onDismiss = { showAddMenuSheet = false },
+            onAddExpense = { showAddSheet = true },
+            onScan = { subScreen = SubScreen.SCAN },
+            onAddBill = { subScreen = SubScreen.BILLS },
+            onAddToGoal = { subScreen = SubScreen.GOALS }
+        )
     }
 
     // Add Expense Bottom Sheet
@@ -705,6 +756,113 @@ fun RinggitWiseApp(repository: FinanceRepository) {
                 activeUpdateInfo = null
                 repository.dismissUpdate(ver)
             }
+        )
+    }
+}
+
+@Composable
+private fun FintechBottomBar(
+    selectedTab: Int,
+    onSelectTab: (Int) -> Unit,
+    onCenterAddClick: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp),
+        color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        shadowElevation = 10.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            BottomTabItem(
+                selected = selectedTab == 0,
+                icon = if (selectedTab == 0) Icons.Default.Home else Icons.Outlined.Home,
+                label = "Home",
+                modifier = Modifier.weight(1f),
+                onClick = { onSelectTab(0) }
+            )
+            BottomTabItem(
+                selected = selectedTab == 1,
+                icon = if (selectedTab == 1) Icons.Default.ReceiptLong else Icons.Outlined.ReceiptLong,
+                label = "Activity",
+                modifier = Modifier.weight(1f),
+                onClick = { onSelectTab(1) }
+            )
+
+            // Centre primary "+" action button
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                FloatingActionButton(
+                    onClick = onCenterAddClick,
+                    shape = CircleShape,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
+                    modifier = Modifier.size(54.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Quick add", modifier = Modifier.size(26.dp))
+                }
+            }
+
+            BottomTabItem(
+                selected = selectedTab == 2,
+                icon = if (selectedTab == 2) Icons.Default.PieChart else Icons.Outlined.PieChart,
+                label = "Insights",
+                modifier = Modifier.weight(1f),
+                onClick = { onSelectTab(2) }
+            )
+            BottomTabItem(
+                selected = selectedTab == 3,
+                icon = if (selectedTab == 3) Icons.Default.GridView else Icons.Outlined.GridView,
+                label = "More",
+                modifier = Modifier.weight(1f),
+                onClick = { onSelectTab(3) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun BottomTabItem(
+    selected: Boolean,
+    icon: ImageVector,
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    Column(
+        modifier = modifier
+            .heightIn(min = 52.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else Color.Transparent)
+                .padding(horizontal = 14.dp, vertical = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = tint
         )
     }
 }
@@ -1210,6 +1368,7 @@ fun QuickActionButton(
 // -------------------------------------------------------------
 @Composable
 fun ChartsTab(
+    allTransactions: List<Transaction> = emptyList(),
     expenses: List<Transaction>,
     totalSpent: Double,
     monthlyBudget: Double,
@@ -1250,6 +1409,13 @@ fun ChartsTab(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        InsightsHeader(
+            allTransactions = allTransactions.ifEmpty { expenses },
+            monthExpenses = expenses
+        )
+
+        SectionHeader("Visual Breakdown")
+
         // Chart Style Selector Chips
         Row(
             modifier = Modifier

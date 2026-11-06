@@ -108,8 +108,25 @@ class FinanceRepository(private val context: Context) {
     private val _availableUpdate = MutableStateFlow<AppUpdateInfo?>(null)
     val availableUpdate: StateFlow<AppUpdateInfo?> = _availableUpdate.asStateFlow()
 
+    // Recurring bills & subscriptions
+    private val _bills = MutableStateFlow<List<RecurringBill>>(emptyList())
+    val bills: StateFlow<List<RecurringBill>> = _bills.asStateFlow()
+
+    // Savings goals
+    private val _goals = MutableStateFlow<List<SavingsGoal>>(emptyList())
+    val goals: StateFlow<List<SavingsGoal>> = _goals.asStateFlow()
+
+    // Appearance: "dark" (default), "light" or "system"
+    private val _themeMode = MutableStateFlow(prefs.getString("theme_mode", "dark") ?: "dark")
+    val themeMode: StateFlow<String> = _themeMode.asStateFlow()
+
+    // Bill due-date reminder notifications
+    private val _billRemindersEnabled = MutableStateFlow(prefs.getBoolean("bill_reminders_enabled", true))
+    val billRemindersEnabled: StateFlow<Boolean> = _billRemindersEnabled.asStateFlow()
+
     init {
         loadData()
+        loadBillsAndGoals()
         if (_autoCheckUpdates.value) {
             kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
                 try {
@@ -225,7 +242,8 @@ class FinanceRepository(private val context: Context) {
 
     fun updateBudget(newBudget: Double) {
         _monthlyBudget.value = newBudget
-        prefs.edit().putFloat("monthly_budget", newBudget.toFloat()).apply()
+        prefs.edit().putFloat("monthly_budget", newBudget.toFloat()).commit()
+        WidgetBridge.requestRefresh(context)
     }
 
     fun selectMonth(month: String) {
@@ -785,12 +803,118 @@ $ledgerContext
     fun clearAllData() {
         _transactions.value = emptyList()
         prefs.edit().remove("transactions_json").apply()
+        WidgetBridge.requestRefresh(context)
     }
 
     private fun saveTransactions(list: List<Transaction>) {
         try {
             val encoded = json.encodeToString(list)
-            prefs.edit().putString("transactions_json", encoded).apply()
+            prefs.edit().putString("transactions_json", encoded).commit()
         } catch (_: Exception) {}
+        WidgetBridge.requestRefresh(context)
+    }
+
+    // -------------------------------------------------------------
+    // Bills, goals, appearance & backup
+    // -------------------------------------------------------------
+
+    private fun loadBillsAndGoals() {
+        _bills.value = try {
+            prefs.getString("bills_json", null)?.let { json.decodeFromString<List<RecurringBill>>(it) } ?: emptyList()
+        } catch (_: Exception) { emptyList() }
+        _goals.value = try {
+            prefs.getString("goals_json", null)?.let { json.decodeFromString<List<SavingsGoal>>(it) } ?: emptyList()
+        } catch (_: Exception) { emptyList() }
+    }
+
+    private fun saveBills(list: List<RecurringBill>) {
+        _bills.value = list
+        try { prefs.edit().putString("bills_json", json.encodeToString(list)).apply() } catch (_: Exception) {}
+        WidgetBridge.requestRefresh(context)
+    }
+
+    private fun saveGoals(list: List<SavingsGoal>) {
+        _goals.value = list
+        try { prefs.edit().putString("goals_json", json.encodeToString(list)).apply() } catch (_: Exception) {}
+    }
+
+    fun upsertBill(bill: RecurringBill) {
+        val list = _bills.value.toMutableList()
+        val idx = list.indexOfFirst { it.id == bill.id }
+        if (idx >= 0) list[idx] = bill else list.add(bill)
+        saveBills(list)
+    }
+
+    fun deleteBill(id: String) = saveBills(_bills.value.filter { it.id != id })
+
+    /** Marks the bill as paid for its current period and (optionally) logs it as an expense. */
+    fun markBillPaid(bill: RecurringBill, logExpense: Boolean = true) {
+        val today = java.util.Calendar.getInstance()
+        val due = bill.nextDueDate(today)
+        upsertBill(bill.copy(lastPaidPeriod = bill.periodKey(due)))
+        if (logExpense) {
+            val now = Date()
+            addTransaction(
+                Transaction(
+                    date = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(now),
+                    time = SimpleDateFormat("HH:mm", Locale.ENGLISH).format(now),
+                    title = bill.name,
+                    amount = bill.amount,
+                    category = bill.category,
+                    method = bill.method,
+                    note = "Recurring ${bill.frequency} bill"
+                )
+            )
+        }
+    }
+
+    fun unmarkBillPaid(bill: RecurringBill) = upsertBill(bill.copy(lastPaidPeriod = ""))
+
+    fun upsertGoal(goal: SavingsGoal) {
+        val list = _goals.value.toMutableList()
+        val idx = list.indexOfFirst { it.id == goal.id }
+        if (idx >= 0) list[idx] = goal else list.add(goal)
+        saveGoals(list)
+    }
+
+    fun deleteGoal(id: String) = saveGoals(_goals.value.filter { it.id != id })
+
+    /** Positive amount = deposit, negative = withdrawal. Saved amount never goes below zero. */
+    fun contributeToGoal(id: String, amount: Double) {
+        val goal = _goals.value.find { it.id == id } ?: return
+        upsertGoal(goal.copy(saved = (goal.saved + amount).coerceAtLeast(0.0)))
+    }
+
+    fun setThemeMode(mode: String) {
+        _themeMode.value = mode
+        prefs.edit().putString("theme_mode", mode).apply()
+    }
+
+    fun setBillRemindersEnabled(enabled: Boolean) {
+        _billRemindersEnabled.value = enabled
+        prefs.edit().putBoolean("bill_reminders_enabled", enabled).apply()
+    }
+
+    fun exportBackupJson(): String {
+        val bundle = BackupBundle(
+            monthlyBudget = _monthlyBudget.value,
+            transactions = _transactions.value,
+            bills = _bills.value,
+            goals = _goals.value
+        )
+        return Json { prettyPrint = true; ignoreUnknownKeys = true }.encodeToString(bundle)
+    }
+
+    /** Replaces all data with the contents of a backup file. Returns number of transactions restored. */
+    fun importBackupJson(raw: String): Result<Int> = try {
+        val bundle = json.decodeFromString<BackupBundle>(raw)
+        _transactions.value = bundle.transactions
+        saveTransactions(bundle.transactions)
+        saveBills(bundle.bills)
+        saveGoals(bundle.goals)
+        updateBudget(bundle.monthlyBudget)
+        Result.success(bundle.transactions.size)
+    } catch (e: Exception) {
+        Result.failure(Exception("This file is not a valid RinggitWise backup."))
     }
 }

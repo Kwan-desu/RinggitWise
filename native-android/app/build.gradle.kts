@@ -11,8 +11,8 @@ android {
     applicationId = "com.ringgitwise.app"
     minSdk = 24
     targetSdk = 36
-    versionCode = 3
-    versionName = "1.1.1"
+    versionCode = 4
+    versionName = "1.2.0"
   }
 
   buildTypes {
@@ -66,6 +66,8 @@ dependencies {
 
   // Google ML Kit Text Recognition (On-device OCR for receipts, slips & statements)
   implementation("com.google.mlkit:text-recognition:16.0.1")
+  // Background bill reminders
+  implementation("androidx.work:work-runtime-ktx:2.10.1")
   // Tooling
   debugImplementation(libs.androidx.compose.ui.tooling)
   // Instrumented tests
