@@ -3137,6 +3137,51 @@ fun getCategoryIcon(category: String): ImageVector {
     }
 }
 
+fun getPaymentMethodIcon(method: String): ImageVector {
+    return when {
+        method.contains("QR", true) || method.contains("DuitNow", true) -> Icons.Default.QrCode2
+        method.contains("TNG", true) || method.contains("Wallet", true) || method.contains("Touch", true) -> Icons.Default.AccountBalanceWallet
+        method.contains("Card", true) || method.contains("Visa", true) || method.contains("Master", true) -> Icons.Default.CreditCard
+        method.contains("Bank", true) || method.contains("FPX", true) || method.contains("Transfer", true) -> Icons.Default.AccountBalance
+        else -> Icons.Default.Payments
+    }
+}
+
+@Composable
+fun PaymentMethodBadge(method: String, modifier: Modifier = Modifier) {
+    val clean = method.replace(Regex("\\s+"), " ").trim()
+    if (clean.isEmpty()) return
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = getPaymentMethodIcon(clean),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(12.dp)
+            )
+            Text(
+                text = clean,
+                style = MaterialTheme.typography.labelSmall,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
 @Composable
 fun TransactionCardItem(
     tx: Transaction,
@@ -3148,12 +3193,14 @@ fun TransactionCardItem(
     val color = catObj?.color ?: MaterialTheme.colorScheme.primary
     val icon = getCategoryIcon(tx.category)
     val isHelp = tx.isHelpBuy || tx.category.contains("Tolong Beli", ignoreCase = true)
+    val cleanTitle = tx.title.replace(Regex("\\s+"), " ").trim().ifEmpty { tx.category }
+    val cleanMethod = tx.method.replace(Regex("\\s+"), " ").trim()
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
-        colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
-        border = glassCardBorder()
+        colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainer),
+        border = appCardBorder()
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(
@@ -3169,8 +3216,8 @@ fun TransactionCardItem(
                     // Category Squircle Icon
                     Surface(
                         shape = RoundedCornerShape(14.dp),
-                        color = color.copy(alpha = 0.2f),
-                        border = BorderStroke(1.dp, color.copy(alpha = 0.4f)),
+                        color = color.copy(alpha = 0.18f),
+                        border = BorderStroke(1.dp, color.copy(alpha = 0.35f)),
                         modifier = Modifier.size(44.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -3183,53 +3230,53 @@ fun TransactionCardItem(
                         }
                     }
 
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(
-                                text = tx.title.ifEmpty { tx.category },
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            if (isHelp) {
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color(0xFF38BDF8).copy(alpha = 0.2f)
-                                ) {
-                                    Text(
-                                        "Claim",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF38BDF8),
-                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                                    )
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(
+                            text = cleanTitle,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        Text(
+                            text = "${tx.date} • ${tx.category}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        if (cleanMethod.isNotEmpty() || isHelp) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.padding(top = 2.dp)
+                            ) {
+                                if (cleanMethod.isNotEmpty()) {
+                                    PaymentMethodBadge(cleanMethod)
                                 }
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "${tx.date} • ${tx.category}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1
-                            )
-                            if (tx.method.isNotBlank()) {
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f)
-                                ) {
-                                    Text(
-                                        text = tx.method,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontSize = 9.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                    )
+                                if (isHelp) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = Color(0xFF38BDF8).copy(alpha = 0.18f),
+                                        border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.35f))
+                                    ) {
+                                        Text(
+                                            "Claim",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF38BDF8),
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -3243,15 +3290,17 @@ fun TransactionCardItem(
                         text = formatRM(tx.amount),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Black,
+                        maxLines = 1,
+                        softWrap = false,
                         color = if (tx.type == "credit") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                     )
                     if (isHelp) {
-                        IconButton(onClick = onShareClaim) {
-                            Icon(Icons.Outlined.Share, contentDescription = "Share Claim", tint = Color(0xFF38BDF8))
+                        IconButton(onClick = onShareClaim, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Outlined.Share, contentDescription = "Share Claim", tint = Color(0xFF38BDF8), modifier = Modifier.size(18.dp))
                         }
                     }
-                    IconButton(onClick = onDelete) {
-                        Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.outline)
+                    IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -3360,17 +3409,20 @@ fun TransactionRow(tx: Transaction, onDelete: () -> Unit) {
                 }
 
                 Column(modifier = Modifier.weight(1f)) {
+                    val cleanTitle = tx.title.replace(Regex("\\s+"), " ").trim().ifEmpty { tx.category }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
-                            text = tx.title.ifEmpty { tx.category },
+                            text = cleanTitle,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
                         if (isHelp) {
                             Surface(
-                                shape = RoundedCornerShape(6.dp),
+                                shape = CircleShape,
                                 color = Color(0xFF38BDF8).copy(alpha = 0.2f)
                             ) {
                                 Text(
@@ -3378,7 +3430,9 @@ fun TransactionRow(tx: Transaction, onDelete: () -> Unit) {
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF38BDF8),
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
                                 )
                             }
                         }
@@ -3386,7 +3440,10 @@ fun TransactionRow(tx: Transaction, onDelete: () -> Unit) {
                     Text(
                         text = "${tx.date} • ${tx.category}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

@@ -340,6 +340,8 @@ fun CompactTransactionRow(tx: Transaction) {
     val cat = DEFAULT_CATEGORIES.find { it.name.equals(tx.category, true) }
     val color = cat?.color ?: MaterialTheme.colorScheme.primary
     val isCredit = tx.type == "credit"
+    val cleanTitle = tx.title.replace(Regex("\\s+"), " ").trim().ifEmpty { tx.category }
+    val cleanMethod = tx.method.replace(Regex("\\s+"), " ").trim()
     Row(
         modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(vertical = Space.sm),
         verticalAlignment = Alignment.CenterVertically,
@@ -347,9 +349,13 @@ fun CompactTransactionRow(tx: Transaction) {
     ) {
         IconBadge(getCategoryIcon(tx.category), color)
         Column(Modifier.weight(1f)) {
-            Text(tx.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(cleanTitle, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                "${tx.category} • ${tx.date.takeLast(5)}",
+                buildString {
+                    append(tx.category)
+                    if (cleanMethod.isNotEmpty()) append(" • ").append(cleanMethod)
+                    append(" • ").append(tx.date.takeLast(5))
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -360,6 +366,8 @@ fun CompactTransactionRow(tx: Transaction) {
             (if (isCredit) "+" else "-") + formatRMExact(tx.amount),
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
+            softWrap = false,
+            maxLines = 1,
             color = if (isCredit) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
         )
     }
