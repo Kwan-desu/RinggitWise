@@ -23,8 +23,85 @@ data class Category(
     val id: String,
     val name: String,
     val color: Color,
-    val colorHex: String
+    val colorHex: String,
+    val iconKey: String = "",
+    val isCustom: Boolean = false
 )
+
+@Serializable
+data class CustomCategory(
+    val id: String = "cat_${System.currentTimeMillis()}_${(1000..9999).random()}",
+    val name: String,
+    val colorHex: String = "#10B981",
+    val iconKey: String = "tag"
+) {
+    fun toCategory(): Category {
+        val parsedColor = try {
+            Color(android.graphics.Color.parseColor(colorHex))
+        } catch (_: Exception) {
+            Color(0xFF10B981)
+        }
+        return Category(
+            id = id,
+            name = name,
+            color = parsedColor,
+            colorHex = colorHex,
+            iconKey = iconKey,
+            isCustom = true
+        )
+    }
+}
+
+val CATEGORY_COLORS = listOf(
+    "#10B981", "#38BDF8", "#A856EA", "#F59E0B",
+    "#F43F5E", "#EC4899", "#06B6D4", "#84CC16",
+    "#F97316", "#6366F1", "#14B8A6", "#EAB308"
+)
+
+val CATEGORY_ICON_KEYS = listOf(
+    "tag", "restaurant", "cafe", "fastfood",
+    "groceries", "shopping", "car", "fuel",
+    "flight", "home", "bills", "health",
+    "fitness", "gaming", "movie", "school",
+    "work", "pets", "gift", "beauty",
+    "tech", "savings", "charity", "payments"
+)
+
+object CategoryRegistry {
+    @Volatile
+    var customCategories: List<CustomCategory> = emptyList()
+
+    fun allCategories(custom: List<CustomCategory> = customCategories): List<Category> {
+        val customMapped = custom.map { it.toCategory() }
+        val defaultFiltered = DEFAULT_CATEGORIES.filter { def ->
+            customMapped.none { it.name.equals(def.name, ignoreCase = true) }
+        }
+        return customMapped + defaultFiltered
+    }
+
+    fun findCategory(name: String, custom: List<CustomCategory> = customCategories): Category? {
+        val trimmed = name.trim()
+        custom.find { it.name.equals(trimmed, ignoreCase = true) }?.let { return it.toCategory() }
+        DEFAULT_CATEGORIES.find { it.name.equals(trimmed, ignoreCase = true) }?.let { return it }
+        return null
+    }
+
+    fun resolveColor(name: String, custom: List<CustomCategory> = customCategories): Color {
+        findCategory(name, custom)?.let { return it.color }
+        val palette = CATEGORY_COLORS.mapNotNull {
+            try { Color(android.graphics.Color.parseColor(it)) } catch (_: Exception) { null }
+        }
+        if (palette.isEmpty()) return Color(0xFF10B981)
+        val idx = (name.trim().lowercase().hashCode() and 0x7FFFFFFF) % palette.size
+        return palette[idx]
+    }
+
+    fun resolveColorHex(name: String, custom: List<CustomCategory> = customCategories): String {
+        findCategory(name, custom)?.let { return it.colorHex }
+        val idx = (name.trim().lowercase().hashCode() and 0x7FFFFFFF) % CATEGORY_COLORS.size
+        return CATEGORY_COLORS[idx]
+    }
+}
 
 @Serializable
 data class GeminiProposedAction(

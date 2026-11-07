@@ -116,6 +116,10 @@ class FinanceRepository(private val context: Context) {
     private val _goals = MutableStateFlow<List<SavingsGoal>>(emptyList())
     val goals: StateFlow<List<SavingsGoal>> = _goals.asStateFlow()
 
+    // User-created custom categories
+    private val _customCategories = MutableStateFlow<List<CustomCategory>>(emptyList())
+    val customCategories: StateFlow<List<CustomCategory>> = _customCategories.asStateFlow()
+
     // Appearance: "dark" (default), "light" or "system"
     private val _themeMode = MutableStateFlow(prefs.getString("theme_mode", "dark") ?: "dark")
     val themeMode: StateFlow<String> = _themeMode.asStateFlow()
@@ -339,22 +343,15 @@ class FinanceRepository(private val context: Context) {
                 "\n\nCURRENT RECENT TRANSACTIONS IN USER'S LOCAL LEDGER (use targetId matching the ID when user requests deleting or editing an existing transaction):\n$sample"
             } else ""
 
+            val supportedCategoriesList = CategoryRegistry.allCategories(_customCategories.value)
+                .joinToString("\n") { "- ${it.name}" }
+
             val systemInstruction = """
 You are RinggitWise AI, an expert Malaysian personal finance assistant.
 Today's date is ${SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())}.
 
-Supported Malaysian expense categories:
-- Mamak & Dining
-- Drinks & Cafe
-- Groceries
-- Fuel & Transport
-- Parking & Tolls
-- Shopping & Online
-- Utilities & Bills
-- Healthcare & Pharmacy
-- Snacks & Desserts
-- Top Up (Credit)
-- Tolong Beli (Help Buy)
+Supported Malaysian expense categories (including user's custom categories):
+$supportedCategoriesList
 
 TASK & CAPABILITIES:
 1. When given an image, receipt photo, bank statement screenshot, or PDF document (e.g. Touch 'n Go eWallet, Maybank MAE, CIMB, Bank Islam, RHB, Public Bank, APSpace / student card):
@@ -825,6 +822,51 @@ $ledgerContext
         _goals.value = try {
             prefs.getString("goals_json", null)?.let { json.decodeFromString<List<SavingsGoal>>(it) } ?: emptyList()
         } catch (_: Exception) { emptyList() }
+        val loadedCustomCats = try {
+            prefs.getString("custom_categories_json", null)?.let { json.decodeFromString<List<CustomCategory>>(it) } ?: emptyList()
+        } catch (_: Exception) { emptyList() }
+        _customCategories.value = loadedCustomCats
+        CategoryRegistry.customCategories = loadedCustomCats
+    }
+
+    private fun saveCustomCategories(list: List<CustomCategory>) {
+        _customCategories.value = list
+        CategoryRegistry.customCategories = list
+        try { prefs.edit().putString("custom_categories_json", json.encodeToString(list)).apply() } catch (_: Exception) {}
+    }
+
+    fun upsertCustomCategory(cat: CustomCategory, previousName: String? = null) {
+        val cleanName = cat.name.trim()
+        if (cleanName.isBlank()) return
+        val normalized = cat.copy(name = cleanName)
+        val list = _customCategories.value.toMutableList()
+        val existingIdx = list.indexOfFirst { it.id == normalized.id || it.name.equals(cleanName, ignoreCase = true) }
+        if (existingIdx >= 0) {
+            list[existingIdx] = normalized.copy(id = list[existingIdx].id)
+        } else {
+            list.add(0, normalized)
+        }
+        saveCustomCategories(list)
+
+        if (!previousName.isNullOrBlank() && !previousName.equals(cleanName, ignoreCase = true)) {
+            val updatedTxs = _transactions.value.map { tx ->
+                if (tx.category.equals(previousName, ignoreCase = true)) tx.copy(category = cleanName) else tx
+            }
+            if (updatedTxs != _transactions.value) {
+                _transactions.value = updatedTxs
+                saveTransactions(updatedTxs)
+            }
+            val updatedBills = _bills.value.map { bill ->
+                if (bill.category.equals(previousName, ignoreCase = true)) bill.copy(category = cleanName) else bill
+            }
+            if (updatedBills != _bills.value) {
+                saveBills(updatedBills)
+            }
+        }
+    }
+
+    fun deleteCustomCategory(id: String) {
+        saveCustomCategories(_customCategories.value.filter { it.id != id })
     }
 
     private fun saveBills(list: List<RecurringBill>) {
@@ -900,7 +942,8 @@ $ledgerContext
             monthlyBudget = _monthlyBudget.value,
             transactions = _transactions.value,
             bills = _bills.value,
-            goals = _goals.value
+            goals = _goals.value,
+            customCategories = _customCategories.value
         )
         return Json { prettyPrint = true; ignoreUnknownKeys = true }.encodeToString(bundle)
     }
@@ -912,6 +955,7 @@ $ledgerContext
         saveTransactions(bundle.transactions)
         saveBills(bundle.bills)
         saveGoals(bundle.goals)
+        saveCustomCategories(bundle.customCategories)
         updateBudget(bundle.monthlyBudget)
         Result.success(bundle.transactions.size)
     } catch (e: Exception) {

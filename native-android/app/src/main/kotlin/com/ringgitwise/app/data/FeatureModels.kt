@@ -39,12 +39,13 @@ data class SavingsGoal(
 /** Full portable backup of the user's data. */
 @Serializable
 data class BackupBundle(
-    val version: Int = 1,
+    val version: Int = 2,
     val exportedAt: Long = System.currentTimeMillis(),
     val monthlyBudget: Double = 3500.0,
     val transactions: List<Transaction> = emptyList(),
     val bills: List<RecurringBill> = emptyList(),
-    val goals: List<SavingsGoal> = emptyList()
+    val goals: List<SavingsGoal> = emptyList(),
+    val customCategories: List<CustomCategory> = emptyList()
 )
 
 val GOAL_COLORS = listOf("#10B981", "#38BDF8", "#A78BFA", "#F59E0B", "#F43F5E", "#EC4899", "#14B8A6", "#84CC16")

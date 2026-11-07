@@ -46,12 +46,14 @@ private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Au
 @Composable
 fun BillsScreen(
     bills: List<RecurringBill>,
+    customCategories: List<CustomCategory> = emptyList(),
     remindersEnabled: Boolean,
     onToggleReminders: (Boolean) -> Unit,
     onUpsert: (RecurringBill) -> Unit,
     onDelete: (String) -> Unit,
     onMarkPaid: (RecurringBill) -> Unit,
-    onUnmarkPaid: (RecurringBill) -> Unit
+    onUnmarkPaid: (RecurringBill) -> Unit,
+    onAddCustomCategory: (CustomCategory) -> Unit = {}
 ) {
     var editing by remember { mutableStateOf<RecurringBill?>(null) }
     var creating by remember { mutableStateOf(false) }
@@ -135,6 +137,8 @@ fun BillsScreen(
     if (creating || editing != null) {
         BillEditorSheet(
             initial = editing,
+            customCategories = customCategories,
+            onAddCustomCategory = onAddCustomCategory,
             onDismiss = { creating = false; editing = null },
             onSave = { onUpsert(it); creating = false; editing = null },
             onDelete = { id -> onDelete(id); creating = false; editing = null }
@@ -179,6 +183,8 @@ private fun BillRow(bill: RecurringBill, cal: Calendar, isPaid: Boolean, onEdit:
 @Composable
 private fun BillEditorSheet(
     initial: RecurringBill?,
+    customCategories: List<CustomCategory> = emptyList(),
+    onAddCustomCategory: (CustomCategory) -> Unit = {},
     onDismiss: () -> Unit,
     onSave: (RecurringBill) -> Unit,
     onDelete: (String) -> Unit
@@ -190,6 +196,7 @@ private fun BillEditorSheet(
     var dueMonth by remember { mutableIntStateOf(initial?.dueMonth ?: (Calendar.getInstance().get(Calendar.MONTH) + 1)) }
     var category by remember { mutableStateOf(initial?.category ?: "Utilities & Bills") }
     var remind by remember { mutableIntStateOf(initial?.remindDaysBefore ?: 2) }
+    var showNewCatSheet by remember { mutableStateOf(false) }
 
     val amountVal = amount.toDoubleOrNull()
     val dayVal = dueDay.toIntOrNull()
@@ -290,15 +297,23 @@ private fun BillEditorSheet(
 
             Text("Category", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                DEFAULT_CATEGORIES.filter { !it.name.contains("Top Up") && !it.name.contains("Tolong") }.forEach { c ->
-                    FilterChip(
-                        selected = category == c.name,
-                        onClick = { category = c.name },
-                        leadingIcon = { Icon(getCategoryIcon(c.name), contentDescription = null, tint = c.color, modifier = Modifier.size(IconSize.sm)) },
-                        label = { Text(c.name) },
-                        shape = CircleShape
-                    )
-                }
+                AssistChip(
+                    onClick = { showNewCatSheet = true },
+                    leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(IconSize.sm)) },
+                    label = { Text("Custom") },
+                    shape = CircleShape
+                )
+                CategoryRegistry.allCategories(customCategories)
+                    .filter { !it.name.contains("Top Up") && !it.name.contains("Tolong") }
+                    .forEach { c ->
+                        FilterChip(
+                            selected = category == c.name,
+                            onClick = { category = c.name },
+                            leadingIcon = { Icon(getCategoryIcon(c.name), contentDescription = null, tint = c.color, modifier = Modifier.size(IconSize.sm)) },
+                            label = { Text(c.name) },
+                            shape = CircleShape
+                        )
+                    }
             }
 
             Button(
@@ -336,5 +351,16 @@ private fun BillEditorSheet(
                 }
             }
         }
+    }
+
+    if (showNewCatSheet) {
+        CustomCategorySheet(
+            onDismiss = { showNewCatSheet = false },
+            onSave = { newCat ->
+                onAddCustomCategory(newCat)
+                category = newCat.name
+                showNewCatSheet = false
+            }
+        )
     }
 }

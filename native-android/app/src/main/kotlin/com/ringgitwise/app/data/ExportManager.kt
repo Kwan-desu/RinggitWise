@@ -118,7 +118,7 @@ object ExportManager {
             c().drawText(cat.take(26), margin, y + 10f, body)
             c().drawRoundRect(barX, y + 2f, barX + barW, y + 12f, 5f, 5f, barBg)
             val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = DEFAULT_CATEGORIES.find { it.name.equals(cat, true) }?.colorHex?.let { Color.parseColor(it) } ?: accent
+                color = try { Color.parseColor(CategoryRegistry.resolveColorHex(cat)) } catch (_: Exception) { accent }
             }
             c().drawRoundRect(barX, y + 2f, barX + (barW * (amt / maxCat)).toFloat().coerceAtLeast(6f), y + 12f, 5f, 5f, fill)
             val pct = if (spent > 0) (amt / spent * 100).toInt() else 0

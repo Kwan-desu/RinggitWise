@@ -337,8 +337,7 @@ fun GoalMiniCard(goal: SavingsGoal, onClick: () -> Unit) {
 
 @Composable
 fun CompactTransactionRow(tx: Transaction) {
-    val cat = DEFAULT_CATEGORIES.find { it.name.equals(tx.category, true) }
-    val color = cat?.color ?: MaterialTheme.colorScheme.primary
+    val color = CategoryRegistry.resolveColor(tx.category)
     val isCredit = tx.type == "credit"
     val cleanTitle = tx.title.replace(Regex("\\s+"), " ").trim().ifEmpty { tx.category }
     val cleanMethod = tx.method.replace(Regex("\\s+"), " ").trim()

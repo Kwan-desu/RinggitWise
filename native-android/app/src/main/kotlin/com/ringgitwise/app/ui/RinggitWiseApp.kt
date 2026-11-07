@@ -121,6 +121,7 @@ private enum class SubScreen(val title: String) {
     NONE(""),
     BILLS("Bills & Subscriptions"),
     GOALS("Savings Goals"),
+    CATEGORIES("Categories"),
     EXPORT("Export & Backup"),
     SCAN("Scan & AI Assistant"),
     SETTINGS("Settings")
@@ -138,6 +139,7 @@ fun RinggitWiseApp(
     val selectedMonth by repository.selectedMonth.collectAsState()
     val bills by repository.bills.collectAsState()
     val goals by repository.goals.collectAsState()
+    val customCategories by repository.customCategories.collectAsState()
     val themeMode by repository.themeMode.collectAsState()
     val billRemindersEnabled by repository.billRemindersEnabled.collectAsState()
 
@@ -457,6 +459,7 @@ fun RinggitWiseApp(
                     when (subScreen) {
                         SubScreen.BILLS -> BillsScreen(
                             bills = bills,
+                            customCategories = customCategories,
                             remindersEnabled = billRemindersEnabled,
                             onToggleReminders = { enable ->
                                 if (enable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -468,7 +471,8 @@ fun RinggitWiseApp(
                             onUpsert = { repository.upsertBill(it) },
                             onDelete = { repository.deleteBill(it) },
                             onMarkPaid = { repository.markBillPaid(it, logExpense = true) },
-                            onUnmarkPaid = { repository.unmarkBillPaid(it) }
+                            onUnmarkPaid = { repository.unmarkBillPaid(it) },
+                            onAddCustomCategory = { repository.upsertCustomCategory(it) }
                         )
                         SubScreen.GOALS -> GoalsScreen(
                             goals = goals,
@@ -477,6 +481,12 @@ fun RinggitWiseApp(
                             onUpsert = { repository.upsertGoal(it) },
                             onDelete = { repository.deleteGoal(it) },
                             onContribute = { id, amt -> repository.contributeToGoal(id, amt) }
+                        )
+                        SubScreen.CATEGORIES -> CategoriesScreen(
+                            customCategories = customCategories,
+                            transactions = transactions,
+                            onUpsert = { cat, prevName -> repository.upsertCustomCategory(cat, prevName) },
+                            onDelete = { repository.deleteCustomCategory(it) }
                         )
                         SubScreen.EXPORT -> ExportScreen(
                             repository = repository,
@@ -589,10 +599,13 @@ fun RinggitWiseApp(
                             )
                             1 -> LedgerTab(
                                 transactions = activeMonthExpenses,
+                                customCategories = customCategories,
                                 duitNowInfo = userDuitNowInfo,
                                 initialFilter = initialLedgerFilter,
                                 onDelete = { repository.deleteTransaction(it) },
                                 onToggleSettled = { repository.toggleTransactionSettled(it) },
+                                onAddCustomCategory = { repository.upsertCustomCategory(it) },
+                                onManageCategories = { subScreen = SubScreen.CATEGORIES },
                                 onShareClaim = { recip, txs ->
                                     claimShareTarget = Pair(recip, txs)
                                 }
@@ -611,11 +624,13 @@ fun RinggitWiseApp(
                                 profileEmoji = userProfileEmoji,
                                 bills = bills,
                                 goals = goals,
+                                customCategoriesCount = customCategories.size,
                                 pendingClaimsCount = pendingClaimsCount,
                                 themeMode = themeMode,
                                 onSetThemeMode = { repository.setThemeMode(it) },
                                 onOpenBills = { subScreen = SubScreen.BILLS },
                                 onOpenGoals = { subScreen = SubScreen.GOALS },
+                                onOpenCategories = { subScreen = SubScreen.CATEGORIES },
                                 onOpenClaims = {
                                     initialLedgerFilter = "Tolong Beli (Help Buy)"
                                     selectedTab = 1
@@ -645,8 +660,14 @@ fun RinggitWiseApp(
     // Add Expense Bottom Sheet
     if (showAddSheet) {
         AddExpenseSheet(
+            customCategories = customCategories,
             recentRecipients = allRecipients,
             onDismiss = { showAddSheet = false },
+            onAddCustomCategory = { repository.upsertCustomCategory(it) },
+            onManageCategories = {
+                showAddSheet = false
+                subScreen = SubScreen.CATEGORIES
+            },
             onAdd = { newTx ->
                 repository.addTransaction(newTx)
                 showAddSheet = false
@@ -1554,8 +1575,7 @@ fun ChartsTab(
                                     catMap.forEach { (catName, amount) ->
                                         val pct = (amount / totalSpent).toFloat()
                                         val sweep = (pct * availableSpan).coerceAtLeast(1f)
-                                        val catObj = DEFAULT_CATEGORIES.find { it.name.equals(catName, true) }
-                                        val color = catObj?.color ?: Color(0xFF54B3D6)
+                                        val color = CategoryRegistry.resolveColor(catName)
 
                                         drawArc(
                                             color = color,
@@ -1590,8 +1610,7 @@ fun ChartsTab(
                             horizontalArrangement = Arrangement.Center
                         ) {
                             catMap.forEach { (catName, amount) ->
-                                val catObj = DEFAULT_CATEGORIES.find { it.name.equals(catName, true) }
-                                val color = catObj?.color ?: Color(0xFF54B3D6)
+                                val color = CategoryRegistry.resolveColor(catName)
                                 val pct = if (totalSpent > 0) (amount / totalSpent * 100).toInt() else 0
 
                                 Surface(
@@ -1668,8 +1687,7 @@ fun ChartsTab(
                                     catMap.forEach { (catName, amount) ->
                                         val pct = (amount / totalSpent).toFloat()
                                         val sweep = (pct * availableSpan).coerceAtLeast(2f)
-                                        val catObj = DEFAULT_CATEGORIES.find { it.name.equals(catName, true) }
-                                        val color = catObj?.color ?: Color(0xFF54B3D6)
+                                        val color = CategoryRegistry.resolveColor(catName)
 
                                         drawArc(
                                             color = color,
@@ -1701,8 +1719,7 @@ fun ChartsTab(
                             horizontalArrangement = Arrangement.Center
                         ) {
                             catMap.forEach { (catName, amount) ->
-                                val catObj = DEFAULT_CATEGORIES.find { it.name.equals(catName, true) }
-                                val color = catObj?.color ?: Color(0xFF54B3D6)
+                                val color = CategoryRegistry.resolveColor(catName)
                                 val pct = if (totalSpent > 0) (amount / totalSpent * 100).toInt() else 0
 
                                 Surface(
@@ -1754,8 +1771,7 @@ fun ChartsTab(
                             catMap.forEachIndexed { idx, (catName, amount) ->
                                 val pct = if (totalSpent > 0) (amount / totalSpent).toFloat() else 0f
                                 val pctInt = (pct * 100).toInt()
-                                val catObj = DEFAULT_CATEGORIES.find { it.name.equals(catName, true) }
-                                val color = catObj?.color ?: Color(0xFF54B3D6)
+                                val color = CategoryRegistry.resolveColor(catName)
                                 val count = expenses.count { it.category.equals(catName, true) }
 
                                 Surface(
@@ -2849,15 +2865,19 @@ fun ImportTab(
 @Composable
 fun LedgerTab(
     transactions: List<Transaction>,
+    customCategories: List<CustomCategory> = emptyList(),
     duitNowInfo: String = "",
     initialFilter: String = "All",
     onDelete: (String) -> Unit,
     onToggleSettled: (String) -> Unit = {},
+    onAddCustomCategory: (CustomCategory) -> Unit = {},
+    onManageCategories: () -> Unit = {},
     onShareClaim: (String, List<Transaction>) -> Unit = { _, _ -> }
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategoryFilter by remember(initialFilter) { mutableStateOf(initialFilter) }
     var selectedRecipientFilter by remember { mutableStateOf("All People") }
+    var showNewCatSheet by remember { mutableStateOf(false) }
 
     val tolongBeliTxs = remember(transactions) {
         transactions.filter { it.isHelpBuy || it.category.contains("Tolong Beli", ignoreCase = true) }
@@ -2961,14 +2981,52 @@ fun LedgerTab(
                 shape = CircleShape
             )
 
-            DEFAULT_CATEGORIES.filter { !it.name.contains("Tolong Beli", ignoreCase = true) }.forEach { cat ->
-                FilterChip(
-                    selected = selectedCategoryFilter == cat.name,
-                    onClick = { selectedCategoryFilter = cat.name },
-                    label = { Text(cat.name) },
-                    shape = CircleShape
-                )
-            }
+            CategoryRegistry.allCategories(customCategories)
+                .filter { !it.name.contains("Tolong Beli", ignoreCase = true) }
+                .forEach { cat ->
+                    FilterChip(
+                        selected = selectedCategoryFilter == cat.name,
+                        onClick = { selectedCategoryFilter = cat.name },
+                        leadingIcon = {
+                            Icon(
+                                getCategoryIcon(cat.name),
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp),
+                                tint = cat.color
+                            )
+                        },
+                        label = { Text(cat.name) },
+                        shape = CircleShape
+                    )
+                }
+
+            AssistChip(
+                onClick = { showNewCatSheet = true },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                },
+                label = { Text("Custom", fontWeight = FontWeight.Bold) },
+                shape = CircleShape
+            )
+
+            AssistChip(
+                onClick = onManageCategories,
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Category,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                label = { Text("Manage") },
+                shape = CircleShape
+            )
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -3118,9 +3176,25 @@ fun LedgerTab(
             }
         }
     }
+
+    if (showNewCatSheet) {
+        CustomCategorySheet(
+            onDismiss = { showNewCatSheet = false },
+            onSave = { newCat ->
+                onAddCustomCategory(newCat)
+                selectedCategoryFilter = newCat.name
+                showNewCatSheet = false
+            }
+        )
+    }
 }
 
 fun getCategoryIcon(category: String): ImageVector {
+    CategoryRegistry.findCategory(category)?.let { cat ->
+        if (cat.iconKey.isNotBlank()) {
+            return categoryIconByKey(cat.iconKey)
+        }
+    }
     return when {
         category.contains("Parking", true) || category.contains("Toll", true) -> Icons.Default.DirectionsCar
         category.contains("Mamak", true) || category.contains("Dining", true) || category.contains("Food", true) -> Icons.Default.Restaurant
@@ -3128,12 +3202,23 @@ fun getCategoryIcon(category: String): ImageVector {
         category.contains("Grocer", true) || category.contains("Supermarket", true) -> Icons.Default.ShoppingCart
         category.contains("Fuel", true) || category.contains("Petrol", true) || category.contains("Transport", true) -> Icons.Default.LocalGasStation
         category.contains("Shop", true) || category.contains("Online", true) -> Icons.Default.ShoppingBag
-        category.contains("Util", true) || category.contains("Bill", true) -> Icons.Default.ReceiptLong
+        category.contains("Util", true) || category.contains("Bill", true) || category.contains("Subscript", true) -> Icons.Default.ReceiptLong
         category.contains("Health", true) || category.contains("Pharm", true) || category.contains("Clinic", true) -> Icons.Default.MedicalServices
         category.contains("Snack", true) || category.contains("Dessert", true) -> Icons.Default.Fastfood
         category.contains("Top Up", true) || category.contains("Credit", true) -> Icons.Default.AccountBalanceWallet
         category.contains("Tolong Beli", true) || category.contains("Help Buy", true) -> Icons.Default.VolunteerActivism
-        else -> Icons.Default.Payments
+        category.contains("Pet", true) || category.contains("Cat", true) || category.contains("Dog", true) -> Icons.Default.Pets
+        category.contains("Gym", true) || category.contains("Sport", true) || category.contains("Fitness", true) -> Icons.Default.FitnessCenter
+        category.contains("Game", true) || category.contains("Gaming", true) -> Icons.Default.SportsEsports
+        category.contains("Movie", true) || category.contains("Cinema", true) || category.contains("Fun", true) -> Icons.Default.Movie
+        category.contains("Travel", true) || category.contains("Flight", true) || category.contains("Holiday", true) -> Icons.Default.Flight
+        category.contains("School", true) || category.contains("Edu", true) || category.contains("Book", true) -> Icons.Default.School
+        category.contains("Gift", true) || category.contains("Charity", true) -> Icons.Default.CardGiftcard
+        category.contains("Beauty", true) || category.contains("Barber", true) || category.contains("Salon", true) -> Icons.Default.Spa
+        category.contains("Tech", true) || category.contains("Gadget", true) -> Icons.Default.Devices
+        category.contains("Home", true) || category.contains("Rent", true) || category.contains("Laundry", true) -> Icons.Default.Home
+        category.contains("Work", true) || category.contains("Office", true) -> Icons.Default.Work
+        else -> Icons.Default.Label
     }
 }
 
@@ -3189,8 +3274,7 @@ fun TransactionCardItem(
     onToggleSettled: () -> Unit = {},
     onShareClaim: () -> Unit = {}
 ) {
-    val catObj = DEFAULT_CATEGORIES.find { it.name.equals(tx.category, true) }
-    val color = catObj?.color ?: MaterialTheme.colorScheme.primary
+    val color = CategoryRegistry.resolveColor(tx.category)
     val icon = getCategoryIcon(tx.category)
     val isHelp = tx.isHelpBuy || tx.category.contains("Tolong Beli", ignoreCase = true)
     val cleanTitle = tx.title.replace(Regex("\\s+"), " ").trim().ifEmpty { tx.category }
@@ -3366,8 +3450,7 @@ fun TransactionCardItem(
 
 @Composable
 fun TransactionRow(tx: Transaction, onDelete: () -> Unit) {
-    val catObj = DEFAULT_CATEGORIES.find { it.name.equals(tx.category, true) }
-    val color = catObj?.color ?: MaterialTheme.colorScheme.primary
+    val color = CategoryRegistry.resolveColor(tx.category)
     val icon = getCategoryIcon(tx.category)
     val isHelp = tx.isHelpBuy || tx.category.contains("Tolong Beli", ignoreCase = true)
 
@@ -3464,15 +3547,22 @@ fun TransactionRow(tx: Transaction, onDelete: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddExpenseSheet(
+    customCategories: List<CustomCategory> = emptyList(),
     recentRecipients: List<String> = emptyList(),
     onDismiss: () -> Unit,
+    onAddCustomCategory: (CustomCategory) -> Unit = {},
+    onManageCategories: () -> Unit = {},
     onAdd: (Transaction) -> Unit
 ) {
+    val allCategories = remember(customCategories) {
+        CategoryRegistry.allCategories(customCategories)
+    }
     var amountStr by remember { mutableStateOf("") }
     var titleStr by remember { mutableStateOf("") }
-    var selectedCat by remember { mutableStateOf(DEFAULT_CATEGORIES[0].name) }
+    var selectedCat by remember { mutableStateOf(allCategories.firstOrNull()?.name ?: DEFAULT_CATEGORIES[0].name) }
     var selectedMethod by remember { mutableStateOf("DuitNow QR") }
     var dateStr by remember { mutableStateOf(SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())) }
+    var showNewCatSheet by remember { mutableStateOf(false) }
 
     val isTolongBeliCat = selectedCat.contains("Tolong Beli", ignoreCase = true)
     var isHelpBuy by remember(isTolongBeliCat) { mutableStateOf(isTolongBeliCat) }
@@ -3631,12 +3721,49 @@ fun AddExpenseSheet(
             }
 
             // Category Picker
-            Text("Category", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Category", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(
+                        onClick = { showNewCatSheet = true },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.height(30.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("New Custom", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    }
+                    TextButton(
+                        onClick = onManageCategories,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.height(30.dp)
+                    ) {
+                        Text("Manage", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                DEFAULT_CATEGORIES.forEach { cat ->
+                AssistChip(
+                    onClick = { showNewCatSheet = true },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    label = { Text("Custom", fontWeight = FontWeight.Bold) },
+                    shape = CircleShape
+                )
+                allCategories.forEach { cat ->
                     FilterChip(
                         selected = selectedCat == cat.name,
                         onClick = {
@@ -3644,6 +3771,14 @@ fun AddExpenseSheet(
                             if (cat.name.contains("Tolong Beli", ignoreCase = true)) {
                                 isHelpBuy = true
                             }
+                        },
+                        leadingIcon = {
+                            Icon(
+                                getCategoryIcon(cat.name),
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = cat.color
+                            )
                         },
                         label = { Text(cat.name) },
                         shape = CircleShape
@@ -3708,6 +3843,17 @@ fun AddExpenseSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
         }
+    }
+
+    if (showNewCatSheet) {
+        CustomCategorySheet(
+            onDismiss = { showNewCatSheet = false },
+            onSave = { newCat ->
+                onAddCustomCategory(newCat)
+                selectedCat = newCat.name
+                showNewCatSheet = false
+            }
+        )
     }
 }
 

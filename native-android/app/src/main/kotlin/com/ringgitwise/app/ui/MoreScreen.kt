@@ -49,11 +49,13 @@ fun MoreScreen(
     profileEmoji: String,
     bills: List<RecurringBill>,
     goals: List<SavingsGoal>,
+    customCategoriesCount: Int = 0,
     pendingClaimsCount: Int,
     themeMode: String,
     onSetThemeMode: (String) -> Unit,
     onOpenBills: () -> Unit,
     onOpenGoals: () -> Unit,
+    onOpenCategories: () -> Unit = {},
     onOpenClaims: () -> Unit,
     onOpenExport: () -> Unit,
     onOpenScan: () -> Unit,
@@ -103,6 +105,11 @@ fun MoreScreen(
             ListRow(Icons.Default.Savings, Color(0xFFA78BFA), "Savings goals",
                 if (goals.isEmpty()) "Save towards something you want" else "${goals.size} goals • ${formatRMExact(saved)} saved",
                 onClick = onOpenGoals)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            ListRow(Icons.Default.Category, Color(0xFF06B6D4), "Categories",
+                if (customCategoriesCount == 0) "Create your own custom categories, icons & colours"
+                else "$customCategoriesCount custom • ${DEFAULT_CATEGORIES.size} built-in",
+                onClick = onOpenCategories)
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             ListRow(Icons.Default.VolunteerActivism, Info, "Tolong Beli claims",
                 if (pendingClaimsCount == 0) "No pending claims" else "$pendingClaimsCount pending to collect",
