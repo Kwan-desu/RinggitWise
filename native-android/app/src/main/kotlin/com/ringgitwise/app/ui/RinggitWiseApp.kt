@@ -179,6 +179,7 @@ fun RinggitWiseApp(
     var showMonthPicker by remember { mutableStateOf(false) }
     var initialLedgerFilter by remember { mutableStateOf("All") }
     var claimShareTarget by remember { mutableStateOf<Pair<String, List<Transaction>>?>(null) }
+    var addSheetInitialCategory by remember { mutableStateOf<String?>(null) }
 
     val notifPermLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -613,11 +614,18 @@ fun RinggitWiseApp(
                             2 -> ChartsTab(
                                 allTransactions = transactions,
                                 expenses = activeMonthExpenses,
+                                customCategories = customCategories,
                                 totalSpent = totalSpent,
                                 monthlyBudget = monthlyBudget,
                                 selectedMonth = selectedMonth,
                                 chartMode = chartMode,
-                                onSelectChartMode = { repository.setChartMode(it) }
+                                onSelectChartMode = { repository.setChartMode(it) },
+                                onOpenCategories = { subScreen = SubScreen.CATEGORIES },
+                                onAddCustomCategory = { repository.upsertCustomCategory(it) },
+                                onAddExpenseForCategory = { catName ->
+                                    addSheetInitialCategory = catName
+                                    showAddSheet = true
+                                }
                             )
                             else -> MoreScreen(
                                 avatarBitmap = avatarBitmap,
@@ -662,15 +670,21 @@ fun RinggitWiseApp(
         AddExpenseSheet(
             customCategories = customCategories,
             recentRecipients = allRecipients,
-            onDismiss = { showAddSheet = false },
+            initialCategory = addSheetInitialCategory,
+            onDismiss = {
+                showAddSheet = false
+                addSheetInitialCategory = null
+            },
             onAddCustomCategory = { repository.upsertCustomCategory(it) },
             onManageCategories = {
                 showAddSheet = false
+                addSheetInitialCategory = null
                 subScreen = SubScreen.CATEGORIES
             },
             onAdd = { newTx ->
                 repository.addTransaction(newTx)
                 showAddSheet = false
+                addSheetInitialCategory = null
             }
         )
     }
@@ -1387,16 +1401,32 @@ fun QuickActionButton(
 // -------------------------------------------------------------
 // CHARTS TAB (180° Half Pie, 360° Donut, Ranked Bars & Timeline)
 // -------------------------------------------------------------
+data class CategoryInsightItem(
+    val name: String,
+    val amount: Double,
+    val count: Int,
+    val isCustom: Boolean,
+    val color: Color,
+    val icon: ImageVector
+)
+
 @Composable
 fun ChartsTab(
     allTransactions: List<Transaction> = emptyList(),
     expenses: List<Transaction>,
+    customCategories: List<CustomCategory> = emptyList(),
     totalSpent: Double,
     monthlyBudget: Double,
     selectedMonth: String,
     chartMode: String = "half_pie",
-    onSelectChartMode: (String) -> Unit = {}
+    onSelectChartMode: (String) -> Unit = {},
+    onOpenCategories: () -> Unit = {},
+    onAddCustomCategory: (CustomCategory) -> Unit = {},
+    onAddExpenseForCategory: (String) -> Unit = {}
 ) {
+    var selectedCatName by remember { mutableStateOf<String?>(null) }
+    var showAddCustomSheet by remember { mutableStateOf(false) }
+
     // Aggregate by category
     val catMap = remember(expenses) {
         val map = mutableMapOf<String, Double>()
@@ -1405,6 +1435,56 @@ fun ChartsTab(
             map[cat] = (map[cat] ?: 0.0) + tx.amount
         }
         map.toList().sortedByDescending { it.second }
+    }
+
+    // Combine spending categories + all custom categories
+    val allCategoryItems = remember(catMap, customCategories, expenses) {
+        val customNamesSet = customCategories.map { it.name.trim().lowercase() }.toSet()
+        val items = mutableListOf<CategoryInsightItem>()
+        val seen = mutableSetOf<String>()
+
+        // 1. Categories with spending in this month (highest first)
+        catMap.forEach { (catName, amount) ->
+            val clean = catName.trim()
+            val key = clean.lowercase()
+            seen.add(key)
+            val count = expenses.count { it.category.equals(clean, true) }
+            val isCustom = customNamesSet.contains(key)
+            items.add(
+                CategoryInsightItem(
+                    name = clean,
+                    amount = amount,
+                    count = count,
+                    isCustom = isCustom,
+                    color = CategoryRegistry.resolveColor(clean, customCategories),
+                    icon = getCategoryIcon(clean)
+                )
+            )
+        }
+
+        // 2. Custom categories created by user that have 0 spending in this month
+        customCategories.forEach { customCat ->
+            val clean = customCat.name.trim()
+            val key = clean.lowercase()
+            if (!seen.contains(key)) {
+                seen.add(key)
+                items.add(
+                    CategoryInsightItem(
+                        name = clean,
+                        amount = 0.0,
+                        count = 0,
+                        isCustom = true,
+                        color = CategoryRegistry.resolveColor(clean, customCategories),
+                        icon = getCategoryIcon(clean)
+                    )
+                )
+            }
+        }
+        items
+    }
+
+    val selectedCatItem = remember(selectedCatName, allCategoryItems) {
+        selectedCatName?.let { name -> allCategoryItems.find { it.name.equals(name, ignoreCase = true) } }
     }
 
     // Daily distribution (Days 1 to 31)
@@ -1543,7 +1623,7 @@ fun ChartsTab(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(200.dp),
+                                .height(210.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -1575,30 +1655,89 @@ fun ChartsTab(
                                     catMap.forEach { (catName, amount) ->
                                         val pct = (amount / totalSpent).toFloat()
                                         val sweep = (pct * availableSpan).coerceAtLeast(1f)
-                                        val color = CategoryRegistry.resolveColor(catName)
+                                        val color = CategoryRegistry.resolveColor(catName, customCategories)
+
+                                        val isHighlighted = selectedCatName == null || selectedCatName.equals(catName, ignoreCase = true)
+                                        val sliceAlpha = if (isHighlighted) 1.0f else 0.35f
+                                        val sliceStroke = if (selectedCatName.equals(catName, ignoreCase = true)) strokeWidth + 4.dp.toPx() else strokeWidth
 
                                         drawArc(
-                                            color = color,
+                                            color = color.copy(alpha = sliceAlpha),
                                             startAngle = currentAngle,
                                             sweepAngle = sweep,
                                             useCenter = false,
                                             topLeft = topLeft,
                                             size = arcSize,
-                                            style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
+                                            style = Stroke(width = sliceStroke, cap = StrokeCap.Butt)
                                         )
                                         currentAngle += sweep + gap
                                     }
                                 }
                             }
 
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.padding(top = 55.dp)
-                            ) {
-                                Text("TOTAL SPENT", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(formatRM(totalSpent), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
-                                val countLabel = if (expenses.size == 1) "1 expense logged" else "${expenses.size} expenses logged"
-                                Text(countLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            if (selectedCatItem != null) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.padding(top = 38.dp)
+                                ) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = selectedCatItem.color.copy(alpha = 0.2f),
+                                        border = BorderStroke(1.dp, selectedCatItem.color.copy(alpha = 0.5f)),
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(selectedCatItem.icon, contentDescription = null, tint = selectedCatItem.color, modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(selectedCatItem.name, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        if (selectedCatItem.isCustom) {
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = selectedCatItem.color.copy(alpha = 0.22f)
+                                            ) {
+                                                Text(
+                                                    "Custom",
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = selectedCatItem.color,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Text(formatRM(selectedCatItem.amount), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+                                    val pct = if (totalSpent > 0) (selectedCatItem.amount / totalSpent * 100).toInt() else 0
+                                    Text(
+                                        if (selectedCatItem.amount > 0) "$pct% • ${selectedCatItem.count} tx" else "0 transactions",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    FilledTonalButton(
+                                        onClick = { onAddExpenseForCategory(selectedCatItem.name) },
+                                        shape = CircleShape,
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                        modifier = Modifier.height(26.dp)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(12.dp))
+                                        Spacer(modifier = Modifier.width(3.dp))
+                                        Text("Log", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            } else {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.padding(top = 55.dp)
+                                ) {
+                                    Text("TOTAL SPENT", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(formatRM(totalSpent), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+                                    val countLabel = if (expenses.size == 1) "1 expense logged" else "${expenses.size} expenses logged"
+                                    Text(countLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                }
                             }
                         }
 
@@ -1609,25 +1748,88 @@ fun ChartsTab(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            catMap.forEach { (catName, amount) ->
-                                val color = CategoryRegistry.resolveColor(catName)
-                                val pct = if (totalSpent > 0) (amount / totalSpent * 100).toInt() else 0
+                            allCategoryItems.forEach { item ->
+                                val isSelected = selectedCatName.equals(item.name, ignoreCase = true)
+                                val pct = if (totalSpent > 0) (item.amount / totalSpent * 100).toInt() else 0
 
                                 Surface(
                                     shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.surfaceContainer,
+                                    color = if (isSelected) item.color.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surfaceContainer,
+                                    border = if (isSelected) BorderStroke(1.5.dp, item.color) else glassCardBorder(),
+                                    onClick = { selectedCatName = if (isSelected) null else item.name },
                                     modifier = Modifier.padding(4.dp)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
+                                        Icon(
+                                            item.icon,
+                                            contentDescription = null,
+                                            tint = item.color,
+                                            modifier = Modifier.size(14.dp)
+                                        )
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text(catName, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("$pct%", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                        Text(item.name, style = MaterialTheme.typography.labelSmall, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium)
+                                        if (item.isCustom) {
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = item.color.copy(alpha = 0.25f)
+                                            ) {
+                                                Text(
+                                                    "Custom",
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = item.color,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.width(5.dp))
+                                        Text(
+                                            if (item.amount > 0) "$pct%" else "RM 0",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (item.amount > 0) item.color else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
                                     }
+                                }
+                            }
+
+                            // "+ Custom" chip
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                                onClick = { showAddCustomSheet = true },
+                                modifier = Modifier.padding(4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Custom", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+
+                            // "Manage" chip
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                border = glassCardBorder(),
+                                onClick = onOpenCategories,
+                                modifier = Modifier.padding(4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Tune, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(13.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Manage", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -1655,7 +1857,7 @@ fun ChartsTab(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(240.dp),
+                                .height(250.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -1687,27 +1889,83 @@ fun ChartsTab(
                                     catMap.forEach { (catName, amount) ->
                                         val pct = (amount / totalSpent).toFloat()
                                         val sweep = (pct * availableSpan).coerceAtLeast(2f)
-                                        val color = CategoryRegistry.resolveColor(catName)
+                                        val color = CategoryRegistry.resolveColor(catName, customCategories)
+
+                                        val isHighlighted = selectedCatName == null || selectedCatName.equals(catName, ignoreCase = true)
+                                        val sliceAlpha = if (isHighlighted) 1.0f else 0.35f
+                                        val sliceStroke = if (selectedCatName.equals(catName, ignoreCase = true)) strokeWidth + 4.dp.toPx() else strokeWidth
 
                                         drawArc(
-                                            color = color,
+                                            color = color.copy(alpha = sliceAlpha),
                                             startAngle = currentAngle,
                                             sweepAngle = sweep,
                                             useCenter = false,
                                             topLeft = topLeft,
                                             size = arcSize,
-                                            style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
+                                            style = Stroke(width = sliceStroke, cap = StrokeCap.Butt)
                                         )
                                         currentAngle += sweep + gap
                                     }
                                 }
                             }
 
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("TOTAL SPENT", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(formatRM(totalSpent), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
-                                val pctBudget = if (monthlyBudget > 0) ((totalSpent / monthlyBudget) * 100).toInt() else 0
-                                Text("$pctBudget% of budget", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                            if (selectedCatItem != null) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = selectedCatItem.color.copy(alpha = 0.2f),
+                                        border = BorderStroke(1.dp, selectedCatItem.color.copy(alpha = 0.5f)),
+                                        modifier = Modifier.size(42.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(selectedCatItem.icon, contentDescription = null, tint = selectedCatItem.color, modifier = Modifier.size(20.dp))
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(selectedCatItem.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        if (selectedCatItem.isCustom) {
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = selectedCatItem.color.copy(alpha = 0.22f)
+                                            ) {
+                                                Text(
+                                                    "Custom",
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = selectedCatItem.color,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Text(formatRM(selectedCatItem.amount), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+                                    val pct = if (totalSpent > 0) (selectedCatItem.amount / totalSpent * 100).toInt() else 0
+                                    Text(
+                                        if (selectedCatItem.amount > 0) "$pct% of spend • ${selectedCatItem.count} tx" else "0 transactions",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    FilledTonalButton(
+                                        onClick = { onAddExpenseForCategory(selectedCatItem.name) },
+                                        shape = CircleShape,
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(28.dp)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(12.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Log Expense", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            } else {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("TOTAL SPENT", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(formatRM(totalSpent), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+                                    val pctBudget = if (monthlyBudget > 0) ((totalSpent / monthlyBudget) * 100).toInt() else 0
+                                    Text("$pctBudget% of budget", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
 
@@ -1718,25 +1976,88 @@ fun ChartsTab(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            catMap.forEach { (catName, amount) ->
-                                val color = CategoryRegistry.resolveColor(catName)
-                                val pct = if (totalSpent > 0) (amount / totalSpent * 100).toInt() else 0
+                            allCategoryItems.forEach { item ->
+                                val isSelected = selectedCatName.equals(item.name, ignoreCase = true)
+                                val pct = if (totalSpent > 0) (item.amount / totalSpent * 100).toInt() else 0
 
                                 Surface(
                                     shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.surfaceContainer,
+                                    color = if (isSelected) item.color.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surfaceContainer,
+                                    border = if (isSelected) BorderStroke(1.5.dp, item.color) else glassCardBorder(),
+                                    onClick = { selectedCatName = if (isSelected) null else item.name },
                                     modifier = Modifier.padding(4.dp)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
+                                        Icon(
+                                            item.icon,
+                                            contentDescription = null,
+                                            tint = item.color,
+                                            modifier = Modifier.size(14.dp)
+                                        )
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text(catName, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("$pct%", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                        Text(item.name, style = MaterialTheme.typography.labelSmall, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium)
+                                        if (item.isCustom) {
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = item.color.copy(alpha = 0.25f)
+                                            ) {
+                                                Text(
+                                                    "Custom",
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = item.color,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.width(5.dp))
+                                        Text(
+                                            if (item.amount > 0) "$pct%" else "RM 0",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (item.amount > 0) item.color else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
                                     }
+                                }
+                            }
+
+                            // "+ Custom" chip
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                                onClick = { showAddCustomSheet = true },
+                                modifier = Modifier.padding(4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Custom", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+
+                            // "Manage" chip
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                border = glassCardBorder(),
+                                onClick = onOpenCategories,
+                                modifier = Modifier.padding(4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Tune, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(13.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Manage", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -1760,19 +2081,17 @@ fun ChartsTab(
                         ) {
                             Column {
                                 Text("Ranked Spending by Category", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text("${catMap.size} active categories in $selectedMonth", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("${allCategoryItems.size} categories (${customCategories.size} custom) in $selectedMonth", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Text(formatRM(totalSpent), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
                         }
 
-                        if (catMap.isEmpty()) {
-                            Text("No expenses logged for this month.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (allCategoryItems.isEmpty()) {
+                            Text("No categories or expenses logged for this month.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         } else {
-                            catMap.forEachIndexed { idx, (catName, amount) ->
-                                val pct = if (totalSpent > 0) (amount / totalSpent).toFloat() else 0f
+                            allCategoryItems.forEachIndexed { idx, item ->
+                                val pct = if (totalSpent > 0) (item.amount / totalSpent).toFloat() else 0f
                                 val pctInt = (pct * 100).toInt()
-                                val color = CategoryRegistry.resolveColor(catName)
-                                val count = expenses.count { it.category.equals(catName, true) }
 
                                 Surface(
                                     shape = RoundedCornerShape(16.dp),
@@ -1786,14 +2105,58 @@ fun ChartsTab(
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text("#${idx + 1}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(color))
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Text(
+                                                    if (item.amount > 0) "#${idx + 1}" else "—",
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (item.amount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    fontSize = 12.sp
+                                                )
                                                 Spacer(modifier = Modifier.width(8.dp))
-                                                Text(catName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                Surface(
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    color = item.color.copy(alpha = 0.18f),
+                                                    modifier = Modifier.size(26.dp)
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Icon(item.icon, contentDescription = null, tint = item.color, modifier = Modifier.size(15.dp))
+                                                    }
+                                                }
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(item.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                if (item.isCustom) {
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Surface(
+                                                        shape = CircleShape,
+                                                        color = item.color.copy(alpha = 0.2f)
+                                                    ) {
+                                                        Text(
+                                                            "Custom",
+                                                            fontSize = 9.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = item.color,
+                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                                                        )
+                                                    }
+                                                }
                                             }
-                                            Text(formatRM(amount), fontWeight = FontWeight.Black, style = MaterialTheme.typography.bodyMedium)
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(formatRM(item.amount), fontWeight = FontWeight.Black, style = MaterialTheme.typography.bodyMedium)
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                                    border = BorderStroke(1.dp, item.color.copy(alpha = 0.35f)),
+                                                    onClick = { onAddExpenseForCategory(item.name) }
+                                                ) {
+                                                    Box(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+                                                        Text("+ Log", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = item.color)
+                                                    }
+                                                }
+                                            }
                                         }
 
                                         Spacer(modifier = Modifier.height(10.dp))
@@ -1806,13 +2169,15 @@ fun ChartsTab(
                                                 .clip(CircleShape)
                                                 .background(MaterialTheme.colorScheme.surfaceContainerHighest)
                                         ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth(pct.coerceIn(0.01f, 1f))
-                                                    .fillMaxHeight()
-                                                    .clip(CircleShape)
-                                                    .background(color)
-                                            )
+                                            if (item.amount > 0) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth(pct.coerceIn(0.01f, 1f))
+                                                        .fillMaxHeight()
+                                                        .clip(CircleShape)
+                                                        .background(item.color)
+                                                )
+                                            }
                                         }
 
                                         Spacer(modifier = Modifier.height(6.dp))
@@ -1821,8 +2186,13 @@ fun ChartsTab(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            Text("$count transaction(s)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            Text("$pctInt% of monthly spend", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = color)
+                                            Text("${item.count} transaction(s)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(
+                                                if (item.amount > 0) "$pctInt% of monthly spend" else "No spending yet",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (item.amount > 0) item.color else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
                                         }
                                     }
                                 }
@@ -1907,6 +2277,174 @@ fun ChartsTab(
                     }
                 }
             }
+        }
+
+        // Custom Categories Dedicated Section
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+            border = glassCardBorder()
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Custom Categories", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (customCategories.isEmpty()) "Add personalized spending buckets"
+                            else "${customCategories.size} custom categories active",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FilledTonalButton(
+                            onClick = { showAddCustomSheet = true },
+                            shape = CircleShape,
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.height(34.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("New", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        }
+                        TextButton(
+                            onClick = onOpenCategories,
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier.height(34.dp)
+                        ) {
+                            Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Manage", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+
+                if (customCategories.isEmpty()) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        border = glassCardBorder(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                "No custom categories created yet. Tap '+ New' to create categories like Pets, Hobbies, or Holiday and see them automatically tracked here!",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        customCategories.forEach { customCat ->
+                            val color = CategoryRegistry.resolveColor(customCat.name, customCategories)
+                            val icon = getCategoryIcon(customCat.name)
+                            val customSpent = expenses.filter { it.category.equals(customCat.name, true) }.sumOf { it.amount }
+                            val customCount = expenses.count { it.category.equals(customCat.name, true) }
+                            val customPct = if (totalSpent > 0) (customSpent / totalSpent * 100).toInt() else 0
+
+                            Surface(
+                                shape = RoundedCornerShape(18.dp),
+                                color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
+                                border = glassCardBorder(),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Surface(
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = color.copy(alpha = 0.18f),
+                                            border = BorderStroke(1.dp, color.copy(alpha = 0.35f)),
+                                            modifier = Modifier.size(40.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
+                                            }
+                                        }
+                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(customCat.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = color.copy(alpha = 0.2f)
+                                                ) {
+                                                    Text(
+                                                        "Custom",
+                                                        fontSize = 8.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = color,
+                                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                if (customCount > 0) "$customCount tx in $selectedMonth • $customPct%"
+                                                else "0 transactions in $selectedMonth",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text(
+                                            formatRM(customSpent),
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Black,
+                                            color = if (customSpent > 0) color else MaterialTheme.colorScheme.onSurface
+                                        )
+                                        FilledTonalButton(
+                                            onClick = { onAddExpenseForCategory(customCat.name) },
+                                            shape = CircleShape,
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            modifier = Modifier.height(30.dp)
+                                        ) {
+                                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(12.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Log", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (showAddCustomSheet) {
+            CustomCategorySheet(
+                onDismiss = { showAddCustomSheet = false },
+                onSave = { newCat ->
+                    onAddCustomCategory(newCat)
+                    showAddCustomSheet = false
+                }
+            )
         }
 
         Spacer(modifier = Modifier.height(60.dp))
@@ -3549,6 +4087,7 @@ fun TransactionRow(tx: Transaction, onDelete: () -> Unit) {
 fun AddExpenseSheet(
     customCategories: List<CustomCategory> = emptyList(),
     recentRecipients: List<String> = emptyList(),
+    initialCategory: String? = null,
     onDismiss: () -> Unit,
     onAddCustomCategory: (CustomCategory) -> Unit = {},
     onManageCategories: () -> Unit = {},
@@ -3559,7 +4098,14 @@ fun AddExpenseSheet(
     }
     var amountStr by remember { mutableStateOf("") }
     var titleStr by remember { mutableStateOf("") }
-    var selectedCat by remember { mutableStateOf(allCategories.firstOrNull()?.name ?: DEFAULT_CATEGORIES[0].name) }
+    var selectedCat by remember(initialCategory, allCategories) {
+        mutableStateOf(
+            initialCategory?.takeIf { catName -> allCategories.any { it.name.equals(catName, ignoreCase = true) } }
+                ?: initialCategory
+                ?: allCategories.firstOrNull()?.name
+                ?: DEFAULT_CATEGORIES[0].name
+        )
+    }
     var selectedMethod by remember { mutableStateOf("DuitNow QR") }
     var dateStr by remember { mutableStateOf(SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())) }
     var showNewCatSheet by remember { mutableStateOf(false) }

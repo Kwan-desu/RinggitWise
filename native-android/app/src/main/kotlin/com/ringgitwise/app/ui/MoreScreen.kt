@@ -286,8 +286,10 @@ fun InsightsHeader(allTransactions: List<Transaction>, monthExpenses: List<Trans
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Space.md)) {
-            InsightTile(Icons.Default.Category, "Top category", insights.topCat ?: "—",
-                insights.topCatAmount?.let { formatRMExact(it) } ?: "No data", Warning, Modifier.weight(1f))
+            val topCatIcon = insights.topCat?.let { getCategoryIcon(it) } ?: Icons.Default.Category
+            val topCatTint = insights.topCat?.let { CategoryRegistry.resolveColor(it) } ?: Warning
+            InsightTile(topCatIcon, "Top category", insights.topCat ?: "—",
+                insights.topCatAmount?.let { formatRMExact(it) } ?: "No data", topCatTint, Modifier.weight(1f))
             InsightTile(Icons.Default.Storefront, "Top merchant", insights.topMerchant?.first ?: "—",
                 insights.topMerchant?.second?.let { formatRMExact(it) } ?: "No data", Info, Modifier.weight(1f))
         }
