@@ -103,7 +103,7 @@ fun glassCardColors(
 @Composable
 fun glassCardBorder(): BorderStroke? {
     val isWp = LocalIsWallpaperActive.current
-    return if (isWp) BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)) else null
+    return if (isWp) BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
@@ -561,7 +561,9 @@ fun RinggitWiseApp(
                             onSetGithubRepoSlug = { repository.setGithubRepoSlug(it) },
                             availableUpdate = availableUpdate,
                             onCheckForUpdates = { repository.checkForUpdates() },
-                            onOpenUpdateModal = { activeUpdateInfo = it }
+                            onOpenUpdateModal = { activeUpdateInfo = it },
+                            themeMode = themeMode,
+                            onSetThemeMode = { repository.setThemeMode(it) }
                         )
                         SubScreen.NONE -> when (selectedTab) {
                             0 -> HomeScreen(
@@ -1003,7 +1005,7 @@ fun OverviewTab(
             colors = CardDefaults.cardColors(
                 containerColor = if (isWp) MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = cardAlpha) else MaterialTheme.colorScheme.surfaceContainerHigh
             ),
-            border = BorderStroke(1.dp, Color.White.copy(alpha = if (isWp) 0.18f else 0.08f))
+            border = BorderStroke(1.dp, if (isWp) Color.White.copy(alpha = 0.18f) else MaterialTheme.colorScheme.outlineVariant)
         ) {
             Box(
                 modifier = Modifier
@@ -1134,7 +1136,7 @@ fun OverviewTab(
                         }
                     }
 
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
 
                     // 2-Column Micro-Metrics Footer
                     Row(
@@ -1166,7 +1168,7 @@ fun OverviewTab(
                             modifier = Modifier
                                 .height(40.dp)
                                 .width(1.dp)
-                                .background(Color.White.copy(alpha = 0.15f))
+                                .background(MaterialTheme.colorScheme.outlineVariant)
                         )
 
                         Column(
@@ -1200,7 +1202,7 @@ fun OverviewTab(
         Surface(
             shape = RoundedCornerShape(24.dp),
             color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer),
-            border = BorderStroke(1.dp, Color.White.copy(alpha = if (isWp) 0.15f else 0.05f)),
+            border = BorderStroke(1.dp, if (isWp) Color.White.copy(alpha = 0.15f) else MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
@@ -3510,7 +3512,7 @@ fun LedgerTab(
                                         "${pendingClaims.size}",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color.Black
+                                        color = if (isTolongSelected) MaterialTheme.colorScheme.onPrimary else Color.Black
                                     )
                                 }
                             }
@@ -3996,7 +3998,7 @@ fun TransactionRow(tx: Transaction, onDelete: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainer).copy(alpha = if (LocalIsWallpaperActive.current) 0.5f else 0.7f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = if (LocalIsWallpaperActive.current) 0.12f else 0.05f)),
+        border = BorderStroke(1.dp, if (LocalIsWallpaperActive.current) Color.White.copy(alpha = 0.12f) else MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
@@ -5218,7 +5220,9 @@ fun SettingsPage(
     onSetGithubRepoSlug: (String) -> Unit = {},
     availableUpdate: AppUpdateInfo? = null,
     onCheckForUpdates: suspend () -> Result<AppUpdateInfo> = { Result.failure(Exception()) },
-    onOpenUpdateModal: (AppUpdateInfo) -> Unit = {}
+    onOpenUpdateModal: (AppUpdateInfo) -> Unit = {},
+    themeMode: String = "dark",
+    onSetThemeMode: (String) -> Unit = {}
 ) {
     val quickEmojis = listOf("💰", "🦁", "🇲🇾", "🚀", "💳", "📈", "🍔", "☕", "🚗", "🏠", "🐱", "✨", "RM")
 
@@ -5229,6 +5233,31 @@ fun SettingsPage(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Section 0: Theme Mode (Dark / Light / Light Grey / System)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainerHigh),
+            border = glassCardBorder()
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Outlined.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text("App Theme", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+                ThemeModeSelector(
+                    themeMode = themeMode,
+                    onSelect = onSetThemeMode
+                )
+            }
+        }
+
         // Section 1: Profile Avatar & Identity Card
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -5348,7 +5377,7 @@ fun SettingsPage(
                     }
                 }
 
-                HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
 
                 Text("Or select a quick emoji emblem:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(
@@ -5439,7 +5468,7 @@ fun SettingsPage(
                         Text("Remove Wallpaper", color = MaterialTheme.colorScheme.onErrorContainer)
                     }
 
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
 
                     // Material You Elements Transparency Slider
                     Surface(

@@ -8,6 +8,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 
+enum class AppThemeMode { DARK, LIGHT, LIGHT_GREY }
+
 private val DarkColorScheme = darkColorScheme(
     primary = primaryDark,
     onPrimary = onPrimaryDark,
@@ -82,6 +84,43 @@ private val LightColorScheme = lightColorScheme(
     inversePrimary = Silver300
 )
 
+private val LightGreyColorScheme = lightColorScheme(
+    primary = primaryLightGrey,
+    onPrimary = onPrimaryLightGrey,
+    primaryContainer = primaryContainerLightGrey,
+    onPrimaryContainer = onPrimaryContainerLightGrey,
+    secondary = secondaryLightGrey,
+    onSecondary = onSecondaryLightGrey,
+    secondaryContainer = secondaryContainerLightGrey,
+    onSecondaryContainer = onSecondaryContainerLightGrey,
+    tertiary = tertiaryLightGrey,
+    onTertiary = onTertiaryLightGrey,
+    tertiaryContainer = tertiaryContainerLightGrey,
+    onTertiaryContainer = onTertiaryContainerLightGrey,
+    error = errorLightGrey,
+    onError = onErrorLightGrey,
+    errorContainer = errorContainerLightGrey,
+    onErrorContainer = onErrorContainerLightGrey,
+    background = backgroundLightGrey,
+    onBackground = onSurfaceLightGrey,
+    surface = surfaceLightGrey,
+    onSurface = onSurfaceLightGrey,
+    surfaceVariant = surfaceVariantLightGrey,
+    onSurfaceVariant = onSurfaceVariantLightGrey,
+    surfaceContainerLowest = surfaceContainerLowestLightGrey,
+    surfaceContainerLow = surfaceContainerLowLightGrey,
+    surfaceContainer = surfaceContainerLightGrey,
+    surfaceContainerHigh = surfaceContainerHighLightGrey,
+    surfaceContainerHighest = surfaceContainerHighestLightGrey,
+    surfaceBright = surfaceContainerHighestLightGrey,
+    surfaceDim = surfaceVariantLightGrey,
+    outline = outlineLightGrey,
+    outlineVariant = outlineVariantLightGrey,
+    inverseSurface = inverseSurfaceLightGrey,
+    inverseOnSurface = inverseOnSurfaceLightGrey,
+    inversePrimary = Silver300
+)
+
 private val AppShapes = Shapes(
     extraSmall = RoundedCornerShape(10.dp),
     small = RoundedCornerShape(14.dp),
@@ -91,16 +130,20 @@ private val AppShapes = Shapes(
 )
 
 /**
- * Dark-first theme. Dynamic (wallpaper-derived) colour is intentionally not used so the
- * single emerald accent stays consistent across devices.
+ * Obsidian monochrome dark theme with Light and Light Grey alternatives.
  */
 @Composable
 fun RinggitWiseTheme(
-    darkTheme: Boolean = true,
+    themeMode: AppThemeMode = AppThemeMode.DARK,
     content: @Composable () -> Unit
 ) {
+    val scheme = when (themeMode) {
+        AppThemeMode.DARK -> DarkColorScheme
+        AppThemeMode.LIGHT -> LightColorScheme
+        AppThemeMode.LIGHT_GREY -> LightGreyColorScheme
+    }
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
+        colorScheme = scheme,
         typography = Typography,
         shapes = AppShapes,
         content = content

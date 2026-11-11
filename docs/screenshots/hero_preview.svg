@@ -31,7 +31,7 @@
 
   <!-- Header Zone (y=28..148, guaranteed clear of phones starting at y=166) -->
   <rect x="610" y="32" width="380" height="30" rx="15" fill="#27272A" stroke="#FAFAFA" stroke-opacity="0.4" stroke-width="1"/>
-  <text x="800" y="51" text-anchor="middle" fill="#FAFAFA" font-size="12" font-weight="700" letter-spacing="1.2">RINGGITWISE NATIVE ANDROID v1.2.3</text>
+  <text x="800" y="51" text-anchor="middle" fill="#FAFAFA" font-size="12" font-weight="700" letter-spacing="1.2">RINGGITWISE NATIVE ANDROID v1.2.4</text>
 
   <text x="800" y="102" text-anchor="middle" fill="#FAFAFA" font-size="38" font-weight="900" letter-spacing="-0.6">Malaysian Personal Finance with AI OCR</text>
   <text x="800" y="134" text-anchor="middle" fill="#A1A1AA" font-size="16" font-weight="500">100% Ringgit (RM)  •  180° Half Pie &amp; Custom Categories  •  Tolong Beli Claims  •  Offline ML Kit &amp; Gemini AI</text>

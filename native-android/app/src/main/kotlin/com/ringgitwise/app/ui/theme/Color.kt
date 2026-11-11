@@ -78,17 +78,53 @@ val onErrorLight = Color(0xFFFFFFFF)
 val errorContainerLight = Color(0xFFFEE2E2)
 val onErrorContainerLight = Color(0xFF7F1D1D)
 
-val backgroundLight = Color(0xFFFAFAFA)
-val surfaceLight = Color(0xFFFAFAFA)
+val backgroundLight = Color(0xFFFFFFFF)
+val surfaceLight = Color(0xFFFFFFFF)
 val onSurfaceLight = ObsidianBlack
-val surfaceVariantLight = Color(0xFFE4E4E7)
+val surfaceVariantLight = Color(0xFFF1F2F4)
 val onSurfaceVariantLight = Color(0xFF52525B)
 val surfaceContainerLowestLight = Color(0xFFFFFFFF)
-val surfaceContainerLowLight = Color(0xFFFFFFFF)
-val surfaceContainerLight = Color(0xFFFFFFFF)
-val surfaceContainerHighLight = Color(0xFFFFFFFF)
-val surfaceContainerHighestLight = Color(0xFFF4F4F5)
+val surfaceContainerLowLight = Color(0xFFFAFAFB)
+val surfaceContainerLight = Color(0xFFF6F6F8)
+val surfaceContainerHighLight = Color(0xFFF0F0F3)
+val surfaceContainerHighestLight = Color(0xFFE4E4E7)
 val outlineLight = Color(0xFFD4D4D8)
 val outlineVariantLight = Color(0xFFE4E4E7)
 val inverseSurfaceLight = Obsidian900
 val inverseOnSurfaceLight = Color(0xFFFAFAFA)
+
+// ---------- Light Grey ----------
+val primaryLightGrey = Obsidian900
+val onPrimaryLightGrey = Color(0xFFFFFFFF)
+val primaryContainerLightGrey = Color(0xFFD1D3DA)
+val onPrimaryContainerLightGrey = ObsidianBlack
+
+val secondaryLightGrey = Color(0xFF3F3F46)
+val onSecondaryLightGrey = Color(0xFFFFFFFF)
+val secondaryContainerLightGrey = Color(0xFFD4D6DD)
+val onSecondaryContainerLightGrey = ObsidianBlack
+
+val tertiaryLightGrey = Color(0xFF52525B)
+val onTertiaryLightGrey = Color(0xFFFFFFFF)
+val tertiaryContainerLightGrey = Color(0xFFDADCE2)
+val onTertiaryContainerLightGrey = Obsidian900
+
+val errorLightGrey = DangerStrong
+val onErrorLightGrey = Color(0xFFFFFFFF)
+val errorContainerLightGrey = Color(0xFFFECACA)
+val onErrorContainerLightGrey = Color(0xFF7F1D1D)
+
+val backgroundLightGrey = Color(0xFFE2E4E9)
+val surfaceLightGrey = Color(0xFFE2E4E9)
+val onSurfaceLightGrey = Color(0xFF111114)
+val surfaceVariantLightGrey = Color(0xFFD4D6DC)
+val onSurfaceVariantLightGrey = Color(0xFF4B4E57)
+val surfaceContainerLowestLightGrey = Color(0xFFD5D7DD)
+val surfaceContainerLowLightGrey = Color(0xFFE9EAEE)
+val surfaceContainerLightGrey = Color(0xFFEEEFF2)
+val surfaceContainerHighLightGrey = Color(0xFFF4F5F7)
+val surfaceContainerHighestLightGrey = Color(0xFFFAFAFC)
+val outlineLightGrey = Color(0xFFA1A1AA)
+val outlineVariantLightGrey = Color(0xFFC8CAD1)
+val inverseSurfaceLightGrey = Obsidian900
+val inverseOnSurfaceLightGrey = Color(0xFFF4F4F5)

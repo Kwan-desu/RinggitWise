@@ -41,6 +41,11 @@ object WidgetBridge {
             ?.let { json.decodeFromString<List<RecurringBill>>(it) } ?: emptyList()
     } catch (_: Exception) { emptyList() }
 
+    fun loadThemeMode(context: Context): String = try {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString("theme_mode", "dark") ?: "dark"
+    } catch (_: Exception) { "dark" }
+
     fun snapshot(context: Context): SpendSnapshot {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val budget = prefs.getFloat("monthly_budget", 3500f).toDouble()

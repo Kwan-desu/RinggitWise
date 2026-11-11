@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.graphics.Bitmap
 import android.os.Build
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -135,24 +136,10 @@ fun MoreScreen(
 
         SectionHeader("Appearance")
         AppCard {
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                listOf("dark" to "Dark", "light" to "Light", "system" to "System").forEachIndexed { i, (key, label) ->
-                    SegmentedButton(
-                        selected = themeMode == key,
-                        onClick = { onSetThemeMode(key) },
-                        shape = SegmentedButtonDefaults.itemShape(i, 3),
-                        icon = {
-                            SegmentedButtonDefaults.Icon(active = themeMode == key) {
-                                Icon(
-                                    when (key) { "dark" -> Icons.Outlined.DarkMode; "light" -> Icons.Outlined.LightMode; else -> Icons.Outlined.SettingsBrightness },
-                                    contentDescription = null,
-                                    modifier = Modifier.size(SegmentedButtonDefaults.IconSize)
-                                )
-                            }
-                        }
-                    ) { Text(label) }
-                }
-            }
+            ThemeModeSelector(
+                themeMode = themeMode,
+                onSelect = onSetThemeMode
+            )
         }
 
         AppCard(contentPadding = PaddingValues(horizontal = Space.lg, vertical = Space.xs)) {
@@ -166,6 +153,105 @@ fun MoreScreen(
             modifier = Modifier.fillMaxWidth().padding(top = Space.sm),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
+    }
+}
+
+private data class ThemeChoice(
+    val key: String,
+    val label: String,
+    val subtitle: String,
+    val icon: ImageVector,
+    val swatch: Color,
+    val swatchBorder: Color
+)
+
+/** Shared 2x2 selector for Dark, Light, Light Grey, and System themes. */
+@Composable
+fun ThemeModeSelector(
+    themeMode: String,
+    onSelect: (String) -> Unit
+) {
+    val choices = listOf(
+        ThemeChoice("dark", "Dark", "OLED black", Icons.Outlined.DarkMode, Color(0xFF09090B), Color(0xFF3F3F46)),
+        ThemeChoice("light", "Light", "Crisp white", Icons.Outlined.LightMode, Color(0xFFFFFFFF), Color(0xFFD4D4D8)),
+        ThemeChoice("light_grey", "Light Grey", "Soft neutral", Icons.Outlined.Contrast, Color(0xFFDADCE2), Color(0xFF9CA3AF)),
+        ThemeChoice("system", "System", "Match phone", Icons.Outlined.SettingsBrightness, Color(0xFF71717A), Color(0xFF52525B))
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(Space.sm)) {
+        choices.chunked(2).forEach { rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Space.sm)
+            ) {
+                rowItems.forEach { item ->
+                    val selected = themeMode == item.key
+                    Surface(
+                        onClick = { onSelect(item.key) },
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (selected) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerHigh
+                        },
+                        border = BorderStroke(
+                            width = if (selected) 1.5.dp else 1.dp,
+                            color = if (selected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.outlineVariant
+                            }
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = Space.md, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(Space.sm)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(item.swatch)
+                            ) {
+                                Surface(
+                                    modifier = Modifier.fillMaxSize(),
+                                    shape = CircleShape,
+                                    color = Color.Transparent,
+                                    border = BorderStroke(1.dp, item.swatchBorder)
+                                ) {}
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    item.label,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    item.subtitle,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            if (selected) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

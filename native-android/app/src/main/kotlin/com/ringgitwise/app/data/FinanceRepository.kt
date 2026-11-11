@@ -120,7 +120,7 @@ class FinanceRepository(private val context: Context) {
     private val _customCategories = MutableStateFlow<List<CustomCategory>>(emptyList())
     val customCategories: StateFlow<List<CustomCategory>> = _customCategories.asStateFlow()
 
-    // Appearance: "dark" (default), "light" or "system"
+    // Appearance: "dark" (default), "light", "light_grey" or "system"
     private val _themeMode = MutableStateFlow(prefs.getString("theme_mode", "dark") ?: "dark")
     val themeMode: StateFlow<String> = _themeMode.asStateFlow()
 
@@ -930,6 +930,7 @@ $ledgerContext
     fun setThemeMode(mode: String) {
         _themeMode.value = mode
         prefs.edit().putString("theme_mode", mode).apply()
+        WidgetBridge.requestRefresh(context)
     }
 
     fun setBillRemindersEnabled(enabled: Boolean) {

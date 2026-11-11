@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.util.SizeF
@@ -15,20 +16,22 @@ import com.ringgitwise.app.R
 import com.ringgitwise.app.data.SpendSnapshot
 import com.ringgitwise.app.data.WidgetBridge
 import com.ringgitwise.app.data.formatDueLabel
+import com.ringgitwise.app.ui.theme.AppThemeMode
 import java.util.Locale
 import kotlin.math.abs
 
 /**
  * Home-screen widget: today's spend, budget left this month, and the next bill due.
- * Adapts across 4x2, 2x2, 2x1/4x1, and 1x2 grid cells.
+ * Adapts across 4x2, 2x2, 2x1/4x1, and 1x2 grid cells and follows Dark / Light / Light Grey themes.
  */
 class SpendWidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         val snap = WidgetBridge.snapshot(context)
+        val theme = resolveThemeMode(context)
         appWidgetIds.forEach { id ->
             val options = appWidgetManager.getAppWidgetOptions(id)
-            updateWidget(context, appWidgetManager, id, options, snap)
+            updateWidget(context, appWidgetManager, id, options, snap, theme)
         }
     }
 
@@ -40,7 +43,18 @@ class SpendWidgetProvider : AppWidgetProvider() {
     ) {
         super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
         val snap = WidgetBridge.snapshot(context)
-        updateWidget(context, appWidgetManager, appWidgetId, newOptions, snap)
+        val theme = resolveThemeMode(context)
+        updateWidget(context, appWidgetManager, appWidgetId, newOptions, snap, theme)
+    }
+
+    private fun resolveThemeMode(context: Context): AppThemeMode = when (WidgetBridge.loadThemeMode(context)) {
+        "light" -> AppThemeMode.LIGHT
+        "light_grey" -> AppThemeMode.LIGHT_GREY
+        "system" -> {
+            val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            if (night) AppThemeMode.DARK else AppThemeMode.LIGHT
+        }
+        else -> AppThemeMode.DARK
     }
 
     private fun updateWidget(
@@ -48,7 +62,8 @@ class SpendWidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetId: Int,
         options: Bundle,
-        snap: SpendSnapshot
+        snap: SpendSnapshot,
+        theme: AppThemeMode
     ) {
         val pct = if (snap.budget > 0) ((snap.monthSpent / snap.budget) * 100).toInt().coerceIn(0, 100) else 0
         val openApp = PendingIntent.getActivity(
@@ -67,21 +82,21 @@ class SpendWidgetProvider : AppWidgetProvider() {
         val views = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             RemoteViews(
                 mapOf(
-                    SizeF(40f, 85f) to build1x2Views(context, snap, pct, openApp, quickAdd, compactHeight = true),
-                    SizeF(40f, 120f) to build1x2Views(context, snap, pct, openApp, quickAdd, compactHeight = false),
-                    SizeF(125f, 50f) to buildRegularViews(context, snap, pct, openApp, quickAdd, widthDp = 150, heightDp = 75),
-                    SizeF(125f, 115f) to buildRegularViews(context, snap, pct, openApp, quickAdd, widthDp = 160, heightDp = 130),
-                    SizeF(215f, 50f) to buildRegularViews(context, snap, pct, openApp, quickAdd, widthDp = 250, heightDp = 75),
-                    SizeF(215f, 115f) to buildRegularViews(context, snap, pct, openApp, quickAdd, widthDp = 250, heightDp = 135)
+                    SizeF(40f, 85f) to build1x2Views(context, snap, pct, openApp, quickAdd, compactHeight = true, theme = theme),
+                    SizeF(40f, 120f) to build1x2Views(context, snap, pct, openApp, quickAdd, compactHeight = false, theme = theme),
+                    SizeF(125f, 50f) to buildRegularViews(context, snap, pct, openApp, quickAdd, widthDp = 150, heightDp = 75, theme = theme),
+                    SizeF(125f, 115f) to buildRegularViews(context, snap, pct, openApp, quickAdd, widthDp = 160, heightDp = 130, theme = theme),
+                    SizeF(215f, 50f) to buildRegularViews(context, snap, pct, openApp, quickAdd, widthDp = 250, heightDp = 75, theme = theme),
+                    SizeF(215f, 115f) to buildRegularViews(context, snap, pct, openApp, quickAdd, widthDp = 250, heightDp = 135, theme = theme)
                 )
             )
         } else {
             val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 130)
             if (minWidth < 125) {
-                build1x2Views(context, snap, pct, openApp, quickAdd, compactHeight = minHeight < 115)
+                build1x2Views(context, snap, pct, openApp, quickAdd, compactHeight = minHeight < 115, theme = theme)
             } else {
-                buildRegularViews(context, snap, pct, openApp, quickAdd, minWidth, minHeight)
+                buildRegularViews(context, snap, pct, openApp, quickAdd, minWidth, minHeight, theme = theme)
             }
         }
 
@@ -94,9 +109,14 @@ class SpendWidgetProvider : AppWidgetProvider() {
         pct: Int,
         openApp: PendingIntent,
         quickAdd: PendingIntent,
-        compactHeight: Boolean
+        compactHeight: Boolean,
+        theme: AppThemeMode
     ): RemoteViews {
-        val views = RemoteViews(context.packageName, R.layout.widget_spend_1x2)
+        val layout = if (theme == AppThemeMode.DARK) R.layout.widget_spend_1x2 else R.layout.widget_spend_1x2_light
+        val views = RemoteViews(context.packageName, layout)
+        if (theme == AppThemeMode.LIGHT_GREY) {
+            views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg_light_grey)
+        }
         views.setTextViewText(R.id.widget_1x2_today, compactRm(snap.todaySpent))
         views.setProgressBar(R.id.widget_1x2_progress, 100, pct, false)
         views.setTextViewText(R.id.widget_1x2_pct, "$pct%")
@@ -121,9 +141,15 @@ class SpendWidgetProvider : AppWidgetProvider() {
         openApp: PendingIntent,
         quickAdd: PendingIntent,
         widthDp: Int,
-        heightDp: Int
+        heightDp: Int,
+        theme: AppThemeMode
     ): RemoteViews {
-        val views = RemoteViews(context.packageName, R.layout.widget_spend)
+        val layout = if (theme == AppThemeMode.DARK) R.layout.widget_spend else R.layout.widget_spend_light
+        val views = RemoteViews(context.packageName, layout)
+        if (theme == AppThemeMode.LIGHT_GREY) {
+            views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg_light_grey)
+            views.setInt(R.id.widget_bill_value, "setBackgroundResource", R.drawable.widget_chip_bg_light_grey)
+        }
         val narrow = widthDp < 200
         views.setTextViewText(
             R.id.widget_today_value,

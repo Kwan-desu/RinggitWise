@@ -1,14 +1,17 @@
 package com.ringgitwise.app
 
 import android.content.Intent
+import android.graphics.Color as AndroidColor
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,6 +20,7 @@ import com.ringgitwise.app.data.FinanceRepository
 import com.ringgitwise.app.data.WidgetBridge
 import com.ringgitwise.app.ui.LaunchAction
 import com.ringgitwise.app.ui.RinggitWiseApp
+import com.ringgitwise.app.ui.theme.AppThemeMode
 import com.ringgitwise.app.ui.theme.RinggitWiseTheme
 import com.ringgitwise.app.widget.BillReminderWorker
 
@@ -36,12 +40,30 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val themeMode by repository.themeMode.collectAsState()
-            val dark = when (themeMode) {
-                "light" -> false
-                "system" -> isSystemInDarkTheme()
-                else -> true
+            val systemDark = isSystemInDarkTheme()
+            val appTheme = when (themeMode) {
+                "light" -> AppThemeMode.LIGHT
+                "light_grey" -> AppThemeMode.LIGHT_GREY
+                "system" -> if (systemDark) AppThemeMode.DARK else AppThemeMode.LIGHT
+                else -> AppThemeMode.DARK
             }
-            RinggitWiseTheme(darkTheme = dark) {
+            val isDark = appTheme == AppThemeMode.DARK
+            DisposableEffect(isDark) {
+                enableEdgeToEdge(
+                    statusBarStyle = if (isDark) {
+                        SystemBarStyle.dark(AndroidColor.TRANSPARENT)
+                    } else {
+                        SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT)
+                    },
+                    navigationBarStyle = if (isDark) {
+                        SystemBarStyle.dark(AndroidColor.TRANSPARENT)
+                    } else {
+                        SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT)
+                    }
+                )
+                onDispose {}
+            }
+            RinggitWiseTheme(themeMode = appTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
