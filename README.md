@@ -42,7 +42,7 @@ A modern, privacy-first **Native Android application** built strictly in **Malay
       <td align="center"><img src="docs/screenshots/home_preview.svg" width="100%" alt="Home Budget & Quick Actions" /></td>
       <td align="center"><img src="docs/screenshots/insights_preview.svg" width="100%" alt="Insights & 180 Half Pie" /></td>
       <td align="center"><img src="docs/screenshots/ledger_preview.svg" width="100%" alt="Activity Ledger & Claims" /></td>
-      <td align="center"><img src="docs/screenshots/scanner_preview.svg" width="100%" alt="ML Kit & Gemini Receipt Scanner" /></td>
+      <td align="center"><img src="docs/screenshots/ocr_scanner_preview.svg" width="100%" alt="ML Kit & Gemini Receipt Scanner" /></td>
     </tr>
     <tr>
       <td align="center"><sub>Monthly RM budget pace, daily safe spend, quick actions & upcoming bills</sub></td>
