@@ -33,18 +33,21 @@ A modern, privacy-first **Native Android application** built strictly in **Malay
 <div align="center">
   <table>
     <tr>
-      <th align="center" width="33%">📊 Insights & Custom Categories</th>
-      <th align="center" width="33%">👥 Activity & Tolong Beli</th>
-      <th align="center" width="33%">⚡ Dual-Engine AI Receipt Scanner</th>
+      <th align="center" width="25%">🏠 Home & Budget</th>
+      <th align="center" width="25%">📊 Insights & Custom Categories</th>
+      <th align="center" width="25%">👥 Activity & Tolong Beli</th>
+      <th align="center" width="25%">⚡ AI & OCR Scanner</th>
     </tr>
     <tr>
+      <td align="center"><img src="docs/screenshots/home_preview.svg" width="100%" alt="Home Budget & Quick Actions" /></td>
       <td align="center"><img src="docs/screenshots/insights_preview.svg" width="100%" alt="Insights & 180 Half Pie" /></td>
       <td align="center"><img src="docs/screenshots/ledger_preview.svg" width="100%" alt="Activity Ledger & Claims" /></td>
       <td align="center"><img src="docs/screenshots/scanner_preview.svg" width="100%" alt="ML Kit & Gemini Receipt Scanner" /></td>
     </tr>
     <tr>
+      <td align="center"><sub>Monthly RM budget pace, daily safe spend, quick actions & upcoming bills</sub></td>
       <td align="center"><sub>180° Arch & 360° Donut with custom category slices & interactive center focus</sub></td>
-      <td align="center"><sub>Tolong Beli claim tracking, settlement status & payment method badges</sub></td>
+      <td align="center"><sub>Tolong Beli claim tracking, settlement status & payment method pills</sub></td>
       <td align="center"><sub>100% offline local OCR (ML Kit) + Google Gemini AI multimodal analysis</sub></td>
     </tr>
   </table>
