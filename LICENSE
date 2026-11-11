@@ -1,0 +1,57 @@
+RinggitWise Non-Commercial Source-Required License (v1.0)
+Copyright (c) 2026 Kwan-desu
+
+All rights reserved except as expressly granted below.
+
+1. Definitions
+   "Software" means the RinggitWise source code, documentation, visual assets,
+   build scripts, and any compiled binaries (including Android APKs and web
+   bundles) distributed under this License.
+   "Derivative Work" means any modification, fork, translation, wrapper,
+   repackaging, or work based on or incorporating any portion of the Software.
+   "Commercial Use" means any use, distribution, hosting, or deployment intended
+   for or directed toward commercial advantage or monetary compensation,
+   including selling copies, paid app store uploads, bundling into paid
+   products or services, ad-monetized redistribution, or paid SaaS/hosted
+   offerings.
+
+2. Permitted Non-Commercial Use and Modification
+   You are permitted to use, copy, inspect, build, and modify the Software
+   solely for non-commercial purposes (such as personal use, study, research,
+   or non-profit community use), provided you comply with all conditions in
+   Sections 3 and 4.
+
+3. Prohibition on Selling and Commercial Exploitation
+   You may NOT sell, rent, lease, sublicense, monetize, or otherwise use the
+   Software or any Derivative Work for Commercial Use without prior written
+   permission from the copyright holder.
+
+4. Mandatory Source Code Disclosure & Share-Alike Distribution
+   If you distribute, publish, transfer, or otherwise make available the
+   Software or any Derivative Work (including compiled APKs, binaries, or
+   hosted/network builds), you MUST satisfy all of the following conditions:
+   (a) Provide Complete Source Code: You must include or make publicly
+       available, free of charge and at the same time as distribution, the
+       complete corresponding source code (including build instructions and
+       any modifications) in a readable, unencrypted form.
+   (b) Same License Terms: Any Derivative Work you distribute must be
+       licensed under this exact License, with no additional restrictions
+       that interfere with these source-disclosure or non-commercial rules.
+   (c) Attribution & Notices: You must retain this LICENSE file and the
+       copyright notice above in all copies, provide clear credit linking to
+       https://github.com/Kwan-desu/RinggitWise, and document any changes made
+       to the original Software.
+
+5. Termination
+   Any breach of the conditions of this License automatically terminates your
+   rights under it. You may request a separate commercial license from the
+   copyright holder.
+
+6. Disclaimer of Warranty & Limitation of Liability
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING
+   FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+   DEALINGS IN THE SOFTWARE.

@@ -7,7 +7,7 @@ Malaysian personal finance app for Android built with Kotlin and Jetpack Compose
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0+-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Jetpack Compose](https://img.shields.io/badge/Jetpack_Compose-Material_3-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
 [![Currency](https://img.shields.io/badge/Currency-RM-10B981)](#)
-[![License](https://img.shields.io/badge/License-MIT-gray.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Non--Commercial_%2F_Source--Required-D97706.svg)](LICENSE)
 
 Built exclusively for **Malaysian Ringgit (RM)** tracking. Includes an interactive **180° Half Pie** and **360° Donut** spending view with custom categories, **Tolong Beli** claim tracking with one-tap WhatsApp sharing, offline **Google ML Kit OCR** plus **Gemini AI** receipt scanning, recurring bill reminders, and savings goals.
 
@@ -130,4 +130,7 @@ The generated APK is written to `native-android/app/build/outputs/apk/debug/app-
 
 ## License
 
-Licensed under the MIT License. See [LICENSE](LICENSE) for full terms.
+Licensed under the **RinggitWise Non-Commercial Source-Required License (v1.0)** — see [LICENSE](LICENSE) for full terms:
+
+- You **cannot sell** or monetize the app, builds, or derivative works for commercial gain.
+- You **cannot distribute** the app or modified builds (including APKs) without providing the full corresponding source code under the same license.
