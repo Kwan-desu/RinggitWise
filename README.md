@@ -15,7 +15,7 @@ A modern, privacy-first **Native Android application** built strictly in **Malay
 ## 📱 App Preview
 
 <div align="center">
-  <img src="docs/screenshots/hero_showcase.png" alt="RinggitWise App Showcase" width="100%" style="border-radius: 16px; box-shadow: 0 16px 40px rgba(0,0,0,0.35);" />
+  <img src="docs/screenshots/hero_preview.svg" alt="RinggitWise App Showcase" width="100%" style="border-radius: 16px; box-shadow: 0 16px 40px rgba(0,0,0,0.35);" />
 </div>
 
 <br/>
@@ -33,22 +33,19 @@ A modern, privacy-first **Native Android application** built strictly in **Malay
 <div align="center">
   <table>
     <tr>
-      <th align="center" width="25%">📊 Insights & Custom Categories</th>
-      <th align="center" width="25%">👥 Activity & Tolong Beli</th>
-      <th align="center" width="25%">⚡ Offline ML Kit OCR</th>
-      <th align="center" width="25%">🤖 Google Gemini AI Chat</th>
+      <th align="center" width="33%">📊 Insights & Custom Categories</th>
+      <th align="center" width="33%">👥 Activity & Tolong Beli</th>
+      <th align="center" width="33%">⚡ Dual-Engine AI Receipt Scanner</th>
     </tr>
     <tr>
-      <td align="center"><img src="docs/screenshots/insights_chart.png" width="100%" alt="Insights & 180 Half Pie" /></td>
-      <td align="center"><img src="docs/screenshots/ledger.png" width="100%" alt="Activity Ledger & Claims" /></td>
-      <td align="center"><img src="docs/screenshots/ai_scanner.png" width="100%" alt="ML Kit Receipt Scanner" /></td>
-      <td align="center"><img src="docs/screenshots/gemini_ai.png" width="100%" alt="Gemini Financial Assistant" /></td>
+      <td align="center"><img src="docs/screenshots/insights_preview.svg" width="100%" alt="Insights & 180 Half Pie" /></td>
+      <td align="center"><img src="docs/screenshots/ledger_preview.svg" width="100%" alt="Activity Ledger & Claims" /></td>
+      <td align="center"><img src="docs/screenshots/scanner_preview.svg" width="100%" alt="ML Kit & Gemini Receipt Scanner" /></td>
     </tr>
     <tr>
       <td align="center"><sub>180° Arch & 360° Donut with custom category slices & interactive center focus</sub></td>
       <td align="center"><sub>Tolong Beli claim tracking, settlement status & payment method badges</sub></td>
-      <td align="center"><sub>100% offline local OCR for Touch 'n Go, MAE Maybank & bank slips</sub></td>
-      <td align="center"><sub>Multimodal expense breakdown, natural language receipt query & logging</sub></td>
+      <td align="center"><sub>100% offline local OCR (ML Kit) + Google Gemini AI multimodal analysis</sub></td>
     </tr>
   </table>
 </div>

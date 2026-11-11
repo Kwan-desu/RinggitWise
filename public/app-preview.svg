@@ -1,190 +1,394 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 680" width="100%" height="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="100%" height="100%">
   <defs>
-    <!-- Background Gradient (Quiet, deep dark zinc) -->
-    <linearGradient id="canvasBg" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#09090b"/>
-      <stop offset="100%" stop-color="#0c0a09"/>
+    <!-- Background Gradient -->
+    <radialGradient id="bg-grad" cx="50%" cy="40%" r="70%" fx="50%" fy="30%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#090d16" />
+      <stop offset="100%" stop-color="#05070a" />
+    </radialGradient>
+
+    <!-- Ambient Glows -->
+    <radialGradient id="glow-emerald" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.18" />
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="glow-cyan" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="glow-purple" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Glass Gradients -->
+    <linearGradient id="glass-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" stop-opacity="0.75" />
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.85" />
+    </linearGradient>
+    <linearGradient id="glass-stroke" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.4" />
+      <stop offset="50%" stop-color="#334155" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0.4" />
+    </linearGradient>
+    <linearGradient id="card-glass" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#334155" stop-opacity="0.4" />
+      <stop offset="100%" stop-color="#1e293b" stop-opacity="0.5" />
     </linearGradient>
 
-    <linearGradient id="cardBg" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#141417"/>
-      <stop offset="100%" stop-color="#0f0f11"/>
+    <!-- Accent Gradients -->
+    <linearGradient id="emerald-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#10b981" />
     </linearGradient>
+    <linearGradient id="cyan-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0891b2" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+
+    <!-- Drop Shadows -->
+    <filter id="shadow-heavy" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="25" stdDeviation="30" flood-color="#000000" flood-opacity="0.7" />
+    </filter>
+    <filter id="shadow-card" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="10" stdDeviation="15" flood-color="#000000" flood-opacity="0.5" />
+    </filter>
+    <filter id="glow-effect" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <!-- Fonts Style -->
+    <style>
+      .title-main { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-weight: 800; fill: #f8fafc; }
+      .title-sub { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-weight: 500; fill: #94a3b8; }
+      .badge-text { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-weight: 700; fill: #34d399; letter-spacing: 2px; }
+      .device-title { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-weight: 700; fill: #f1f5f9; }
+      .ui-text { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-weight: 400; fill: #cbd5e1; }
+      .ui-bold { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-weight: 700; fill: #ffffff; }
+      .ui-muted { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-weight: 400; fill: #64748b; }
+      .amount-text { font-family: 'JetBrains Mono', monospace; font-weight: 700; fill: #34d399; }
+    </style>
   </defs>
 
-  <style>
-    .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 600; fill: #f4f4f5; }
-    .mono { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 600; font-variant-numeric: tabular-nums; }
-    .label { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; fill: #71717a; }
-    .leader { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; font-weight: 500; fill: #a1a1aa; }
-  </style>
-
   <!-- Background -->
-  <rect width="1200" height="680" fill="url(#canvasBg)" rx="16"/>
+  <rect width="1920" height="1080" fill="url(#bg-grad)" />
 
-  <!-- Top Minimalist Bar -->
-  <rect x="40" y="24" width="1120" height="52" rx="12" fill="#121214" stroke="#27272a" stroke-width="1"/>
-  
-  <!-- Brand -->
-  <circle cx="64" cy="50" r="4" fill="#10b981"/>
-  <text x="76" y="54" class="title" font-size="14">RinggitWise</text>
-  <rect x="160" y="40" width="60" height="20" rx="4" fill="#1c1c20" stroke="#2e2e33"/>
-  <text x="190" y="54" class="label" font-size="9" fill="#a1a1aa" text-anchor="middle">MYR (RM)</text>
+  <!-- Ambient Glow Background Orbs -->
+  <circle cx="300" cy="300" r="400" fill="url(#glow-emerald)" />
+  <circle cx="1600" cy="700" r="450" fill="url(#glow-cyan)" />
+  <circle cx="960" cy="540" r="500" fill="url(#glow-purple)" />
 
-  <!-- Month Indicator -->
-  <text x="600" y="54" class="title" font-size="12" fill="#71717a" text-anchor="middle">October 2026</text>
-
-  <!-- Right Actions -->
-  <rect x="910" y="38" width="105" height="26" rx="13" fill="#1f1315" stroke="#4c1d24"/>
-  <text x="962" y="55" font-family="sans-serif" font-weight="500" font-size="11" fill="#f43f5e" text-anchor="middle">DuitNow OCR</text>
-
-  <rect x="1025" y="38" width="90" height="26" rx="13" fill="#f4f4f5"/>
-  <text x="1070" y="55" font-family="sans-serif" font-weight="600" font-size="11" fill="#09090b" text-anchor="middle">+ Record RM</text>
-
-  <!-- Row 1: 4 Quiet Luxury Metric Cards -->
-  <g transform="translate(40, 92)">
-    <!-- Card 1: Total Spent -->
-    <rect x="0" y="0" width="265" height="84" rx="12" fill="url(#cardBg)" stroke="#27272a" stroke-width="1"/>
-    <text x="16" y="26" class="label" font-size="10" letter-spacing="0.5">TOTAL SPENT</text>
-    <text x="249" y="26" class="label" font-size="10" text-anchor="end">30.5% used</text>
-    <text x="16" y="58" class="mono" font-size="22" fill="#f4f4f5">RM 1,068.00</text>
-    <rect x="16" y="70" width="233" height="3" rx="1.5" fill="#27272a"/>
-    <rect x="16" y="70" width="71" height="3" rx="1.5" fill="#10b981"/>
-
-    <!-- Card 2: Monthly Budget -->
-    <rect x="285" y="0" width="265" height="84" rx="12" fill="url(#cardBg)" stroke="#27272a" stroke-width="1"/>
-    <text x="301" y="26" class="label" font-size="10" letter-spacing="0.5">MONTHLY BUDGET</text>
-    <text x="301" y="58" class="mono" font-size="22" fill="#f4f4f5">RM 3,500.00</text>
-    <text x="301" y="74" class="label" font-size="9">Fixed monthly ceiling</text>
-
-    <!-- Card 3: Remaining Balance -->
-    <rect x="570" y="0" width="265" height="84" rx="12" fill="url(#cardBg)" stroke="#27272a" stroke-width="1"/>
-    <text x="586" y="26" class="label" font-size="10" letter-spacing="0.5">REMAINING BALANCE</text>
-    <rect x="785" y="16" width="50" height="16" rx="8" fill="#064e3b"/>
-    <text x="810" y="28" font-family="sans-serif" font-weight="600" font-size="9" fill="#34d399" text-anchor="middle">On Track</text>
-    <text x="586" y="58" class="mono" font-size="22" fill="#f4f4f5">RM 2,432.00</text>
-    <text x="586" y="74" class="label" font-size="9">Safe to end of month</text>
-
-    <!-- Card 4: Daily Allowance -->
-    <rect x="855" y="0" width="265" height="84" rx="12" fill="url(#cardBg)" stroke="#27272a" stroke-width="1"/>
-    <text x="871" y="26" class="label" font-size="10" letter-spacing="0.5">DAILY ALLOWANCE</text>
-    <text x="1104" y="26" class="label" font-size="10" text-anchor="end">2d left</text>
-    <text x="871" y="58" class="mono" font-size="22" fill="#10b981">RM 1,216.00</text>
-    <text x="871" y="74" class="label" font-size="9">Daily safe burn rate</text>
+  <!-- Grid Pattern Overlay -->
+  <g opacity="0.03">
+    <path d="M0 180H1920 M0 360H1920 M0 540H1920 M0 720H1920 M0 900H1920" stroke="#ffffff" stroke-width="1" />
+    <path d="M320 0V1080 M640 0V1080 M960 0V1080 M1280 0V1080 M1600 0V1080" stroke="#ffffff" stroke-width="1" />
   </g>
 
-  <!-- Row 2 Bento Grid: Left (Half-Circle Arch Chart) & Right (DuitNow OCR Panel) -->
-  
-  <!-- LEFT: Half-Circle Spending Arch Chart (Image 1 replica) -->
-  <g transform="translate(40, 194)">
-    <rect x="0" y="0" width="675" height="460" rx="16" fill="url(#cardBg)" stroke="#27272a" stroke-width="1"/>
-    
-    <text x="24" y="32" class="title" font-size="13">Spending Distribution by Category</text>
-    <text x="24" y="48" class="label">180° semi-circular arch breakdown in Malaysian Ringgit</text>
+  <!-- ==================== HEADER SECTION ==================== -->
+  <g transform="translate(960, 85)" text-anchor="middle">
+    <!-- Top Pill Badge -->
+    <rect x="-310" y="-35" width="620" height="42" rx="21" fill="#064e3b" fill-opacity="0.6" stroke="#10b981" stroke-width="1.5" filter="url(#shadow-card)" />
+    <text x="0" y="-9" class="badge-text" font-size="13">🇲🇾 RINGGITWISE NATIVE ANDROID v1.2.3</text>
 
-    <!-- Arch Center (cx=337, cy=290, outerR=175, innerR=110) -->
-    <g transform="translate(337, 290)">
+    <!-- Main Heading -->
+    <text x="0" y="42" class="title-main" font-size="38" letter-spacing="-0.5">Malaysian Personal Finance Redefined</text>
+    <text x="0" y="78" class="title-sub" font-size="18">Offline-first AI receipt scanner, DuitNow QR ledger, &amp; advanced multi-category budgeting</text>
+  </g>
+
+
+  <!-- ======================================================== -->
+  <!-- DEVICE 1: LEFT DEVICE (Activity Ledger)                   -->
+  <!-- ======================================================== -->
+  <g transform="translate(130, 200)" filter="url(#shadow-heavy)">
+    <!-- Device Frame -->
+    <rect width="480" height="800" rx="44" fill="#090d16" stroke="#334155" stroke-width="6" />
+    <rect x="6" y="6" width="468" height="788" rx="38" fill="url(#glass-bg)" stroke="url(#glass-stroke)" stroke-width="1.5" />
+
+    <!-- Status Bar -->
+    <text x="45" y="42" class="ui-bold" font-size="14">9:41</text>
+    <g transform="translate(390, 30)">
+      <rect x="0" y="4" width="18" height="10" rx="2" fill="none" stroke="#94a3b8" stroke-width="1.5" />
+      <rect x="2" y="6" width="10" height="6" rx="1" fill="#34d399" />
+      <path d="M25 4v10 M28 6v6" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" />
+    </g>
+
+    <!-- App Header inside screen -->
+    <g transform="translate(35, 75)">
+      <circle cx="20" cy="20" r="20" fill="#065f46" />
+      <path d="M12 20l6 6 12-12" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="55" y="18" class="device-title" font-size="18">Activity Ledger</text>
+      <text x="55" y="36" class="ui-muted" font-size="13">Tolong Beli &amp; DuitNow Claims</text>
       
-      <!-- 1. Cerulean (Mamak 30.1%) -->
-      <path d="M -175 0 A 175 175 0 0 1 -105 -140 L -66 -88 A 110 110 0 0 0 -110 0 Z" fill="#54b3d6" stroke="#121214" stroke-width="1.5"/>
-      <polyline points="-145,-105 -180,-140 -230,-140" fill="none" stroke="#54b3d6" stroke-width="0.8"/>
-      <circle cx="-145" cy="-105" r="2" fill="#54b3d6"/>
-      <text x="-236" y="-136" class="leader" text-anchor="end">Mamak &amp; Dining: 30.1%</text>
-
-      <!-- 2. Medium Blue (Groceries 22.5%) -->
-      <path d="M -102 -142 A 175 175 0 0 1 -18 -174 L -11 -109 A 110 110 0 0 0 -64 -89 Z" fill="#5b8ee5" stroke="#121214" stroke-width="1.5"/>
-      <polyline points="-60,-162 -75,-195 -125,-195" fill="none" stroke="#5b8ee5" stroke-width="0.8"/>
-      <circle cx="-60" cy="-162" r="2" fill="#5b8ee5"/>
-      <text x="-131" y="-191" class="leader" text-anchor="end">Groceries: 22.5%</text>
-
-      <!-- 3. Slate Indigo (Utilities 15.0%) -->
-      <path d="M -14 -174 A 175 175 0 0 1 66 -162 L 41 -102 A 110 110 0 0 0 -8 -109 Z" fill="#5f6fe5" stroke="#121214" stroke-width="1.5"/>
-      <polyline points="26,-172 38,-205 90,-205" fill="none" stroke="#5f6fe5" stroke-width="0.8"/>
-      <circle cx="26" cy="-172" r="2" fill="#5f6fe5"/>
-      <text x="96" y="-201" class="leader" text-anchor="start">Utilities &amp; Bills: 15.0%</text>
-
-      <!-- 4. Purple (Transport 12.4%) -->
-      <path d="M 70 -160 A 175 175 0 0 1 128 -118 L 80 -74 A 110 110 0 0 0 44 -101 Z" fill="#7f5ce6" stroke="#121214" stroke-width="1.5"/>
-      <polyline points="102,-142 135,-165 190,-165" fill="none" stroke="#7f5ce6" stroke-width="0.8"/>
-      <circle cx="102" cy="-142" r="2" fill="#7f5ce6"/>
-      <text x="196" y="-161" class="leader" text-anchor="start">Fuel &amp; Transport: 12.4%</text>
-
-      <!-- 5. Violet (Shopping 10.4%) -->
-      <path d="M 132 -114 A 175 175 0 0 1 164 -60 L 103 -37 A 110 110 0 0 0 83 -71 Z" fill="#a856ea" stroke="#121214" stroke-width="1.5"/>
-      <polyline points="152,-90 185,-105 240,-105" fill="none" stroke="#a856ea" stroke-width="0.8"/>
-      <circle cx="152" cy="-90" r="2" fill="#a856ea"/>
-      <text x="246" y="-101" class="leader" text-anchor="start">Shopping &amp; Online: 10.4%</text>
-
-      <!-- 6. Orchid Magenta (Drinks 9.6%) -->
-      <path d="M 166 -56 A 175 175 0 0 1 175 0 L 110 0 A 110 110 0 0 0 104 -35 Z" fill="#c856db" stroke="#121214" stroke-width="1.5"/>
-      <polyline points="172,-28 205,-38 255,-38" fill="none" stroke="#c856db" stroke-width="0.8"/>
-      <circle cx="172" cy="-28" r="2" fill="#c856db"/>
-      <text x="261" y="-34" class="leader" text-anchor="start">Drinks &amp; Cafe: 9.6%</text>
-
-      <!-- Center Typography -->
-      <text x="0" y="-40" class="label" font-size="9" text-anchor="middle" letter-spacing="1">TOTAL SPENT</text>
-      <text x="0" y="-12" class="mono" font-size="22" fill="#f4f4f5" text-anchor="middle">RM 1,068.00</text>
-      <text x="0" y="10" class="label" font-size="9" text-anchor="middle">6 active categories</text>
+      <!-- Search Bar -->
+      <rect x="0" y="55" width="410" height="42" rx="12" fill="#1e293b" fill-opacity="0.8" stroke="#334155" stroke-width="1" />
+      <circle cx="25" cy="76" r="7" fill="none" stroke="#64748b" stroke-width="2" />
+      <path d="M30 81l8 8" stroke="#64748b" stroke-width="2" stroke-linecap="round" />
+      <text x="50" y="82" class="ui-muted" font-size="14">Search claims, merchants, tags...</text>
     </g>
 
-    <!-- Legend (Image 1 rounded square swatches + labels) -->
-    <g transform="translate(38, 385)">
-      <!-- Item 1 -->
-      <rect x="0" y="0" width="11" height="11" rx="2.5" fill="#54b3d6"/>
-      <text x="18" y="10" font-family="sans-serif" font-size="11" fill="#d4d4d8">Mamak 30.1%</text>
+    <!-- Ledger Content Cards -->
+    <g transform="translate(35, 205)">
+      <!-- Card 1: Tolong Beli -->
+      <rect width="410" height="110" rx="18" fill="url(#card-glass)" stroke="#334155" stroke-width="1" />
+      <rect x="16" y="16" width="40" height="40" rx="10" fill="#047857" fill-opacity="0.3" />
+      <text x="36" y="43" font-size="20" text-anchor="middle">🛒</text>
+      
+      <text x="70" y="32" class="ui-bold" font-size="15">Groceries (Mamak Run)</text>
+      <text x="70" y="50" class="ui-muted" font-size="12">For mum • Subang Jaya SS15</text>
+      
+      <!-- Unpaid Badge -->
+      <rect x="320" y="18" width="74" height="24" rx="6" fill="#991b1b" fill-opacity="0.4" stroke="#f87171" stroke-width="1" />
+      <text x="357" y="34" font-size="11" font-weight="700" fill="#fca5a5" text-anchor="middle">UNPAID</text>
 
-      <!-- Item 2 -->
-      <rect x="210" y="0" width="11" height="11" rx="2.5" fill="#5b8ee5"/>
-      <text x="228" y="10" font-family="sans-serif" font-size="11" fill="#d4d4d8">Groceries 22.5%</text>
+      <text x="70" y="86" class="amount-text" font-size="18">-RM 48.50</text>
+      
+      <!-- DuitNow QR Tag -->
+      <g transform="translate(330, 65)">
+        <rect width="64" height="26" rx="6" fill="#1e3a8a" fill-opacity="0.6" stroke="#3b82f6" stroke-width="1" />
+        <text x="32" y="17" font-size="11" font-weight="700" fill="#93c5fd" text-anchor="middle">DuitNow</text>
+      </g>
+    </g>
 
-      <!-- Item 3 -->
-      <rect x="420" y="0" width="11" height="11" rx="2.5" fill="#5f6fe5"/>
-      <text x="438" y="10" font-family="sans-serif" font-size="11" fill="#d4d4d8">Utilities 15.0%</text>
+    <g transform="translate(35, 335)">
+      <!-- Card 2: Fuel & Transport -->
+      <rect width="410" height="100" rx="18" fill="url(#card-glass)" stroke="#334155" stroke-width="1" />
+      <rect x="16" y="16" width="40" height="40" rx="10" fill="#b45309" fill-opacity="0.3" />
+      <text x="36" y="43" font-size="20" text-anchor="middle">⛽</text>
+      
+      <text x="70" y="32" class="ui-bold" font-size="15">PETRONAS V-Power 97</text>
+      <text x="70" y="50" class="ui-muted" font-size="12">NKVE Highway • Auto-categorized</text>
+      
+      <!-- Paid Badge -->
+      <rect x="320" y="18" width="74" height="24" rx="6" fill="#065f46" fill-opacity="0.4" stroke="#34d399" stroke-width="1" />
+      <text x="357" y="34" font-size="11" font-weight="700" fill="#6ee7b7" text-anchor="middle">SETTLED</text>
 
-      <!-- Item 4 -->
-      <rect x="0" y="28" width="11" height="11" rx="2.5" fill="#7f5ce6"/>
-      <text x="18" y="38" font-family="sans-serif" font-size="11" fill="#d4d4d8">Transport 12.4%</text>
+      <text x="70" y="82" class="amount-text" font-size="18">-RM 120.00</text>
+    </g>
 
-      <!-- Item 5 -->
-      <rect x="210" y="28" width="11" height="11" rx="2.5" fill="#a856ea"/>
-      <text x="228" y="38" font-family="sans-serif" font-size="11" fill="#d4d4d8">Shopping 10.4%</text>
+    <g transform="translate(35, 455)">
+      <!-- Card 3: Parking & Tolls -->
+      <rect width="410" height="100" rx="18" fill="url(#card-glass)" stroke="#334155" stroke-width="1" />
+      <rect x="16" y="16" width="40" height="40" rx="10" fill="#7c3aed" fill-opacity="0.3" />
+      <text x="36" y="43" font-size="20" text-anchor="middle">🅿️</text>
+      
+      <text x="70" y="32" class="ui-bold" font-size="15">SmartTAG / Touch 'n Go</text>
+      <text x="70" y="50" class="ui-muted" font-size="12">Plaza Tol Damansara</text>
+      
+      <!-- Paid Badge -->
+      <rect x="320" y="18" width="74" height="24" rx="6" fill="#065f46" fill-opacity="0.4" stroke="#34d399" stroke-width="1" />
+      <text x="357" y="34" font-size="11" font-weight="700" fill="#6ee7b7" text-anchor="middle">SETTLED</text>
 
-      <!-- Item 6 -->
-      <rect x="420" y="28" width="11" height="11" rx="2.5" fill="#c856db"/>
-      <text x="438" y="38" font-family="sans-serif" font-size="11" fill="#d4d4d8">Drinks 9.6%</text>
+      <text x="70" y="82" class="amount-text" font-size="18">-RM 6.20</text>
+    </g>
+
+    <!-- Bottom Navigation Bar -->
+    <g transform="translate(25, 715)">
+      <rect width="430" height="60" rx="20" fill="#0f172a" fill-opacity="0.9" stroke="#334155" stroke-width="1" />
+      <g transform="translate(55, 12)">
+        <text x="0" y="20" font-size="18" text-anchor="middle">📊</text>
+        <text x="0" y="35" class="ui-muted" font-size="10" text-anchor="middle">Insights</text>
+      </g>
+      <g transform="translate(160, 12)">
+        <text x="0" y="20" font-size="18" text-anchor="middle">📜</text>
+        <text x="0" y="35" class="ui-bold" font-size="10" text-anchor="middle" fill="#34d399">Ledger</text>
+      </g>
+      <g transform="translate(265, 12)">
+        <text x="0" y="20" font-size="18" text-anchor="middle">🤖</text>
+        <text x="0" y="35" class="ui-muted" font-size="10" text-anchor="middle">Scanner</text>
+      </g>
+      <g transform="translate(370, 12)">
+        <text x="0" y="20" font-size="18" text-anchor="middle">⚙️</text>
+        <text x="0" y="35" class="ui-muted" font-size="10" text-anchor="middle">Settings</text>
+      </g>
     </g>
   </g>
 
-  <!-- RIGHT: Precision DuitNow Hub & OCR Extractor -->
-  <g transform="translate(735, 194)">
-    <rect x="0" y="0" width="425" height="460" rx="16" fill="url(#cardBg)" stroke="#27272a" stroke-width="1"/>
-    
-    <text x="24" y="32" class="title" font-size="13">DuitNow Hub &amp; Receipt OCR</text>
-    <text x="24" y="48" class="label">Extract payment amounts from receipt slips</text>
 
-    <!-- Clean Segmented Control -->
-    <rect x="24" y="66" width="377" height="30" rx="8" fill="#1c1c20" stroke="#27272a"/>
-    <rect x="26" y="68" width="90" height="26" rx="6" fill="#27272a"/>
-    <text x="71" y="85" font-family="sans-serif" font-size="10" font-weight="600" fill="#f4f4f5" text-anchor="middle">Receipt OCR</text>
-    <text x="165" y="85" font-family="sans-serif" font-size="10" fill="#71717a" text-anchor="middle">Scan QR</text>
-    <text x="260" y="85" font-family="sans-serif" font-size="10" fill="#71717a" text-anchor="middle">Generate</text>
-    <text x="355" y="85" font-family="sans-serif" font-size="10" fill="#71717a" text-anchor="middle">Split Bill</text>
+  <!-- ======================================================== -->
+  <!-- DEVICE 2: CENTER DEVICE (Insights Screen - Main Hero)    -->
+  <!-- ======================================================== -->
+  <g transform="translate(680, 150)" filter="url(#shadow-heavy)">
+    <!-- Device Frame with Emerald Glow Highlight -->
+    <rect width="560" height="880" rx="48" fill="#090d16" stroke="#10b981" stroke-width="7" />
+    <rect x="6" y="6" width="548" height="868" rx="42" fill="url(#glass-bg)" stroke="url(#glass-stroke)" stroke-width="2" />
 
-    <!-- Upload Box -->
-    <rect x="24" y="112" width="377" height="100" rx="10" fill="#09090b" stroke="#27272a" stroke-dasharray="4,4"/>
-    <text x="212" y="156" class="title" font-size="12" fill="#a1a1aa" text-anchor="middle">Drop payment slip screenshot here</text>
-    <text x="212" y="174" class="label" font-size="10" text-anchor="middle">Supports MAE, Touch 'n Go eWallet &amp; CIMB OCTO</text>
+    <!-- Status Bar -->
+    <text x="50" y="45" class="ui-bold" font-size="15">9:41</text>
+    <g transform="translate(470, 32)">
+      <rect x="0" y="4" width="18" height="10" rx="2" fill="none" stroke="#94a3b8" stroke-width="1.5" />
+      <rect x="2" y="6" width="10" height="6" rx="1" fill="#34d399" />
+      <path d="M25 4v10 M28 6v6" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" />
+    </g>
 
-    <!-- Extracted Item Preview (Stripe/Linear style) -->
-    <rect x="24" y="230" width="377" height="145" rx="10" fill="#09090b" stroke="#27272a"/>
-    <text x="40" y="254" font-family="sans-serif" font-weight="600" font-size="9" fill="#10b981" letter-spacing="0.5">PARSED RECEIPT: MAE DUITNOW</text>
-    <text x="40" y="280" class="mono" font-size="18" fill="#f4f4f5">RM 14.80</text>
-    
-    <text x="40" y="306" class="label" font-size="10">Merchant: Nasi Kandar Pelita</text>
-    <text x="40" y="324" class="label" font-size="10">Category: Mamak &amp; Dining</text>
-    <text x="40" y="342" class="label" font-size="10">Ref: MBB202610294821</text>
+    <!-- App Header -->
+    <g transform="translate(45, 80)">
+      <text x="0" y="22" class="device-title" font-size="24">Financial Insights</text>
+      <text x="0" y="45" class="ui-muted" font-size="14">November 2026 • Malaysia Region</text>
+      
+      <!-- Live Sync Badge -->
+      <rect x="330" y="10" width="105" height="28" rx="8" fill="#064e3b" fill-opacity="0.8" stroke="#10b981" stroke-width="1" />
+      <circle cx="347" cy="24" r="4" fill="#34d399" />
+      <text x="360" y="28" class="badge-text" font-size="11">LIVE SYNC</text>
+    </g>
 
-    <rect x="24" y="395" width="377" height="34" rx="8" fill="#f4f4f5"/>
-    <text x="212" y="416" font-family="sans-serif" font-weight="600" font-size="11" fill="#09090b" text-anchor="middle">Confirm &amp; Log Expense</text>
+    <!-- Center Arch / Half Pie Chart Section -->
+    <g transform="translate(280, 330)">
+      <!-- Outer Glow Ring -->
+      <path d="M -180 0 A 180 180 0 0 1 180 0" fill="none" stroke="#1e293b" stroke-width="32" stroke-linecap="round" />
+      
+      <!-- Segment 1: Mamak Emerald (40%) -->
+      <path d="M -180 0 A 180 180 0 0 1 -35 -176" fill="none" stroke="#10b981" stroke-width="32" stroke-linecap="round" filter="url(#glow-effect)" />
+      
+      <!-- Segment 2: Transport Amber (25%) -->
+      <path d="M -25 -178 A 180 180 0 0 1 110 -142" fill="none" stroke="#f59e0b" stroke-width="32" stroke-linecap="round" />
+      
+      <!-- Segment 3: Gaming Custom Purple (20%) -->
+      <path d="M 118 -138 A 180 180 0 0 1 175 -42" fill="none" stroke="#8b5cf6" stroke-width="32" stroke-linecap="round" />
+
+      <!-- Segment 4: Pets Custom Cyan (15%) -->
+      <path d="M 178 -32 A 180 180 0 0 1 180 0" fill="none" stroke="#06b6d4" stroke-width="32" stroke-linecap="round" />
+
+      <!-- Center Hub Details -->
+      <text x="0" y="-35" class="ui-muted" font-size="14" letter-spacing="1.5" text-anchor="middle">TOTAL SPENT</text>
+      <text x="0" y="12" class="amount-text" font-size="36" text-anchor="middle">RM 1,068.00</text>
+      <text x="0" y="42" class="ui-muted" font-size="13" text-anchor="middle">Budget: RM 2,500.00 (58% left)</text>
+    </g>
+
+    <!-- Category Chips & Custom Badges -->
+    <g transform="translate(45, 545)">
+      <!-- Row 1 -->
+      <g transform="translate(0, 0)">
+        <rect width="220" height="56" rx="16" fill="url(#card-glass)" stroke="#10b981" stroke-width="1" />
+        <circle cx="28" cy="28" r="14" fill="#065f46" />
+        <text x="28" y="34" font-size="14" text-anchor="middle">🍛</text>
+        <text x="56" y="24" class="ui-bold" font-size="14">Mamak &amp; Dining</text>
+        <text x="56" y="42" class="amount-text" font-size="13">RM 427.20</text>
+      </g>
+
+      <g transform="translate(235, 0)">
+        <rect width="225" height="56" rx="16" fill="url(#card-glass)" stroke="#f59e0b" stroke-width="1" />
+        <circle cx="28" cy="28" r="14" fill="#78350f" />
+        <text x="28" y="34" font-size="14" text-anchor="middle">🚗</text>
+        <text x="56" y="24" class="ui-bold" font-size="14">Transport / Toll</text>
+        <text x="56" y="42" class="amount-text" font-size="13" fill="#f59e0b">RM 267.00</text>
+      </g>
+
+      <!-- Row 2 -->
+      <g transform="translate(0, 70)">
+        <rect width="220" height="56" rx="16" fill="url(#card-glass)" stroke="#8b5cf6" stroke-width="1" />
+        <circle cx="28" cy="28" r="14" fill="#4c1d95" />
+        <text x="28" y="34" font-size="14" text-anchor="middle">🎮</text>
+        <text x="56" y="24" class="ui-bold" font-size="14">Gaming Vault</text>
+        <text x="56" y="42" class="amount-text" font-size="13" fill="#a78bfa">RM 213.60</text>
+        
+        <!-- Custom Badge -->
+        <rect x="155" y="10" width="55" height="20" rx="6" fill="#4c1d95" stroke="#8b5cf6" stroke-width="1" />
+        <text x="182" y="24" font-size="9" font-weight="700" fill="#c4b5fd" text-anchor="middle">CUSTOM</text>
+      </g>
+
+      <g transform="translate(235, 70)">
+        <rect width="225" height="56" rx="16" fill="url(#card-glass)" stroke="#06b6d4" stroke-width="1" />
+        <circle cx="28" cy="28" r="14" fill="#164e63" />
+        <text x="28" y="34" font-size="14" text-anchor="middle">🐱</text>
+        <text x="56" y="24" class="ui-bold" font-size="14">Pets / Cat Food</text>
+        <text x="56" y="42" class="amount-text" font-size="13" fill="#22d3ee">RM 160.20</text>
+
+        <!-- Custom Badge -->
+        <rect x="160" y="10" width="55" height="20" rx="6" fill="#164e63" stroke="#06b6d4" stroke-width="1" />
+        <text x="187" y="24" font-size="9" font-weight="700" fill="#a5f3fc" text-anchor="middle">CUSTOM</text>
+      </g>
+    </g>
+
+    <!-- Bottom Quick Action Banner inside center device -->
+    <g transform="translate(45, 715)">
+      <rect width="470" height="65" rx="18" fill="url(#emerald-grad)" filter="url(#shadow-card)" />
+      <text x="25" y="28" font-size="15" font-weight="750" fill="#ffffff">⚡ Smart Budget Assist Active</text>
+      <text x="25" y="48" font-size="12" font-weight="500" fill="#ecfdf5">You are 12% under average weekly spending rate.</text>
+    </g>
   </g>
+
+
+  <!-- ======================================================== -->
+  <!-- DEVICE 3: RIGHT DEVICE (AI Receipt Scanner)               -->
+  <!-- ======================================================== -->
+  <g transform="translate(1310, 200)" filter="url(#shadow-heavy)">
+    <!-- Device Frame -->
+    <rect width="480" height="800" rx="44" fill="#090d16" stroke="#334155" stroke-width="6" />
+    <rect x="6" y="6" width="468" height="788" rx="38" fill="url(#glass-bg)" stroke="url(#glass-stroke)" stroke-width="1.5" />
+
+    <!-- Status Bar -->
+    <text x="45" y="42" class="ui-bold" font-size="14">9:41</text>
+    <g transform="translate(390, 30)">
+      <rect x="0" y="4" width="18" height="10" rx="2" fill="none" stroke="#94a3b8" stroke-width="1.5" />
+      <rect x="2" y="6" width="10" height="6" rx="1" fill="#34d399" />
+      <path d="M25 4v10 M28 6v6" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" />
+    </g>
+
+    <!-- App Header inside screen -->
+    <g transform="translate(35, 75)">
+      <circle cx="20" cy="20" r="20" fill="#0891b2" fill-opacity="0.3" />
+      <text x="20" y="26" font-size="18" text-anchor="middle">🤖</text>
+      <text x="55" y="18" class="device-title" font-size="18">AI Receipt Scanner</text>
+      <text x="55" y="36" class="ui-muted" font-size="13">Dual-Engine OCR &amp; Vision</text>
+    </g>
+
+    <!-- Dual Engine Switch Component -->
+    <g transform="translate(35, 135)">
+      <rect width="410" height="52" rx="14" fill="#0f172a" stroke="#334155" stroke-width="1" />
+      
+      <!-- Active Switch Pill (Gemini AI) -->
+      <rect x="203" y="4" width="203" height="44" rx="12" fill="url(#cyan-grad)" />
+      
+      <text x="101" y="31" class="ui-bold" font-size="13" text-anchor="middle" fill="#94a3b8">Google ML Kit</text>
+      <text x="304" y="31" class="ui-bold" font-size="13" text-anchor="middle" fill="#ffffff">Gemini AI ✨</text>
+    </g>
+
+    <!-- Live Receipt Card Result -->
+    <g transform="translate(35, 210)">
+      <rect width="410" height="430" rx="22" fill="url(#card-glass)" stroke="#06b6d4" stroke-width="1.5" />
+      
+      <!-- Receipt Header -->
+      <g transform="translate(24, 24)">
+        <text x="0" y="18" class="device-title" font-size="18">AEON BIG (M) SDN BHD</text>
+        <text x="0" y="38" class="ui-muted" font-size="12">Mid Valley Megamall • 11 Nov 2026, 18:32</text>
+        
+        <!-- Detected Badge -->
+        <rect x="280" y="2" width="86" height="24" rx="6" fill="#0891b2" fill-opacity="0.3" stroke="#22d3ee" stroke-width="1" />
+        <text x="323" y="18" font-size="10" font-weight="700" fill="#a5f3fc" text-anchor="middle">AUTO-PARSED</text>
+      </g>
+
+      <!-- Line Items Divider -->
+      <path d="M24 85H386" stroke="#334155" stroke-dasharray="4 4" stroke-width="1.5" />
+
+      <!-- Line Items -->
+      <g transform="translate(24, 110)">
+        <text x="0" y="0" class="ui-text" font-size="14">Jasmine Super Wangi 10kg</text>
+        <text x="362" y="0" class="ui-bold" font-size="14" text-anchor="end">RM 38.90</text>
+
+        <text x="0" y="35" class="ui-text" font-size="14">Ayamas Frankfurters 3x</text>
+        <text x="362" y="35" class="ui-bold" font-size="14" text-anchor="end">RM 14.50</text>
+
+        <text x="0" y="70" class="ui-text" font-size="14">Dutch Lady Fresh Milk 2L</text>
+        <text x="362" y="70" class="ui-bold" font-size="14" text-anchor="end">RM 15.20</text>
+
+        <text x="0" y="105" class="ui-text" font-size="14">Maggi Mee Kari 5-Pack</text>
+        <text x="362" y="105" class="ui-bold" font-size="14" text-anchor="end">RM 7.80</text>
+      </g>
+
+      <!-- Receipt Footer / Total -->
+      <path d="M24 250H386" stroke="#334155" stroke-width="1.5" />
+      <g transform="translate(24, 280)">
+        <text x="0" y="20" class="device-title" font-size="16">Total Amount (SST Incl.)</text>
+        <text x="362" y="22" class="amount-text" font-size="22" text-anchor="end" fill="#38bdf8">RM 76.40</text>
+      </g>
+    </g>
+
+    <!-- Bottom Action Button inside right device -->
+    <g transform="translate(35, 665)">
+      <rect width="410" height="52" rx="16" fill="url(#cyan-grad)" filter="url(#shadow-card)" />
+      <text x="205" y="32" class="ui-bold" font-size="15" text-anchor="middle" fill="#ffffff">💾 Save to Ledger &amp; Sync</text>
+    </g>
+  </g>
+
 </svg>

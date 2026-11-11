@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 1000" width="100%" height="100%">
+  <defs>
+    <style>
+      .bg { fill: #0f172a; }
+      .phone-frame { fill: #1e293b; rx: 40px; ry: 40px; stroke: #334155; stroke-width: 4px; }
+      .screen-bg { fill: #f8fafc; rx: 32px; ry: 32px; }
+      .header-title { font-family: system-ui, -apple-system, sans-serif; font-size: 20px; font-weight: 700; fill: #0f172a; }
+      .search-box { fill: #ffffff; rx: 12px; ry: 12px; stroke: #cbd5e1; stroke-width: 1px; }
+      .card { fill: #ffffff; rx: 16px; ry: 16px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05)); }
+      .text-main { font-family: system-ui, -apple-system, sans-serif; font-size: 14px; font-weight: 600; fill: #0f172a; }
+      .text-sub { font-family: system-ui, -apple-system, sans-serif; font-size: 12px; fill: #64748b; }
+      .chip { rx: 16px; ry: 16px; fill: #f1f5f9; stroke: #cbd5e1; stroke-width: 1px; }
+      .chip-active { rx: 16px; ry: 16px; fill: #0284c7; }
+      .chip-text { font-family: system-ui, -apple-system, sans-serif; font-size: 12px; font-weight: 500; fill: #475569; }
+      .chip-text-active { font-family: system-ui, -apple-system, sans-serif; font-size: 12px; font-weight: 600; fill: #ffffff; }
+      .badge-unpaid { rx: 6px; ry: 6px; fill: #fef2f2; stroke: #fca5a5; stroke-width: 1px; }
+      .badge-unpaid-text { font-family: system-ui, -apple-system, sans-serif; font-size: 10px; font-weight: 600; fill: #dc2626; }
+      .badge-duitnow { rx: 6px; ry: 6px; fill: #f0fdf4; stroke: #bbf7d0; stroke-width: 1px; }
+      .badge-duitnow-text { font-family: system-ui, -apple-system, sans-serif; font-size: 10px; font-weight: 600; fill: #16a34a; }
+      .badge-claim { rx: 6px; ry: 6px; fill: #fff7ed; stroke: #fed7aa; stroke-width: 1px; }
+      .badge-claim-text { font-family: system-ui, -apple-system, sans-serif; font-size: 10px; font-weight: 600; fill: #ea580c; }
+      .nav-bar { fill: #ffffff; stroke: #e2e8f0; stroke-width: 1px; }
+      .nav-item { font-family: system-ui, -apple-system, sans-serif; font-size: 10px; fill: #94a3b8; }
+      .nav-item-active { font-family: system-ui, -apple-system, sans-serif; font-size: 10px; font-weight: 700; fill: #0284c7; }
+    </style>
+  </defs>
+
+  <rect width="600" height="1000" class="bg" />
+
+  <g transform="translate(30, 20)">
+    <rect x="0" y="0" width="540" height="960" class="phone-frame" />
+    <rect x="12" y="12" width="516" height="936" class="screen-bg" />
+
+    <!-- Status Bar -->
+    <text x="40" y="45" font-family="system-ui" font-size="14" font-weight="600" fill="#0f172a">9:41</text>
+    <path d="M470 38 h15 a5 5 0 0 1 5 5 v6 a5 5 0 0 1 -5 5 h-15 z" fill="none" stroke="#0f172a" stroke-width="2"/>
+    <rect x="472" y="40" width="11" height="8" fill="#0f172a" rx="1"/>
+
+    <!-- Header -->
+    <text x="40" y="90" class="header-title">Activity &amp; Ledger</text>
+
+    <!-- Search Bar -->
+    <g transform="translate(40, 110)">
+      <rect x="0" y="0" width="440" height="42" class="search-box" />
+      <text x="15" y="26" font-family="system-ui" font-size="14" fill="#94a3b8">🔍 Filter transactions or friend...</text>
+    </g>
+
+    <!-- Filter Chips -->
+    <g transform="translate(40, 170)">
+      <rect x="0" y="0" width="45" height="30" class="chip-active" />
+      <text x="22.5" y="20" text-anchor="middle" class="chip-text-active">All</text>
+
+      <rect x="53" y="0" width="115" height="30" class="chip" />
+      <text x="110.5" y="20" text-anchor="middle" class="chip-text">Tolong Beli (4)</text>
+
+      <rect x="176" y="0" width="115" height="30" class="chip" />
+      <text x="233.5" y="20" text-anchor="middle" class="chip-text">Food &amp; Drinks</text>
+
+      <rect x="299" y="0" width="120" height="30" class="chip" />
+      <text x="359" y="20" text-anchor="middle" class="chip-text">Fuel &amp; Transport</text>
+    </g>
+
+    <!-- Transaction Cards List -->
+    <g transform="translate(40, 220)">
+      
+      <!-- Card 1: Tolong Beli -->
+      <g transform="translate(0, 0)">
+        <rect x="0" y="0" width="440" height="110" class="card" />
+        <circle cx="36" cy="36" r="20" fill="#fee2e2" />
+        <text x="36" y="42" text-anchor="middle" font-size="16">🛒</text>
+        <text x="75" y="32" class="text-main">Tolong Beli: For mum</text>
+        <text x="75" y="50" class="text-sub">Today, 2:15 PM • Split Bill</text>
+        <text x="415" y="32" text-anchor="end" class="text-main">RM 36.00</text>
+        
+        <g transform="translate(75, 65)">
+          <rect x="0" y="0" width="145" height="22" class="badge-unpaid" />
+          <text x="72.5" y="16" text-anchor="middle" class="badge-unpaid-text">⚠️ Unpaid (Tap to settle)</text>
+        </g>
+        <text x="410" y="80" text-anchor="end" font-size="16">🔗</text>
+      </g>
+
+      <!-- Card 2: Fuel & Transport -->
+      <g transform="translate(0, 125)">
+        <rect x="0" y="0" width="440" height="90" class="card" />
+        <circle cx="36" cy="36" r="20" fill="#e0f2fe" />
+        <text x="36" y="42" text-anchor="middle" font-size="16">⛽</text>
+        <text x="75" y="32" class="text-main">Shell Petrol Station</text>
+        <text x="75" y="50" class="text-sub">Yesterday, 8:30 AM • Fuel &amp; Transport</text>
+        <text x="415" y="32" text-anchor="end" class="text-main">RM 71.25</text>
+        
+        <g transform="translate(75, 62)">
+          <rect x="0" y="0" width="90" height="20" class="badge-duitnow" />
+          <text x="45" y="14" text-anchor="middle" class="badge-duitnow-text">⚡ DuitNow QR</text>
+        </g>
+      </g>
+
+      <!-- Card 3: Parking & Tolls -->
+      <g transform="translate(0, 230)">
+        <rect x="0" y="0" width="440" height="90" class="card" />
+        <circle cx="36" cy="36" r="20" fill="#fef3c7" />
+        <text x="36" y="42" text-anchor="middle" font-size="16">🚗</text>
+        <text x="75" y="32" class="text-main">SmartTag Highway Toll</text>
+        <text x="75" y="50" class="text-sub">Nov 9, 5:45 PM • Parking &amp; Tolls</text>
+        <text x="415" y="32" text-anchor="end" class="text-main">RM 2.12</text>
+        
+        <g transform="translate(75, 62)">
+          <rect x="0" y="0" width="90" height="20" class="badge-duitnow" />
+          <text x="45" y="14" text-anchor="middle" class="badge-duitnow-text">⚡ DuitNow QR</text>
+        </g>
+      </g>
+
+      <!-- Card 4: Grocery -->
+      <g transform="translate(0, 335)">
+        <rect x="0" y="0" width="440" height="90" class="card" />
+        <circle cx="36" cy="36" r="20" fill="#f3e8ff" />
+        <text x="36" y="42" text-anchor="middle" font-size="16">🛍️</text>
+        <text x="75" y="32" class="text-main">Village Grocer Bangsar</text>
+        <text x="75" y="50" class="text-sub">Nov 8, 1:20 PM • Groceries</text>
+        <text x="415" y="32" text-anchor="end" class="text-main">RM 58.40</text>
+        
+        <g transform="translate(75, 62)">
+          <rect x="0" y="0" width="60" height="20" class="badge-claim" />
+          <text x="30" y="14" text-anchor="middle" class="badge-claim-text">🏷️ Claim</text>
+        </g>
+      </g>
+
+    </g>
+
+    <!-- Bottom Navigation Bar -->
+    <g transform="translate(12, 856)">
+      <rect x="0" y="0" width="516" height="80" class="nav-bar" rx="0" ry="0" />
+      <g transform="translate(50, 15)">
+        <text x="15" y="20" text-anchor="middle" font-size="18">🏠</text>
+        <text x="15" y="45" text-anchor="middle" class="nav-item">Home</text>
+      </g>
+      <g transform="translate(150, 12)">
+        <circle cx="25" cy="20" r="22" fill="#e0f2fe"/>
+        <text x="25" y="26" text-anchor="middle" font-size="18">📜</text>
+        <text x="25" y="55" text-anchor="middle" class="nav-item-active">Activity</text>
+      </g>
+      <g transform="translate(250, 15)">
+        <text x="15" y="20" text-anchor="middle" font-size="18">📊</text>
+        <text x="15" y="45" text-anchor="middle" class="nav-item">Insights</text>
+      </g>
+      <g transform="translate(350, 15)">
+        <text x="15" y="20" text-anchor="middle" font-size="18">📷</text>
+        <text x="15" y="45" text-anchor="middle" class="nav-item">Scanner</text>
+      </g>
+      <g transform="translate(450, 15)">
+        <text x="15" y="20" text-anchor="middle" font-size="18">👥</text>
+        <text x="15" y="45" text-anchor="middle" class="nav-item">Split</text>
+      </g>
+    </g>
+
+  </g>
+</svg>
