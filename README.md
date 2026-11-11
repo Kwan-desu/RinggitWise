@@ -76,8 +76,9 @@ Built exclusively for **Malaysian Ringgit (RM)** tracking. Includes an interacti
 - Schedules recurring utility, rent, and subscription bill reminders in the background via **Android WorkManager**.
 - Tracks progress toward individual savings targets.
 
-### 5. UI & Theme
-- Includes **Dark**, **Light**, and **System** theme modes with **Material You** wallpaper tinting and configurable surface opacity.
+### 5. UI, Theme & Home-Screen Widget
+- Features a true OLED **Obsidian Black** dark theme (with crisp monochrome accents), plus **Light** and **System** modes with **Material You** wallpaper tinting and configurable surface opacity.
+- Includes a matching Obsidian Black home-screen widget showing today's spend, monthly budget progress, daily safe allowance, upcoming bill, and quick-add trigger—resizing smoothly from `4x2` down to a compact `1x2` vertical card.
 - Uses Material vector icons throughout the UI instead of placeholder emojis.
 
 ### 6. In-App Updater

@@ -2240,6 +2240,7 @@ fun ChartsTab(
                                 .height(160.dp)
                                 .padding(vertical = 8.dp)
                         ) {
+                            val activeBarColor = MaterialTheme.colorScheme.primary
                             Canvas(modifier = Modifier.fillMaxSize()) {
                                 val barCount = 31
                                 val availableW = size.width
@@ -2254,7 +2255,7 @@ fun ChartsTab(
                                     val topY = size.height - barH
 
                                     val isPeak = highestSpendDay != null && d == highestSpendDay.key && spentOnDay > 0
-                                    val barColor = if (isPeak) Color(0xFFF43F5E) else if (spentOnDay > 0) Color(0xFF10B981) else Color(0x22888888)
+                                    val barColor = if (isPeak) Color(0xFFF43F5E) else if (spentOnDay > 0) activeBarColor else Color(0x22888888)
 
                                     drawRoundRect(
                                         color = barColor,
@@ -4589,8 +4590,7 @@ fun ShareClaimDialog(
                         context.startActivity(Intent.createChooser(sendIntent, "Share Claim with $displayRecipient via"))
                     },
                     modifier = Modifier.weight(1f).height(50.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))

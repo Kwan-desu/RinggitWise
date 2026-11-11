@@ -42,7 +42,7 @@ private val DarkColorScheme = darkColorScheme(
     outlineVariant = outlineVariantDark,
     inverseSurface = inverseSurfaceDark,
     inverseOnSurface = inverseOnSurfaceDark,
-    inversePrimary = Emerald700
+    inversePrimary = Silver700
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -79,7 +79,7 @@ private val LightColorScheme = lightColorScheme(
     outlineVariant = outlineVariantLight,
     inverseSurface = inverseSurfaceLight,
     inverseOnSurface = inverseOnSurfaceLight,
-    inversePrimary = Emerald400
+    inversePrimary = Silver300
 )
 
 private val AppShapes = Shapes(
