@@ -2,7 +2,7 @@
 
 Malaysian personal finance app for Android built with Kotlin and Jetpack Compose.
 
-[![Release](https://img.shields.io/github/v/release/Kwan-desu/RinggitWise?color=10B981&label=Release)](https://github.com/Kwan-desu/RinggitWise/releases/tag/v1.2.4)
+[![Release](https://img.shields.io/github/v/release/Kwan-desu/RinggitWise?color=10B981&label=Release)](https://github.com/Kwan-desu/RinggitWise/releases/tag/v1.2.5)
 [![Android](https://img.shields.io/badge/Android-8.0%20to%2016%20(API%2024--36)-3DDC84?logo=android&logoColor=white)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0+-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Jetpack Compose](https://img.shields.io/badge/Jetpack_Compose-Material_3-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
@@ -22,8 +22,8 @@ Built exclusively for **Malaysian Ringgit (RM)** tracking. Includes an interacti
 <br/>
 
 <div align="center">
-  <a href="https://github.com/Kwan-desu/RinggitWise/releases/download/v1.2.4/RinggitWise-v1.2.4.apk">
-    <img src="https://img.shields.io/badge/Download_APK-v1.2.4-18181B?style=for-the-badge&logo=android&logoColor=white" height="42" alt="Download APK" />
+  <a href="https://github.com/Kwan-desu/RinggitWise/releases/download/v1.2.5/RinggitWise-v1.2.5.apk">
+    <img src="https://img.shields.io/badge/Download_APK-v1.2.5-18181B?style=for-the-badge&logo=android&logoColor=white" height="42" alt="Download APK" />
   </a>
 </div>
 
@@ -90,7 +90,7 @@ Built exclusively for **Malaysian Ringgit (RM)** tracking. Includes an interacti
 
 Download the debug APK directly from the latest GitHub release:
 
-- **Latest Release:** [RinggitWise-v1.2.4.apk](https://github.com/Kwan-desu/RinggitWise/releases/tag/v1.2.4)
+- **Latest Release:** [RinggitWise-v1.2.5.apk](https://github.com/Kwan-desu/RinggitWise/releases/tag/v1.2.5)
 - **Minimum Android:** Android 8.0 (API 24)
 - **Target Android:** Android 16 (API 36)
 

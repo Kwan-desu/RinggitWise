@@ -11,8 +11,8 @@ android {
     applicationId = "com.ringgitwise.app"
     minSdk = 24
     targetSdk = 36
-    versionCode = 8
-    versionName = "1.2.4"
+    versionCode = 9
+    versionName = "1.2.5"
   }
 
   buildTypes {
