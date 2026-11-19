@@ -84,8 +84,8 @@ class FinanceRepository(private val context: Context) {
     val geminiApiKey: StateFlow<String> = _geminiApiKey.asStateFlow()
 
     private val _geminiModel: MutableStateFlow<String> = run {
-        val raw = prefs.getString("gemini_model", "gemini-3.5-flash-lite") ?: "gemini-3.5-flash-lite"
-        val actual = if (raw == "gemini-2.5-flash-lite") "gemini-3.5-flash-lite" else raw
+        val raw = prefs.getString("gemini_model", "gemini-2.5-flash") ?: "gemini-2.5-flash"
+        val actual = if (raw.startsWith("gemini-3.5")) "gemini-2.5-flash" else raw
         MutableStateFlow(actual)
     }
     val geminiModel: StateFlow<String> = _geminiModel.asStateFlow()
@@ -272,10 +272,7 @@ class FinanceRepository(private val context: Context) {
     }
 
     fun setGeminiModel(model: String) {
-        val cleaned = when (model.trim()) {
-            "gemini-2.5-flash-lite", "gemini-2.5-flash" -> "gemini-3.5-flash-lite"
-            else -> model.trim().ifBlank { "gemini-3.5-flash-lite" }
-        }
+        val cleaned = model.trim().ifBlank { "gemini-2.5-flash" }
         _geminiModel.value = cleaned
         prefs.edit().putString("gemini_model", cleaned).apply()
     }
@@ -283,10 +280,7 @@ class FinanceRepository(private val context: Context) {
     suspend fun testGeminiApiKey(key: String, model: String): Result<String> = withContext(Dispatchers.IO) {
         val apiKey = key.trim()
         if (apiKey.isEmpty()) return@withContext Result.failure(Exception("API Key cannot be blank"))
-        val selectedModel = when (model.trim()) {
-            "gemini-2.5-flash-lite", "gemini-2.5-flash" -> "gemini-3.5-flash-lite"
-            else -> model.trim().ifBlank { "gemini-3.5-flash-lite" }
-        }
+        val selectedModel = model.trim().ifBlank { "gemini-2.5-flash" }
         val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$selectedModel:generateContent?key=$apiKey"
 
         try {
@@ -328,10 +322,7 @@ class FinanceRepository(private val context: Context) {
         }
 
         val rawModel = _geminiModel.value.trim()
-        val model = when (rawModel) {
-            "gemini-2.5-flash-lite", "gemini-2.5-flash" -> "gemini-3.5-flash-lite"
-            else -> rawModel.ifBlank { "gemini-3.5-flash-lite" }
-        }
+        val model = rawModel.ifBlank { "gemini-2.5-flash" }
         val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
 
         try {

@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,6 +32,7 @@ import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.StrokeCap
@@ -71,6 +74,9 @@ import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
+import kotlinx.coroutines.launch
+import kotlin.math.atan2
+import kotlin.math.hypot
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import kotlin.math.roundToInt
@@ -101,9 +107,21 @@ fun glassCardColors(
 }
 
 @Composable
+fun adaptiveInfoColor(): Color =
+    if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF38BDF8) else Color(0xFF0369A1)
+
+@Composable
+fun adaptiveWarningColor(): Color =
+    if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFFFBBF24) else Color(0xFFB45309)
+
+@Composable
 fun glassCardBorder(): BorderStroke? {
     val isWp = LocalIsWallpaperActive.current
-    return if (isWp) BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    return if (isWp) {
+        BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f))
+    } else {
+        BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    }
 }
 
 @Composable
@@ -169,17 +187,20 @@ fun RinggitWiseApp(
     var activeUpdateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
 
     // 4 primary tabs: 0 = Home, 1 = Activity, 2 = Insights, 3 = More
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var subScreen by remember { mutableStateOf(SubScreen.NONE) }
     var initialOpenGoalId by remember { mutableStateOf<String?>(null) }
     var showAddMenuSheet by remember { mutableStateOf(false) }
     var showAddSheet by remember { mutableStateOf(false) }
+    var editingTransaction by remember { mutableStateOf<Transaction?>(null) }
     var showBudgetDialog by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
     var showMonthPicker by remember { mutableStateOf(false) }
     var initialLedgerFilter by remember { mutableStateOf("All") }
     var claimShareTarget by remember { mutableStateOf<Pair<String, List<Transaction>>?>(null) }
     var addSheetInitialCategory by remember { mutableStateOf<String?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val appScope = rememberCoroutineScope()
 
     val notifPermLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -204,12 +225,9 @@ fun RinggitWiseApp(
     BackHandler(enabled = subScreen != SubScreen.NONE) {
         subScreen = SubScreen.NONE
     }
-
-    val tolongBeliPendingList = remember(transactions) {
-        transactions.filter { (it.isHelpBuy || it.category.contains("Tolong Beli", ignoreCase = true)) && !it.isSettled }
+    BackHandler(enabled = subScreen == SubScreen.NONE && selectedTab != 0) {
+        selectedTab = 0
     }
-    val pendingClaimsTotal = remember(tolongBeliPendingList) { tolongBeliPendingList.sumOf { it.amount } }
-    val pendingClaimsCount = tolongBeliPendingList.size
 
     val allRecipients = remember(transactions) {
         transactions.mapNotNull {
@@ -247,6 +265,12 @@ fun RinggitWiseApp(
         else expenses.filter { it.date.startsWith(selectedMonth) }
     }
 
+    val tolongBeliPendingList = remember(activeMonthExpenses) {
+        activeMonthExpenses.filter { (it.isHelpBuy || it.category.contains("Tolong Beli", ignoreCase = true)) && !it.isSettled }
+    }
+    val pendingClaimsTotal = remember(tolongBeliPendingList) { tolongBeliPendingList.sumOf { it.amount } }
+    val pendingClaimsCount = tolongBeliPendingList.size
+
     val totalSpent = remember(activeMonthExpenses) {
         activeMonthExpenses.sumOf { it.amount }
     }
@@ -255,12 +279,24 @@ fun RinggitWiseApp(
     val percentUsed = if (monthlyBudget > 0) min(100, ((totalSpent / monthlyBudget) * 100).toInt()) else 0
     val isOverBudget = totalSpent > monthlyBudget
 
-    // Date calculations for daily allowance
-    val calendar = Calendar.getInstance()
-    val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
-    val currentDay = calendar.get(Calendar.DAY_OF_MONTH)
-    val daysRemaining = (daysInMonth - currentDay + 1).coerceAtLeast(1)
-    val dailySafeSpend = if (remaining > 0) remaining / daysRemaining else 0.0
+    // Date calculations for daily allowance scoped to selectedMonth
+    val currentMonthIso = remember { SimpleDateFormat("yyyy-MM", Locale.ENGLISH).format(Date()) }
+    val daysInSelectedMonth = remember(selectedMonth) { daysInMonthFor(selectedMonth) }
+    val daysRemaining = remember(selectedMonth, currentMonthIso, daysInSelectedMonth) {
+        if (selectedMonth == currentMonthIso) {
+            val cal = Calendar.getInstance()
+            (cal.getActualMaximum(Calendar.DAY_OF_MONTH) - cal.get(Calendar.DAY_OF_MONTH) + 1).coerceAtLeast(1)
+        } else {
+            0
+        }
+    }
+    val dailySafeSpend = remember(selectedMonth, currentMonthIso, remaining, daysRemaining, totalSpent, daysInSelectedMonth) {
+        if (selectedMonth == currentMonthIso) {
+            if (remaining > 0) remaining / daysRemaining else 0.0
+        } else {
+            if (daysInSelectedMonth > 0) totalSpent / daysInSelectedMonth else 0.0
+        }
+    }
 
     var cropperSourceBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var cropperRawBitmap by remember { mutableStateOf<Bitmap?>(null) }
@@ -315,10 +351,12 @@ fun RinggitWiseApp(
                 modifier = Modifier.fillMaxSize()
             )
             // Contrast Scrim Overlay
+            val isDarkSurface = MaterialTheme.colorScheme.background.luminance() < 0.5f
+            val scrimColor = if (isDarkSurface) Color.Black else Color.White
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = customBgDim))
+                    .background(scrimColor.copy(alpha = customBgDim))
             )
         }
 
@@ -327,6 +365,7 @@ fun RinggitWiseApp(
             LocalCardAlpha provides cardAlpha
         ) {
             Scaffold(
+                snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
                 containerColor = if (bgBitmap != null) Color.Transparent else MaterialTheme.colorScheme.background,
                 topBar = {
                     if (subScreen != SubScreen.NONE) {
@@ -377,7 +416,8 @@ fun RinggitWiseApp(
                                 }
                             },
                             actions = {
-                                Surface(
+                                if (selectedTab != 3) {
+                                    Surface(
                                     shape = CircleShape,
                                     color = glassSurfaceColor(MaterialTheme.colorScheme.surfaceContainerHigh),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -421,16 +461,17 @@ fun RinggitWiseApp(
                                             )
                                         }
 
-                                        IconButton(
-                                            onClick = { repository.selectMonth(getNextMonth(selectedMonth)) },
-                                            modifier = Modifier.size(32.dp)
-                                        ) {
-                                            Icon(
-                                                Icons.Default.ChevronRight,
-                                                contentDescription = "Next Month",
-                                                modifier = Modifier.size(18.dp),
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
+                                            IconButton(
+                                                onClick = { repository.selectMonth(getNextMonth(selectedMonth)) },
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.ChevronRight,
+                                                    contentDescription = "Next Month",
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -605,7 +646,23 @@ fun RinggitWiseApp(
                                 customCategories = customCategories,
                                 duitNowInfo = userDuitNowInfo,
                                 initialFilter = initialLedgerFilter,
-                                onDelete = { repository.deleteTransaction(it) },
+                                onEdit = { tx ->
+                                    editingTransaction = tx
+                                    showAddSheet = true
+                                },
+                                onDelete = { tx ->
+                                    repository.deleteTransaction(tx.id)
+                                    appScope.launch {
+                                        val res = snackbarHostState.showSnackbar(
+                                            message = "Deleted \"${tx.title}\"",
+                                            actionLabel = "Undo",
+                                            duration = SnackbarDuration.Short
+                                        )
+                                        if (res == SnackbarResult.ActionPerformed) {
+                                            repository.addTransaction(tx)
+                                        }
+                                    }
+                                },
                                 onToggleSettled = { repository.toggleTransactionSettled(it) },
                                 onAddCustomCategory = { repository.upsertCustomCategory(it) },
                                 onManageCategories = { subScreen = SubScreen.CATEGORIES },
@@ -667,25 +724,34 @@ fun RinggitWiseApp(
         )
     }
 
-    // Add Expense Bottom Sheet
+    // Add / Edit Expense Bottom Sheet
     if (showAddSheet) {
+        val editing = editingTransaction
         AddExpenseSheet(
             customCategories = customCategories,
             recentRecipients = allRecipients,
             initialCategory = addSheetInitialCategory,
+            editingTx = editing,
             onDismiss = {
                 showAddSheet = false
+                editingTransaction = null
                 addSheetInitialCategory = null
             },
             onAddCustomCategory = { repository.upsertCustomCategory(it) },
             onManageCategories = {
                 showAddSheet = false
+                editingTransaction = null
                 addSheetInitialCategory = null
                 subScreen = SubScreen.CATEGORIES
             },
             onAdd = { newTx ->
-                repository.addTransaction(newTx)
+                if (editing != null) {
+                    repository.updateTransaction(newTx)
+                } else {
+                    repository.addTransaction(newTx)
+                }
                 showAddSheet = false
+                editingTransaction = null
                 addSheetInitialCategory = null
             }
         )
@@ -1489,13 +1555,15 @@ fun ChartsTab(
         selectedCatName?.let { name -> allCategoryItems.find { it.name.equals(name, ignoreCase = true) } }
     }
 
-    // Daily distribution (Days 1 to 31)
-    val dailyMap = remember(expenses) {
+    val daysInChartMonth = remember(selectedMonth) { daysInMonthFor(selectedMonth) }
+
+    // Daily distribution (Days 1 to daysInChartMonth)
+    val dailyMap = remember(expenses, daysInChartMonth) {
         val map = sortedMapOf<Int, Double>()
-        for (d in 1..31) map[d] = 0.0
+        for (d in 1..daysInChartMonth) map[d] = 0.0
         expenses.forEach { tx ->
-            val dayPart = tx.date.takeLast(2).toIntOrNull()
-            if (dayPart != null && dayPart in 1..31) {
+            val dayPart = tx.date.split("-").getOrNull(2)?.toIntOrNull()
+            if (dayPart != null && dayPart in 1..daysInChartMonth) {
                 map[dayPart] = (map[dayPart] ?: 0.0) + tx.amount
             }
         }
@@ -1628,7 +1696,48 @@ fun ChartsTab(
                                 .height(210.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Canvas(modifier = Modifier.fillMaxSize()) {
+                            val halfPieSlices = remember(catMap, totalSpent) {
+                                if (totalSpent <= 0 || catMap.isEmpty()) emptyList<Triple<String, Float, Float>>() else {
+                                    val gap = if (catMap.size > 1) 2.5f else 0f
+                                    val availableSpan = 180f - (catMap.size - 1) * gap
+                                    val raw = catMap.map { (name, amt) ->
+                                        name to ((amt / totalSpent).toFloat() * availableSpan).coerceAtLeast(1f)
+                                    }
+                                    val totalRaw = raw.sumOf { it.second.toDouble() }.toFloat().coerceAtLeast(1f)
+                                    var angle = 180f
+                                    raw.map { (name, w) ->
+                                        val sweep = (w / totalRaw) * availableSpan
+                                        val entry = Triple(name, angle, sweep)
+                                        angle += sweep + gap
+                                        entry
+                                    }
+                                }
+                            }
+                            Canvas(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .pointerInput(halfPieSlices) {
+                                        if (halfPieSlices.isEmpty()) return@pointerInput
+                                        detectTapGestures { offset ->
+                                            val strokeWidth = 34.dp.toPx()
+                                            val diameter = min(size.width - 40.dp.toPx(), (size.height - 20.dp.toPx()) * 2)
+                                            val radius = diameter / 2f
+                                            val centerX = size.width / 2f
+                                            val centerY = size.height - 12.dp.toPx()
+                                            val dx = offset.x - centerX
+                                            val dy = offset.y - centerY
+                                            val dist = hypot(dx, dy)
+                                            if (dist in (radius - strokeWidth)..(radius + strokeWidth)) {
+                                                var deg = Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())).toFloat()
+                                                if (deg < 0f) deg += 360f
+                                                val hit = halfPieSlices.find { (_, start, sweep) -> deg in start..(start + sweep) }
+                                                if (hit != null) {
+                                                    selectedCatName = if (selectedCatName.equals(hit.first, true)) null else hit.first
+                                                }
+                                            }
+                                        }
+                                    }
+                            ) {
                                 val strokeWidth = 34.dp.toPx()
                                 val diameter = min(size.width - 40.dp.toPx(), (size.height - 20.dp.toPx()) * 2)
                                 val radius = diameter / 2
@@ -1648,32 +1757,21 @@ fun ChartsTab(
                                     style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
                                 )
 
-                                if (totalSpent > 0 && catMap.isNotEmpty()) {
-                                    var currentAngle = 180f
-                                    val gap = if (catMap.size > 1) 2.5f else 0f
-                                    val totalGaps = (catMap.size - 1) * gap
-                                    val availableSpan = 180f - totalGaps
+                                halfPieSlices.forEach { (catName, startAngle, sweep) ->
+                                    val color = CategoryRegistry.resolveColor(catName, customCategories)
+                                    val isHighlighted = selectedCatName == null || selectedCatName.equals(catName, ignoreCase = true)
+                                    val sliceAlpha = if (isHighlighted) 1.0f else 0.35f
+                                    val sliceStroke = if (selectedCatName.equals(catName, ignoreCase = true)) strokeWidth + 4.dp.toPx() else strokeWidth
 
-                                    catMap.forEach { (catName, amount) ->
-                                        val pct = (amount / totalSpent).toFloat()
-                                        val sweep = (pct * availableSpan).coerceAtLeast(1f)
-                                        val color = CategoryRegistry.resolveColor(catName, customCategories)
-
-                                        val isHighlighted = selectedCatName == null || selectedCatName.equals(catName, ignoreCase = true)
-                                        val sliceAlpha = if (isHighlighted) 1.0f else 0.35f
-                                        val sliceStroke = if (selectedCatName.equals(catName, ignoreCase = true)) strokeWidth + 4.dp.toPx() else strokeWidth
-
-                                        drawArc(
-                                            color = color.copy(alpha = sliceAlpha),
-                                            startAngle = currentAngle,
-                                            sweepAngle = sweep,
-                                            useCenter = false,
-                                            topLeft = topLeft,
-                                            size = arcSize,
-                                            style = Stroke(width = sliceStroke, cap = StrokeCap.Butt)
-                                        )
-                                        currentAngle += sweep + gap
-                                    }
+                                    drawArc(
+                                        color = color.copy(alpha = sliceAlpha),
+                                        startAngle = startAngle,
+                                        sweepAngle = sweep,
+                                        useCenter = false,
+                                        topLeft = topLeft,
+                                        size = arcSize,
+                                        style = Stroke(width = sliceStroke, cap = StrokeCap.Butt)
+                                    )
                                 }
                             }
 
@@ -1862,7 +1960,48 @@ fun ChartsTab(
                                 .height(250.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Canvas(modifier = Modifier.fillMaxSize()) {
+                            val donutSlices = remember(catMap, totalSpent) {
+                                if (totalSpent <= 0 || catMap.isEmpty()) emptyList<Triple<String, Float, Float>>() else {
+                                    val gap = if (catMap.size > 1) 3f else 0f
+                                    val availableSpan = 360f - catMap.size * gap
+                                    val raw = catMap.map { (name, amt) ->
+                                        name to ((amt / totalSpent).toFloat() * availableSpan).coerceAtLeast(2f)
+                                    }
+                                    val totalRaw = raw.sumOf { it.second.toDouble() }.toFloat().coerceAtLeast(1f)
+                                    var angle = -90f
+                                    raw.map { (name, w) ->
+                                        val sweep = (w / totalRaw) * availableSpan
+                                        val entry = Triple(name, angle, sweep)
+                                        angle += sweep + gap
+                                        entry
+                                    }
+                                }
+                            }
+                            Canvas(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .pointerInput(donutSlices) {
+                                        if (donutSlices.isEmpty()) return@pointerInput
+                                        detectTapGestures { offset ->
+                                            val strokeWidth = 30.dp.toPx()
+                                            val diameter = min(size.width, size.height) - strokeWidth * 2 - 16.dp.toPx()
+                                            val radius = diameter / 2f
+                                            val centerX = size.width / 2f
+                                            val centerY = size.height / 2f
+                                            val dx = offset.x - centerX
+                                            val dy = offset.y - centerY
+                                            val dist = hypot(dx, dy)
+                                            if (dist in (radius - strokeWidth)..(radius + strokeWidth)) {
+                                                var deg = Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())).toFloat()
+                                                if (deg < -90f) deg += 360f
+                                                val hit = donutSlices.find { (_, start, sweep) -> deg in start..(start + sweep) }
+                                                if (hit != null) {
+                                                    selectedCatName = if (selectedCatName.equals(hit.first, true)) null else hit.first
+                                                }
+                                            }
+                                        }
+                                    }
+                            ) {
                                 val strokeWidth = 30.dp.toPx()
                                 val diameter = min(size.width, size.height) - strokeWidth * 2 - 16.dp.toPx()
                                 val radius = diameter / 2
@@ -1882,32 +2021,21 @@ fun ChartsTab(
                                     style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
                                 )
 
-                                if (totalSpent > 0 && catMap.isNotEmpty()) {
-                                    var currentAngle = -90f // Start from 12 o'clock
-                                    val gap = if (catMap.size > 1) 3f else 0f
-                                    val totalGaps = catMap.size * gap
-                                    val availableSpan = 360f - totalGaps
+                                donutSlices.forEach { (catName, startAngle, sweep) ->
+                                    val color = CategoryRegistry.resolveColor(catName, customCategories)
+                                    val isHighlighted = selectedCatName == null || selectedCatName.equals(catName, ignoreCase = true)
+                                    val sliceAlpha = if (isHighlighted) 1.0f else 0.35f
+                                    val sliceStroke = if (selectedCatName.equals(catName, ignoreCase = true)) strokeWidth + 4.dp.toPx() else strokeWidth
 
-                                    catMap.forEach { (catName, amount) ->
-                                        val pct = (amount / totalSpent).toFloat()
-                                        val sweep = (pct * availableSpan).coerceAtLeast(2f)
-                                        val color = CategoryRegistry.resolveColor(catName, customCategories)
-
-                                        val isHighlighted = selectedCatName == null || selectedCatName.equals(catName, ignoreCase = true)
-                                        val sliceAlpha = if (isHighlighted) 1.0f else 0.35f
-                                        val sliceStroke = if (selectedCatName.equals(catName, ignoreCase = true)) strokeWidth + 4.dp.toPx() else strokeWidth
-
-                                        drawArc(
-                                            color = color.copy(alpha = sliceAlpha),
-                                            startAngle = currentAngle,
-                                            sweepAngle = sweep,
-                                            useCenter = false,
-                                            topLeft = topLeft,
-                                            size = arcSize,
-                                            style = Stroke(width = sliceStroke, cap = StrokeCap.Butt)
-                                        )
-                                        currentAngle += sweep + gap
-                                    }
+                                    drawArc(
+                                        color = color.copy(alpha = sliceAlpha),
+                                        startAngle = startAngle,
+                                        sweepAngle = sweep,
+                                        useCenter = false,
+                                        topLeft = topLeft,
+                                        size = arcSize,
+                                        style = Stroke(width = sliceStroke, cap = StrokeCap.Butt)
+                                    )
                                 }
                             }
 
@@ -2215,7 +2343,7 @@ fun ChartsTab(
                     Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         Column {
                             Text("Daily Spending Burn Rate", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text("Spending spikes across the 31 days of $selectedMonth", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Spending spikes across the $daysInChartMonth days of ${formatDisplayMonth(selectedMonth)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
 
                         if (highestSpendDay != null && highestSpendDay.value > 0) {
@@ -2244,7 +2372,7 @@ fun ChartsTab(
                         ) {
                             val activeBarColor = MaterialTheme.colorScheme.primary
                             Canvas(modifier = Modifier.fillMaxSize()) {
-                                val barCount = 31
+                                val barCount = daysInChartMonth
                                 val availableW = size.width
                                 val barW = (availableW / barCount) * 0.7f
                                 val spacing = availableW / barCount
@@ -3409,7 +3537,8 @@ fun LedgerTab(
     customCategories: List<CustomCategory> = emptyList(),
     duitNowInfo: String = "",
     initialFilter: String = "All",
-    onDelete: (String) -> Unit,
+    onEdit: (Transaction) -> Unit = {},
+    onDelete: (Transaction) -> Unit,
     onToggleSettled: (String) -> Unit = {},
     onAddCustomCategory: (CustomCategory) -> Unit = {},
     onManageCategories: () -> Unit = {},
@@ -3456,7 +3585,7 @@ fun LedgerTab(
             } else true
 
             matchesSearch && matchesCat && matchesRecipient
-        }
+        }.sortedByDescending { it.date }
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -3709,7 +3838,8 @@ fun LedgerTab(
                 items(filtered, key = { it.id }) { tx ->
                     TransactionCardItem(
                         tx = tx,
-                        onDelete = { onDelete(tx.id) },
+                        onEdit = { onEdit(tx) },
+                        onDelete = { onDelete(tx) },
                         onToggleSettled = { onToggleSettled(tx.id) },
                         onShareClaim = { onShareClaim(tx.claimRecipient, listOf(tx)) }
                     )
@@ -3811,6 +3941,7 @@ fun PaymentMethodBadge(method: String, modifier: Modifier = Modifier) {
 @Composable
 fun TransactionCardItem(
     tx: Transaction,
+    onEdit: () -> Unit = {},
     onDelete: () -> Unit,
     onToggleSettled: () -> Unit = {},
     onShareClaim: () -> Unit = {}
@@ -3820,8 +3951,10 @@ fun TransactionCardItem(
     val isHelp = tx.isHelpBuy || tx.category.contains("Tolong Beli", ignoreCase = true)
     val cleanTitle = tx.title.replace(Regex("\\s+"), " ").trim().ifEmpty { tx.category }
     val cleanMethod = tx.method.replace(Regex("\\s+"), " ").trim()
+    val infoTint = adaptiveInfoColor()
 
     Card(
+        onClick = onEdit,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
         colors = glassCardColors(MaterialTheme.colorScheme.surfaceContainer),
@@ -3889,14 +4022,14 @@ fun TransactionCardItem(
                                 if (isHelp) {
                                     Surface(
                                         shape = CircleShape,
-                                        color = Color(0xFF38BDF8).copy(alpha = 0.18f),
-                                        border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.35f))
+                                        color = infoTint.copy(alpha = 0.16f),
+                                        border = BorderStroke(1.dp, infoTint.copy(alpha = 0.4f))
                                     ) {
                                         Text(
                                             "Claim",
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = Color(0xFF38BDF8),
+                                            color = infoTint,
                                             maxLines = 1,
                                             softWrap = false,
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
@@ -3921,7 +4054,7 @@ fun TransactionCardItem(
                     )
                     if (isHelp) {
                         IconButton(onClick = onShareClaim, modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.Outlined.Share, contentDescription = "Share Claim", tint = Color(0xFF38BDF8), modifier = Modifier.size(18.dp))
+                            Icon(Icons.Outlined.Share, contentDescription = "Share Claim", tint = infoTint, modifier = Modifier.size(18.dp))
                         }
                     }
                     IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
@@ -4091,6 +4224,7 @@ fun AddExpenseSheet(
     customCategories: List<CustomCategory> = emptyList(),
     recentRecipients: List<String> = emptyList(),
     initialCategory: String? = null,
+    editingTx: Transaction? = null,
     onDismiss: () -> Unit,
     onAddCustomCategory: (CustomCategory) -> Unit = {},
     onManageCategories: () -> Unit = {},
@@ -4099,24 +4233,37 @@ fun AddExpenseSheet(
     val allCategories = remember(customCategories) {
         CategoryRegistry.allCategories(customCategories)
     }
-    var amountStr by remember { mutableStateOf("") }
-    var titleStr by remember { mutableStateOf("") }
-    var selectedCat by remember(initialCategory, allCategories) {
+    var amountStr by remember(editingTx) {
         mutableStateOf(
-            initialCategory?.takeIf { catName -> allCategories.any { it.name.equals(catName, ignoreCase = true) } }
-                ?: initialCategory
+            editingTx?.amount?.let {
+                if (it % 1.0 == 0.0) it.toInt().toString() else String.format(Locale.US, "%.2f", it)
+            } ?: ""
+        )
+    }
+    var amountError by remember { mutableStateOf(false) }
+    var titleStr by remember(editingTx) { mutableStateOf(editingTx?.title ?: "") }
+    var selectedCat by remember(editingTx, initialCategory, allCategories) {
+        val seed = editingTx?.category ?: initialCategory
+        mutableStateOf(
+            seed?.takeIf { catName -> allCategories.any { it.name.equals(catName, ignoreCase = true) } }
+                ?: seed
                 ?: allCategories.firstOrNull()?.name
                 ?: DEFAULT_CATEGORIES[0].name
         )
     }
-    var selectedMethod by remember { mutableStateOf("DuitNow QR") }
-    var dateStr by remember { mutableStateOf(SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())) }
+    var selectedMethod by remember(editingTx) { mutableStateOf(editingTx?.method?.ifBlank { "DuitNow QR" } ?: "DuitNow QR") }
+    var dateStr by remember(editingTx) {
+        mutableStateOf(editingTx?.date ?: SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date()))
+    }
+    var showDatePicker by remember { mutableStateOf(false) }
     var showNewCatSheet by remember { mutableStateOf(false) }
 
     val isTolongBeliCat = selectedCat.contains("Tolong Beli", ignoreCase = true)
-    var isHelpBuy by remember(isTolongBeliCat) { mutableStateOf(isTolongBeliCat) }
-    var claimRecipient by remember { mutableStateOf("") }
-    var isSettled by remember { mutableStateOf(false) }
+    var isHelpBuy by remember(editingTx, isTolongBeliCat) {
+        mutableStateOf(editingTx?.isHelpBuy ?: isTolongBeliCat)
+    }
+    var claimRecipient by remember(editingTx) { mutableStateOf(editingTx?.claimRecipient ?: "") }
+    var isSettled by remember(editingTx) { mutableStateOf(editingTx?.isSettled ?: false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -4129,14 +4276,23 @@ fun AddExpenseSheet(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Record Expense", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(
+                if (editingTx != null) "Edit Expense" else "Record Expense",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
 
             // Amount Field (RM)
             OutlinedTextField(
                 value = amountStr,
-                onValueChange = { amountStr = it },
+                onValueChange = {
+                    amountStr = it.filter { c -> c.isDigit() || c == '.' }
+                    if (amountError) amountError = false
+                },
                 label = { Text("Amount (RM)") },
                 prefix = { Text("RM ", fontWeight = FontWeight.Bold) },
+                isError = amountError,
+                supportingText = if (amountError) { { Text("Enter an amount greater than RM 0") } } else null,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -4352,46 +4508,108 @@ fun AddExpenseSheet(
                 }
             }
 
-            // Date
-            OutlinedTextField(
-                value = dateStr,
-                onValueChange = { dateStr = it },
-                label = { Text("Date (YYYY-MM-DD)") },
+            // Date Picker Trigger
+            Surface(
+                onClick = { showDatePicker = true },
                 shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier.fillMaxWidth()
-            )
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                        Column {
+                            Text("Date", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(dateStr, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    Text("Change", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                }
+            }
 
             Spacer(modifier = Modifier.height(4.dp))
 
             Button(
                 onClick = {
                     val amt = amountStr.toDoubleOrNull() ?: 0.0
-                    if (amt > 0) {
-                        val finalTitle = titleStr.trim().ifEmpty {
-                            if (isHelpBuy && claimRecipient.isNotBlank()) "Bought for $claimRecipient" else selectedCat
+                    if (amt <= 0) {
+                        amountError = true
+                    } else {
+                        val resolvedCat = if (!isHelpBuy && selectedCat.contains("Tolong Beli", ignoreCase = true)) {
+                            DEFAULT_CATEGORIES.first().name
+                        } else {
+                            selectedCat
                         }
+                        val finalTitle = titleStr.trim().ifEmpty {
+                            if (isHelpBuy && claimRecipient.isNotBlank()) "Bought for $claimRecipient" else resolvedCat
+                        }
+                        val base = editingTx
                         onAdd(
-                            Transaction(
-                                date = dateStr,
-                                title = finalTitle,
-                                amount = amt,
-                                category = selectedCat,
-                                method = selectedMethod,
-                                isHelpBuy = isHelpBuy,
-                                claimRecipient = if (isHelpBuy) claimRecipient.trim() else "",
-                                isSettled = isSettled
-                            )
+                            if (base != null) {
+                                base.copy(
+                                    date = dateStr,
+                                    title = finalTitle,
+                                    amount = amt,
+                                    category = resolvedCat,
+                                    method = selectedMethod,
+                                    isHelpBuy = isHelpBuy,
+                                    claimRecipient = if (isHelpBuy) claimRecipient.trim() else "",
+                                    isSettled = if (isHelpBuy) isSettled else false
+                                )
+                            } else {
+                                Transaction(
+                                    date = dateStr,
+                                    title = finalTitle,
+                                    amount = amt,
+                                    category = resolvedCat,
+                                    method = selectedMethod,
+                                    isHelpBuy = isHelpBuy,
+                                    claimRecipient = if (isHelpBuy) claimRecipient.trim() else "",
+                                    isSettled = isSettled
+                                )
+                            }
                         )
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = CircleShape
             ) {
-                Text("Save Expense (RM)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(if (editingTx != null) "Update Expense (RM)" else "Save Expense (RM)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
 
             Spacer(modifier = Modifier.height(20.dp))
         }
+    }
+
+    if (showDatePicker) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = try {
+                SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                }.parse(dateStr)?.time
+            } catch (_: Exception) { null }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let { ms ->
+                        dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).apply {
+                            timeZone = TimeZone.getTimeZone("UTC")
+                        }.format(Date(ms))
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) { DatePicker(state = pickerState) }
     }
 
     if (showNewCatSheet) {
@@ -4680,6 +4898,22 @@ fun EditBudgetDialog(
 // -------------------------------------------------------------
 // MONTH PICKER DIALOG & HELPERS
 // -------------------------------------------------------------
+fun daysInMonthFor(selectedMonth: String): Int {
+    val parts = selectedMonth.split("-")
+    if (parts.size == 2) {
+        val y = parts[0].toIntOrNull()
+        val m = parts[1].toIntOrNull()
+        if (y != null && m != null && m in 1..12) {
+            return Calendar.getInstance().apply {
+                set(Calendar.YEAR, y)
+                set(Calendar.MONTH, m - 1)
+                set(Calendar.DAY_OF_MONTH, 1)
+            }.getActualMaximum(Calendar.DAY_OF_MONTH)
+        }
+    }
+    return Calendar.getInstance().getActualMaximum(Calendar.DAY_OF_MONTH)
+}
+
 fun getPreviousMonth(current: String): String {
     if (current == "all") {
         val cal = Calendar.getInstance()

@@ -119,8 +119,13 @@ fun HomeScreen(
             Spacer(Modifier.height(Space.lg))
             Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
                 MiniStat("Today", formatRMExact(todaySpent), Modifier.weight(1f))
-                MiniStat("Safe / day", formatRMExact(dailySafeSpend), Modifier.weight(1f))
-                MiniStat("Days left", "$daysRemaining", Modifier.weight(1f))
+                if (daysRemaining > 0) {
+                    MiniStat("Safe / day", formatRMExact(dailySafeSpend), Modifier.weight(1f))
+                    MiniStat("Days left", "$daysRemaining", Modifier.weight(1f))
+                } else {
+                    MiniStat("Avg / day", formatRMExact(dailySafeSpend), Modifier.weight(1f))
+                    MiniStat("Status", if (selectedMonth == "all") "All" else "Past", Modifier.weight(1f))
+                }
             }
         }
 
